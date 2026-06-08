@@ -1,0 +1,36 @@
+:host {
+  display: inline-block;
+}
+
+.th-theme-option {
+  background: transparent;
+  color: var(--text);
+  border: 2px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.th-theme-option:hover {
+  background: var(--bg);
+  border-color: var(--border-soft);
+}
+
+.th-theme-option-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--accent);
+}
+
+.th-menu-enter {
+  animation: th-menu-slide 0.14s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes th-menu-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

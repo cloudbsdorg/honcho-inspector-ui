@@ -1,0 +1,327 @@
+<div class="mx-auto max-w-3xl p-4 sm:p-6" data-testid="profile-selector">
+  <header
+    class="th-border mb-4 flex items-center justify-between gap-3 border-2 p-4"
+    style="border-radius: var(--radius); background: var(--surface);"
+  >
+    <div>
+      <h1
+        class="th-display text-2xl font-bold tracking-widest"
+        style="color: var(--accent);"
+      >
+        PROFILES
+      </h1>
+      <p class="text-[10px] opacity-70" style="color: var(--text-dim);">
+        Choose a Honcho instance to connect to. API keys are stored encrypted
+        on the server.
+      </p>
+    </div>
+    <button
+      type="button"
+      (click)="openCreate()"
+      data-testid="new-profile-button"
+      class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+      style="border-radius: var(--radius); background: var(--accent); color: var(--bg);"
+    >
+      + New profile
+    </button>
+  </header>
+
+  <div
+    *ngIf="error() as e"
+    class="th-border mb-3 border-2 px-3 py-2 text-xs"
+    data-testid="profile-error"
+    [style.borderColor]="'var(--danger)'"
+    [style.color]="'var(--danger)'"
+    style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
+  >
+    {{ e }}
+  </div>
+
+  <form
+    *ngIf="isCreateOpen() || edit().open"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+    class="th-border mb-4 space-y-3 border-2 p-4"
+    data-testid="profile-form"
+    style="border-radius: var(--radius); background: var(--surface);"
+  >
+    <h2
+      class="th-display text-xs font-bold uppercase tracking-widest"
+      style="color: var(--accent);"
+    >
+      @if (edit().profile; as p) {
+        Edit profile "{{ p.label }}"
+      } @else {
+        New profile
+      }
+    </h2>
+
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <label class="block">
+        <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-80">
+          Label
+        </span>
+        <input
+          formControlName="label"
+          type="text"
+          data-testid="profile-label"
+          class="w-full th-surface th-border border-2 px-3 py-2 text-sm outline-none"
+          style="border-radius: var(--radius); color: var(--text);"
+        />
+      </label>
+
+      <label class="block">
+        <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-80">
+          API Key
+          @if (edit().profile) {
+            <span class="opacity-60">(leave blank to keep)</span>
+          }
+        </span>
+        <input
+          formControlName="apiKey"
+          type="password"
+          autocomplete="off"
+          data-testid="profile-apikey"
+          class="w-full th-surface th-border border-2 px-3 py-2 text-sm outline-none"
+          style="border-radius: var(--radius); color: var(--text);"
+        />
+      </label>
+
+      <label class="block">
+        <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-80">
+          Base URL
+        </span>
+        <input
+          formControlName="baseUrl"
+          type="url"
+          data-testid="profile-baseurl"
+          class="w-full th-surface th-border border-2 px-3 py-2 text-sm outline-none"
+          style="border-radius: var(--radius); color: var(--text);"
+          placeholder="https://mcp.honcho.example"
+        />
+      </label>
+
+      <label class="block">
+        <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-80">
+          Workspace ID
+        </span>
+        <input
+          formControlName="workspaceId"
+          type="text"
+          data-testid="profile-workspaceid"
+          class="w-full th-surface th-border border-2 px-3 py-2 text-sm outline-none"
+          style="border-radius: var(--radius); color: var(--text);"
+        />
+      </label>
+
+      <label class="block sm:col-span-2">
+        <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-80">
+          Honcho User Name
+        </span>
+        <input
+          formControlName="honchoUserName"
+          type="text"
+          data-testid="profile-honchousername"
+          class="w-full th-surface th-border border-2 px-3 py-2 text-sm outline-none"
+          style="border-radius: var(--radius); color: var(--text);"
+        />
+      </label>
+    </div>
+
+    <div class="flex justify-end gap-2 pt-1">
+      <button
+        type="button"
+        (click)="cancelForm()"
+        class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+        style="border-radius: var(--radius); background: var(--surface); color: var(--text);"
+      >
+        Cancel
+      </button>
+      <button
+        type="submit"
+        data-testid="profile-save"
+        class="th-border border-2 px-4 py-1.5 text-xs font-bold uppercase tracking-widest"
+        style="border-radius: var(--radius); background: var(--accent); color: var(--bg);"
+      >
+        @if (edit().profile) {
+          Save
+        } @else {
+          Create
+        }
+      </button>
+    </div>
+  </form>
+
+  @if (loading()) {
+    <div
+      class="th-border border-2 p-4 text-xs"
+      style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim);"
+    >
+      loading profiles...
+    </div>
+  } @else if (list().length === 0) {
+    <div
+      class="th-border border-2 p-6 text-center text-sm"
+      data-testid="empty-profiles"
+      style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim);"
+    >
+      <p>No profiles yet.</p>
+      <p class="mt-1 text-xs opacity-70">
+        Click <span style="color: var(--accent);">+ New profile</span> to add your
+        first Honcho connection.
+      </p>
+    </div>
+  } @else {
+    <ul class="space-y-2" data-testid="profile-list">
+      @for (profile of list(); track profile.id) {
+        <li
+          class="th-border border-2 p-3"
+          [attr.data-testid]="'profile-row'"
+          [attr.data-profile-id]="profile.id"
+          [attr.data-active]="activeId() === profile.id"
+          style="border-radius: var(--radius); background: var(--surface);"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-2">
+                <span
+                  class="th-display text-base font-bold"
+                  style="color: var(--accent);"
+                >{{ profile.label }}</span>
+                @if (activeId() === profile.id) {
+                  <span
+                    class="th-display text-[10px] font-bold uppercase tracking-widest"
+                    data-testid="active-badge"
+                    style="background: var(--accent); color: var(--bg); padding: 0 6px; border-radius: var(--radius);"
+                  >
+                    Active
+                  </span>
+                }
+              </div>
+              <div class="text-[10px] opacity-70" style="color: var(--text-dim);">
+                workspace
+                <span style="color: var(--accent);">{{ profile.workspaceId }}</span>
+                · user
+                <span style="color: var(--accent);">{{ profile.honchoUserName }}</span>
+                · {{ profile.baseUrl }}
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                (click)="setActive(profile)"
+                [disabled]="activeId() === profile.id"
+                data-testid="set-active"
+                class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style="border-radius: var(--radius); background: var(--bg); color: var(--accent);"
+                [style.opacity]="activeId() === profile.id ? '0.4' : '1'"
+              >
+                Set Active
+              </button>
+              <button
+                type="button"
+                (click)="test(profile)"
+                data-testid="test-connection"
+                class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style="border-radius: var(--radius); background: var(--bg); color: var(--accent);"
+              >
+                Test
+              </button>
+              <button
+                type="button"
+                (click)="showKey(profile)"
+                data-testid="reveal-key"
+                class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style="border-radius: var(--radius); background: var(--bg); color: var(--accent);"
+              >
+                Reveal Key
+              </button>
+              <button
+                type="button"
+                (click)="openEdit(profile)"
+                data-testid="edit-profile"
+                class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style="border-radius: var(--radius); background: var(--bg); color: var(--accent);"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                (click)="delete(profile)"
+                data-testid="delete-profile"
+                class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style="border-radius: var(--radius); background: var(--bg); color: var(--danger);"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+
+          @if (testResults()[profile.id]; as r) {
+            <div
+              class="mt-2 text-[10px] font-bold uppercase tracking-widest"
+              [attr.data-testid]="'test-result'"
+              [style.color]="r.ok ? 'var(--accent)' : 'var(--danger)'"
+            >
+              {{ r.ok ? '● reachable' : '● ' + r.message }}
+            </div>
+          }
+        </li>
+      }
+    </ul>
+  }
+
+  @if (reveal(); as r) {
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style="background: color-mix(in srgb, var(--bg) 70%, transparent);"
+      (click)="closeReveal()"
+      data-testid="reveal-overlay"
+    >
+      <div
+        class="th-surface th-border w-full max-w-md border-2 p-6"
+        style="border-radius: var(--radius);"
+        (click)="$event.stopPropagation()"
+      >
+        <h2
+          class="th-display mb-3 text-lg font-bold tracking-widest"
+          style="color: var(--accent);"
+        >
+          API KEY — {{ r.profile.label }}
+        </h2>
+        <div class="flex gap-2">
+          <input
+            type="text"
+            readonly
+            [value]="r.apiKey"
+            data-testid="reveal-key-input"
+            class="th-surface th-border flex-1 border-2 px-3 py-2 text-sm outline-none"
+            style="border-radius: var(--radius); color: var(--text);"
+          />
+          <button
+            type="button"
+            (click)="copyKey()"
+            data-testid="reveal-copy"
+            class="th-border border-2 px-3 py-2 text-xs font-bold uppercase tracking-widest"
+            style="border-radius: var(--radius); background: var(--accent); color: var(--bg);"
+          >
+            Copy
+          </button>
+        </div>
+        <p class="mt-3 text-[10px] opacity-70" style="color: var(--text-dim);">
+          Anyone with this key can read/write your Honcho data for this profile.
+        </p>
+        <div class="mt-4 text-right">
+          <button
+            type="button"
+            (click)="closeReveal()"
+            class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+            style="border-radius: var(--radius); background: var(--surface); color: var(--text);"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

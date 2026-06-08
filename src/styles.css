@@ -1,0 +1,305 @@
+@import 'tailwindcss';
+
+/* ===========================================================
+   THEME SYSTEM
+   6 themes via [data-theme] on <html>. Each defines a consistent
+   set of CSS variables consumed by Tailwind arbitrary values
+   (e.g. bg-[var(--surface)], text-[var(--accent)]).
+   =========================================================== */
+
+@theme {
+  --font-display: 'VT323', 'Courier New', monospace;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+
+:root,
+[data-theme='miami'] {
+  --bg: #0a0014;
+  --bg-2: #1a0030;
+  --surface: #15002a;
+  --surface-2: #1f0040;
+  --border: #ff00ff;
+  --border-soft: #ff00ff55;
+  --text: #fff0ff;
+  --text-dim: #c98bff;
+  --accent: #ff2d95;
+  --accent-2: #00f0ff;
+  --accent-3: #ffe600;
+  --success: #00ff9d;
+  --danger: #ff0040;
+  --glow: 0 0 16px var(--accent), 0 0 32px var(--accent-2);
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'VT323', 'Courier New', monospace;
+  --radius: 2px;
+  --shadow: 4px 4px 0 var(--accent);
+  --font-scale: 1;
+  --scanlines: 1;
+  --chrome: 0;
+}
+
+[data-theme='retro'] {
+  --bg: #0a0a0a;
+  --bg-2: #1a1a0a;
+  --surface: #14140a;
+  --surface-2: #1f1f10;
+  --border: #ffb000;
+  --border-soft: #ffb00055;
+  --text: #ffb000;
+  --text-dim: #b87800;
+  --accent: #ffb000;
+  --accent-2: #ff5e00;
+  --accent-3: #ffeb3b;
+  --success: #66ff66;
+  --danger: #ff3333;
+  --glow: 0 0 8px var(--accent);
+  --font-body: 'VT323', 'Courier New', monospace;
+  --font-display: 'VT323', 'Courier New', monospace;
+  --radius: 0;
+  --shadow: 2px 2px 0 var(--accent);
+  --font-scale: 1.05;
+  --scanlines: 1;
+  --chrome: 0;
+}
+
+[data-theme='win95'] {
+  --bg: #008080;
+  --bg-2: #c0c0c0;
+  --surface: #c0c0c0;
+  --surface-2: #d4d0c8;
+  --border: #000000;
+  --border-soft: #808080;
+  --text: #000000;
+  --text-dim: #404040;
+  --accent: #000080;
+  --accent-2: #808000;
+  --accent-3: #800000;
+  --success: #008000;
+  --danger: #800000;
+  --glow: none;
+  --font-body: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Tahoma', sans-serif;
+  --font-display: 'Pixelated MS Sans Serif', 'MS Sans Serif', sans-serif;
+  --radius: 0;
+  --shadow: inset -1px -1px 0 #000, inset 1px 1px 0 #ffffff,
+    inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf;
+  --font-scale: 1;
+  --scanlines: 0;
+  --chrome: 1;
+}
+
+[data-theme='sun'] {
+  --bg: #f5f5dc;
+  --bg-2: #e8e8c8;
+  --surface: #fffaf0;
+  --surface-2: #f0e8d0;
+  --border: #8b4513;
+  --border-soft: #cd853f;
+  --text: #1a1a1a;
+  --text-dim: #555555;
+  --accent: #cc6600;
+  --accent-2: #1e64b0;
+  --accent-3: #8b4513;
+  --success: #2e7d32;
+  --danger: #b71c1c;
+  --glow: 1px 1px 0 var(--bg);
+  --font-body: 'Lucida Sans', 'Helvetica', sans-serif;
+  --font-display: 'Lucida Sans', 'Helvetica', sans-serif;
+  --radius: 2px;
+  --shadow: 1px 1px 0 #555;
+  --font-scale: 1;
+  --scanlines: 0;
+  --chrome: 1;
+}
+
+[data-theme='cde'] {
+  --bg: #aebac6;
+  --bg-2: #b8c2cf;
+  --surface: #c1cdd9;
+  --surface-2: #d4dee7;
+  --border: #4a5568;
+  --border-soft: #6b7280;
+  --text: #1a1a1a;
+  --text-dim: #4a5568;
+  --accent: #2c5282;
+  --accent-2: #6b46c1;
+  --accent-3: #9b2c2c;
+  --success: #2f855a;
+  --danger: #9b2c2c;
+  --glow: none;
+  --font-body: 'Lucida Sans', 'Helvetica', sans-serif;
+  --font-display: 'Lucida Bright', 'Lucida Sans', serif;
+  --radius: 2px;
+  --shadow: 1px 1px 0 #4a5568;
+  --font-scale: 1;
+  --scanlines: 0;
+  --chrome: 1;
+}
+
+[data-theme='modern'] {
+  --bg: #0a0a0f;
+  --bg-2: #12121a;
+  --surface: #16161f80;
+  --surface-2: #1d1d2a80;
+  --border: #ffffff20;
+  --border-soft: #ffffff10;
+  --text: #f5f5fa;
+  --text-dim: #9ca3af;
+  --accent: #a78bfa;
+  --accent-2: #38bdf8;
+  --accent-3: #f472b6;
+  --success: #4ade80;
+  --danger: #f87171;
+  --glow: 0 0 24px var(--accent-2);
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: 'Inter', system-ui, sans-serif;
+  --radius: 12px;
+  --shadow: 0 4px 24px #00000080;
+  --font-scale: 1;
+  --scanlines: 0;
+  --chrome: 0;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  font-size: calc(16px * var(--font-scale));
+}
+
+body {
+  background-image: linear-gradient(135deg, var(--bg) 0%, var(--bg-2) 100%);
+  background-attachment: fixed;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 2px,
+    #00000010 3px,
+    #00000010 3px
+  );
+  opacity: calc(var(--scanlines, 0) * 0.6);
+  mix-blend-mode: multiply;
+}
+
+[data-theme='win95'] body::before,
+[data-theme='sun'] body::before,
+[data-theme='cde'] body::before,
+[data-theme='modern'] body::before {
+  display: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: var(--radius);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-2);
+}
+
+/* Utility helpers for arbitrary values that hit theme vars */
+.th-surface {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-soft);
+}
+.th-border {
+  border-color: var(--border);
+}
+.th-accent {
+  color: var(--accent);
+}
+.th-glow {
+  box-shadow: var(--glow);
+}
+.th-shadow {
+  box-shadow: var(--shadow);
+}
+.th-display {
+  font-family: var(--font-display);
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px var(--accent);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-2);
+  }
+}
+.th-pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+.scanline-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    var(--accent) 50%,
+    transparent 100%
+  );
+  opacity: 0.04;
+  height: 100px;
+  animation: scan 8s linear infinite;
+}
+
+[data-theme='win95'] .scanline-overlay,
+[data-theme='sun'] .scanline-overlay,
+[data-theme='cde'] .scanline-overlay,
+[data-theme='modern'] .scanline-overlay {
+  display: none;
+}
+
+@keyframes gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+.th-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--accent),
+    var(--accent-2),
+    var(--accent-3)
+  );
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+}

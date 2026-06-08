@@ -1,0 +1,145 @@
+<div
+  data-testid="login-overlay"
+  *ngIf="open"
+  class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+  [style.background]="'color-mix(in srgb, var(--bg) 70%, transparent)'"
+  (click)="dismiss()"
+>
+  <div
+    class="th-surface th-shadow w-full max-w-md th-border border-2 p-6 sm:p-8"
+    style="border-radius: var(--radius);"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="mb-6 flex items-center gap-3">
+      <div
+        class="th-gradient h-10 w-10"
+        style="border-radius: var(--radius);"
+      ></div>
+      <div>
+        <h1 class="th-display text-2xl font-bold tracking-wider" style="color: var(--accent);">
+          HONCHO
+        </h1>
+        <p class="text-xs opacity-70">
+          @if (mode() === 'register') {
+            Create your account
+          } @else {
+            Sign in to continue
+          }
+        </p>
+      </div>
+    </div>
+
+    <div
+      class="mb-4 flex th-border border-2 th-surface p-1"
+      style="border-radius: var(--radius);"
+      role="tablist"
+    >
+      <button
+        type="button"
+        role="tab"
+        (click)="setMode('register')"
+        [attr.aria-selected]="mode() === 'register'"
+        data-testid="mode-register"
+        class="flex-1 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+        style="border-radius: var(--radius);"
+        [style.background]="mode() === 'register' ? 'var(--accent)' : 'transparent'"
+        [style.color]="mode() === 'register' ? 'var(--bg)' : 'var(--text-dim)'"
+      >
+        Register
+      </button>
+      <button
+        type="button"
+        role="tab"
+        (click)="setMode('login')"
+        [attr.aria-selected]="mode() === 'login'"
+        data-testid="mode-login"
+        class="flex-1 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+        style="border-radius: var(--radius);"
+        [style.background]="mode() === 'login' ? 'var(--accent)' : 'transparent'"
+        [style.color]="mode() === 'login' ? 'var(--bg)' : 'var(--text-dim)'"
+      >
+        Login
+      </button>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4" data-testid="login-form">
+      <label class="block">
+        <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+          Username
+        </span>
+        <input
+          formControlName="username"
+          type="text"
+          autocomplete="username"
+          data-testid="login-username"
+          class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+          style="border-radius: var(--radius);"
+          [style.color]="'var(--text)'"
+        />
+      </label>
+
+      <label class="block">
+        <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+          Password
+        </span>
+        <input
+          formControlName="password"
+          type="password"
+          autocomplete="current-password"
+          data-testid="login-password"
+          class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+          style="border-radius: var(--radius);"
+          [style.color]="'var(--text)'"
+          [attr.placeholder]="mode() === 'register' ? '8+ characters' : ''"
+        />
+      </label>
+
+      <div
+        *ngIf="error() as e"
+        class="border-2 px-3 py-2 text-sm th-pulse"
+        data-testid="login-error"
+        [style.borderColor]="'var(--danger)'"
+        [style.color]="'var(--danger)'"
+        style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
+      >
+        {{ e }}
+      </div>
+
+      <div class="flex items-center justify-between gap-3 pt-2">
+        <button
+          type="button"
+          (click)="dismiss()"
+          class="px-4 py-2 th-border border-2 th-surface hover:th-glow"
+          style="border-radius: var(--radius);"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          [disabled]="submitting()"
+          data-testid="login-submit"
+          class="px-6 py-2 th-border border-2 th-gradient font-bold uppercase tracking-widest disabled:opacity-50"
+          style="border-radius: var(--radius); color: var(--bg);"
+        >
+          @if (submitting()) {
+            Working...
+          } @else {
+            @if (mode() === 'register') {
+              Register &amp; Sign in
+            } @else {
+              Sign in
+            }
+          }
+        </button>
+      </div>
+    </form>
+
+    <p class="mt-4 text-center text-[10px] opacity-60">
+      @if (mode() === 'register') {
+        First user becomes the admin. Sessions are stored locally in your browser.
+      } @else {
+        Sessions are stored locally in your browser.
+      }
+    </p>
+  </div>
+</div>
