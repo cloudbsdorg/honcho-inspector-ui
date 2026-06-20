@@ -128,14 +128,15 @@ describe('ChatPanel', () => {
     expect(component.inputValue()).toBe('');
   });
 
-  it('should surface the honcho error in the last assistant turn when chat fails', async () => {
+  it('should surface the honcho error in the error signal when chat fails (not as a turn)', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       jsonResponse({ error: 'nope' }, 502),
     );
     component.inputValue.set('hi');
     await component.send();
-    expect(component.turns().length).toBe(2);
-    expect(component.turns()[1]!.content).toContain('nope');
+    expect(component.turns().length).toBe(1);
+    expect(component.turns()[0]!.role).toBe('user');
+    expect(component.error()).toContain('server error');
   });
 
   it('should clear the turns when peerId changes', () => {

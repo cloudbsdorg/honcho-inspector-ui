@@ -39,6 +39,18 @@
     }
   </div>
 
+  @if (error(); as e) {
+    <div
+      class="th-border mt-2 border-2 px-3 py-2 text-xs th-pulse"
+      data-testid="chat-error"
+      [style.borderColor]="'var(--danger)'"
+      [style.color]="'var(--danger)'"
+      style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
+    >
+      {{ e }}
+    </div>
+  }
+
   <form
     (ngSubmit)="send()"
     class="mt-3 flex gap-2"

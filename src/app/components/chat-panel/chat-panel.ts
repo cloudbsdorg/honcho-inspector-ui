@@ -10,6 +10,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HonchoService } from '../../core/honcho.service';
+import { formatError } from '../../core/error-message';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
@@ -32,6 +33,7 @@ export class ChatPanel implements OnChanges {
   readonly inputValue = signal('');
   readonly busy = signal(false);
   readonly turns = signal<ChatTurn[]>([]);
+  readonly error = signal<string | null>(null);
 
   readonly canSend = computed(
     () => this.inputValue().trim().length > 0 && !this.busy(),
@@ -40,12 +42,14 @@ export class ChatPanel implements OnChanges {
   ngOnChanges(): void {
     this.turns.set([]);
     this.inputValue.set('');
+    this.error.set(null);
   }
 
   async send(): Promise<void> {
     const text = this.inputValue().trim();
     if (!text) return;
     this.busy.set(true);
+    this.error.set(null);
     this.turns.update((t) => [
       ...t,
       { role: 'user', content: text, ts: Date.now() },
@@ -58,11 +62,7 @@ export class ChatPanel implements OnChanges {
         { role: 'assistant', content: reply || '(no reply)', ts: Date.now() },
       ]);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Chat failed';
-      this.turns.update((t) => [
-        ...t,
-        { role: 'assistant', content: `Error: ${msg}`, ts: Date.now() },
-      ]);
+      this.error.set(formatError(e, 'Chat failed'));
     } finally {
       this.busy.set(false);
     }
