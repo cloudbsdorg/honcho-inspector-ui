@@ -127,14 +127,18 @@ describe('HonchoAuthService', () => {
       'honcho-credentials',
       JSON.stringify({ sessionId: 'restored', user: USER }),
     );
-    const fresh = new HonchoAuthService();
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({});
+    const fresh = TestBed.inject(HonchoAuthService);
     expect(fresh.credentials()?.sessionId).toBe('restored');
     expect(fresh.user()?.username).toBe('alice');
   });
 
   it('should ignore malformed localStorage payloads', () => {
     localStorage.setItem('honcho-credentials', '{not valid json');
-    const fresh = new HonchoAuthService();
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({});
+    const fresh = TestBed.inject(HonchoAuthService);
     expect(fresh.credentials()).toBeNull();
   });
 

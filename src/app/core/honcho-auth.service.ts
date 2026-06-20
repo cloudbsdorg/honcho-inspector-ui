@@ -1,4 +1,5 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { ApiClient, ApiError } from './api-client';
 import { HonchoCredentials, User } from './models';
 
 const STORAGE_KEY = 'honcho-credentials';
@@ -22,6 +23,8 @@ export interface LoginInput {
  */
 @Injectable({ providedIn: 'root' })
 export class HonchoAuthService {
+  private readonly api = inject(ApiClient);
+
   private readonly _credentials = signal<HonchoCredentials | null>(null);
 
   readonly credentials = this._credentials.asReadonly();
@@ -32,37 +35,25 @@ export class HonchoAuthService {
     this._credentials.set(this.loadFromStorage());
   }
 
-  /**
-   * Register a brand-new user, then immediately log them in.
-   * Backend's `/api/auth/register` returns the user (not a session), so
-   * we follow up with a real login to obtain a sessionId.
-   */
   async register(input: RegisterInput): Promise<HonchoCredentials> {
     const cleaned = this.validate(input);
-    const res = await fetch('/api/auth/register', {
+    await this.api.request<unknown>({
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cleaned),
+      path: '/auth/register',
+      body: cleaned,
+      anonymous: true,
     });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? `Registration failed (${res.status})`);
-    }
     return this.login(input);
   }
 
   async login(input: LoginInput): Promise<HonchoCredentials> {
     const cleaned = this.validate(input);
-    const res = await fetch('/api/auth/login', {
+    const result = await this.api.request<{ sessionId: string; user: User }>({
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cleaned),
+      path: '/auth/login',
+      body: cleaned,
+      anonymous: true,
     });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? `Login failed (${res.status})`);
-    }
-    const result = (await res.json()) as { sessionId: string; user: User };
     const stored: HonchoCredentials = {
       sessionId: result.sessionId,
       user: result.user,
@@ -75,56 +66,46 @@ export class HonchoAuthService {
   async logout(): Promise<void> {
     const creds = this._credentials();
     if (creds) {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: { 'X-Session-Id': creds.sessionId },
-      }).catch(() => undefined);
+      // Best-effort: never let the local clear depend on the network.
+      await this.api
+        .request<unknown>({ method: 'POST', path: '/auth/logout', anonymous: true })
+        .catch(() => undefined);
     }
     this._credentials.set(null);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    this.persist(null);
   }
 
   async me(): Promise<User> {
-    const creds = this._credentials();
-    if (!creds) throw new Error('Not authenticated');
-    const res = await fetch('/api/auth/me', {
-      method: 'GET',
-      headers: { 'X-Session-Id': creds.sessionId },
-    });
-    if (res.status === 401) {
-      this._credentials.set(null);
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(STORAGE_KEY);
+    if (!this._credentials()) throw new ApiError('Not authenticated', 401);
+    try {
+      const user = await this.api.request<User>({ method: 'GET', path: '/auth/me' });
+      const next: HonchoCredentials = { sessionId: this._credentials()!.sessionId, user };
+      this._credentials.set(next);
+      this.persist(next);
+      return user;
+    } catch (e) {
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        this._credentials.set(null);
+        this.persist(null);
+        throw new ApiError('Session expired', e.status);
       }
-      throw new Error('Session expired');
+      throw e;
     }
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? `Backend error ${res.status}`);
-    }
-    const user = (await res.json()) as User;
-    const next: HonchoCredentials = { sessionId: creds.sessionId, user };
-    this._credentials.set(next);
-    this.persist(next);
-    return user;
   }
 
   localLogout(): void {
     this._credentials.set(null);
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    this.persist(null);
   }
 
   private validate(input: RegisterInput | LoginInput): RegisterInput {
     const username = input.username?.trim() ?? '';
     const password = input.password ?? '';
-    if (username === '') throw new Error('Username is required');
+    if (username === '') throw new ApiError('Username is required', 400);
     if (password.length < MIN_PASSWORD_LENGTH) {
-      throw new Error(
+      throw new ApiError(
         `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+        400,
       );
     }
     return { username, password };
@@ -143,6 +124,12 @@ export class HonchoAuthService {
     }
   }
 
+  private persist(creds: HonchoCredentials | null): void {
+    if (typeof localStorage === 'undefined') return;
+    if (creds) localStorage.setItem(STORAGE_KEY, JSON.stringify(creds));
+    else localStorage.removeItem(STORAGE_KEY);
+  }
+
   private isComplete(value: unknown): value is HonchoCredentials {
     if (!value || typeof value !== 'object') return false;
     const obj = value as Record<string, unknown>;
@@ -157,10 +144,5 @@ export class HonchoAuthService {
       typeof u['isAdmin'] === 'boolean' &&
       typeof u['createdAt'] === 'string'
     );
-  }
-
-  private persist(creds: HonchoCredentials): void {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(creds));
   }
 }
