@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { ApiClient, ApiError } from './api-client';
 import { HonchoAuthService } from './honcho-auth.service';
 import { ProfileService } from './profile.service';
 import {
@@ -15,11 +16,15 @@ import {
   HonchoWorkspaceInspect,
   HonchoWorkspaceMetadata,
 } from './models';
+import { formatError } from './error-message';
+
+type CallOpts = Omit<Parameters<ApiClient['request']>[0], 'profileId'>;
 
 @Injectable({ providedIn: 'root' })
 export class HonchoService {
   private readonly auth = inject(HonchoAuthService);
   private readonly profile = inject(ProfileService);
+  private readonly api = inject(ApiClient);
 
   private readonly _peers = signal<HonchoPeerSummary[]>([]);
   private readonly _sessions = signal<HonchoSessionSummary[]>([]);
@@ -45,10 +50,12 @@ export class HonchoService {
     return e ? this.friendlyErrorMessage(e) : null;
   });
 
+  constructor() {}
+
   async init(): Promise<void> {
     this.requireSession();
     const id = this.profile.activeProfileId();
-    if (!id) throw new Error('Cannot init Honcho: no active profile');
+    if (!id) throw new ApiError('Cannot init Honcho: no active profile', 0);
     this.loadCache(id);
   }
 
@@ -66,35 +73,21 @@ export class HonchoService {
 
   async refreshPeers(): Promise<void> {
     await this.run(async () => {
-      const page = await this.call<ApiPage<ApiPeer>>('GET', '/peers');
-      this._peers.set(
-        page.items.map((p) => ({
-          id: p.id,
-          createdAt: p.created_at,
-          metadata: p.metadata ?? {},
-        })),
-      );
+      await this.refreshPeersInternal();
       this.persistCache();
     });
   }
 
   async refreshSessions(): Promise<void> {
     await this.run(async () => {
-      const page = await this.call<ApiPage<ApiSession>>('GET', '/sessions');
-      this._sessions.set(
-        page.items.map((s) => ({
-          id: s.id,
-          peerIds: [],
-          createdAt: s.created_at,
-        })),
-      );
+      await this.refreshSessionsInternal();
       this.persistCache();
     });
   }
 
   async refreshQueueStatus(): Promise<void> {
     await this.run(async () => {
-      const q = await this.call<ApiQueueStatus>('GET', '/queue-status');
+      const q = await this.call<ApiQueueStatus>({ method: 'GET', path: '/queue-status' });
       this._queueStatus.set(toQueueStatus(q));
     });
   }
@@ -104,10 +97,11 @@ export class HonchoService {
       this.requireSession();
       this.requireProfile();
       const [info, peers, sessions] = await Promise.all([
-        this.call<{ workspace: ApiWorkspaceMetadata; configuration: ApiWorkspaceConfig; queue: ApiQueueStatus }>(
-          'GET',
-          '/workspace/info',
-        ),
+        this.call<{
+          workspace: ApiWorkspaceMetadata;
+          configuration: ApiWorkspaceConfig;
+          queue: ApiQueueStatus;
+        }>({ method: 'GET', path: '/workspace/info' }),
         this.refreshPeersInternal(),
         this.refreshSessionsInternal(),
       ]);
@@ -125,15 +119,17 @@ export class HonchoService {
   async inspectPeer(peerId: string): Promise<HonchoPeerInspect> {
     return this.runOrThrow(async () => {
       const [card, rep, conclusions, sessionCount] = await Promise.all([
-        this.call<string[]>('GET', `/peers/${encodeURIComponent(peerId)}/card`),
-        this.call<string>('GET', `/peers/${encodeURIComponent(peerId)}/representation`),
-        this.call<ApiPage<ApiConclusion>>(
-          'GET',
-          `/peers/${encodeURIComponent(peerId)}/conclusions?size=10`,
-        ),
-        this.call<ApiPage<unknown>>('GET', `/peers/${encodeURIComponent(peerId)}/sessions`).catch(
-          () => ({ items: [] }) as ApiPage<unknown>,
-        ),
+        this.call<string[]>({ method: 'GET', path: `/peers/${encodeURIComponent(peerId)}/card` }),
+        this.call<string>({ method: 'GET', path: `/peers/${encodeURIComponent(peerId)}/representation` }),
+        this.call<ApiPage<ApiConclusion>>({
+          method: 'GET',
+          path: `/peers/${encodeURIComponent(peerId)}/conclusions`,
+          query: { size: 10 },
+        }),
+        this.call<ApiPage<unknown>>({
+          method: 'GET',
+          path: `/peers/${encodeURIComponent(peerId)}/sessions`,
+        }).catch(() => ({ items: [] }) as ApiPage<unknown>),
       ]);
       return {
         id: peerId,
@@ -151,19 +147,20 @@ export class HonchoService {
   async inspectSession(sessionId: string): Promise<HonchoSessionInspect> {
     return this.runOrThrow(async () => {
       const [details, peers, summaries, messages] = await Promise.all([
-        this.call<ApiSession>('GET', `/sessions/${encodeURIComponent(sessionId)}`),
-        this.call<{ peers: string[] } | string[]>(
-          'GET',
-          `/sessions/${encodeURIComponent(sessionId)}/peers`,
-        ),
-        this.call<ApiSessionSummaries>(
-          'GET',
-          `/sessions/${encodeURIComponent(sessionId)}/summaries`,
-        ),
-        this.call<ApiPage<ApiMessage>>(
-          'GET',
-          `/sessions/${encodeURIComponent(sessionId)}/messages?size=50`,
-        ),
+        this.call<ApiSession>({ method: 'GET', path: `/sessions/${encodeURIComponent(sessionId)}` }),
+        this.call<{ peers: string[] } | string[]>({
+          method: 'GET',
+          path: `/sessions/${encodeURIComponent(sessionId)}/peers`,
+        }),
+        this.call<ApiSessionSummaries>({
+          method: 'GET',
+          path: `/sessions/${encodeURIComponent(sessionId)}/summaries`,
+        }),
+        this.call<ApiPage<ApiMessage>>({
+          method: 'GET',
+          path: `/sessions/${encodeURIComponent(sessionId)}/messages`,
+          query: { size: 50 },
+        }),
       ]);
       const peerIds = Array.isArray(peers) ? peers : (peers?.peers ?? []);
       return {
@@ -177,36 +174,52 @@ export class HonchoService {
   }
 
   async getPeerCard(peerId: string): Promise<string[]> {
-    return (await this.call<string[]>('GET', `/peers/${encodeURIComponent(peerId)}/card`)) ?? [];
+    return (
+      (await this.call<string[]>({ method: 'GET', path: `/peers/${encodeURIComponent(peerId)}/card` })) ?? []
+    );
   }
 
   async getPeerRepresentation(peerId: string): Promise<string> {
-    return (await this.call<string>('GET', `/peers/${encodeURIComponent(peerId)}/representation`)) ?? '';
+    return (
+      (await this.call<string>({ method: 'GET', path: `/peers/${encodeURIComponent(peerId)}/representation` })) ?? ''
+    );
   }
 
   async chat(peerId: string, query: string, target?: string): Promise<string> {
     const body: Record<string, unknown> = { query };
     if (target) body['target'] = target;
-    return (await this.call<string>('POST', `/peers/${encodeURIComponent(peerId)}/chat`, body)) ?? '';
+    return (
+      (await this.call<string>({
+        method: 'POST',
+        path: `/peers/${encodeURIComponent(peerId)}/chat`,
+        body,
+      })) ?? ''
+    );
   }
 
   async getOrCreatePeer(peerId: string): Promise<void> {
-    await this.call<unknown>('POST', '/peers', { id: peerId });
+    await this.call<unknown>({ method: 'POST', path: '/peers', body: { id: peerId } });
   }
 
   async getOrCreateSession(sessionId: string, peerIds: string[] = []): Promise<void> {
-    await this.call<unknown>('POST', '/sessions', { id: sessionId, peers: peerIds });
+    await this.call<unknown>({
+      method: 'POST',
+      path: '/sessions',
+      body: { id: sessionId, peers: peerIds },
+    });
   }
 
   async listConclusions(
     peerId: string,
     options?: { size?: number },
   ): Promise<{ items: HonchoConclusion[]; total: number; page: number; size: number }> {
-    const query = options?.size ? `?size=${options.size}` : '';
-    const page = await this.call<ApiPage<ApiConclusion>>(
-      'GET',
-      `/peers/${encodeURIComponent(peerId)}/conclusions${query}`,
-    );
+    const query: Record<string, number> = {};
+    if (options?.size !== undefined) query['size'] = options.size;
+    const page = await this.call<ApiPage<ApiConclusion>>({
+      method: 'GET',
+      path: `/peers/${encodeURIComponent(peerId)}/conclusions`,
+      query,
+    });
     return {
       items: page.items.map(toConclusion),
       total: page.total ?? 0,
@@ -221,11 +234,11 @@ export class HonchoService {
     topK = 25,
     distance = 0.6,
   ): Promise<HonchoConclusion[]> {
-    const items = await this.call<ApiConclusion[]>(
-      'POST',
-      `/peers/${encodeURIComponent(peerId)}/conclusions/query`,
-      { query, top_k: topK, distance },
-    );
+    const items = await this.call<ApiConclusion[]>({
+      method: 'POST',
+      path: `/peers/${encodeURIComponent(peerId)}/conclusions/query`,
+      body: { query, top_k: topK, distance },
+    });
     return (items ?? []).map(toConclusion);
   }
 
@@ -233,43 +246,46 @@ export class HonchoService {
     sessionId: string,
     options?: { tokens?: number; summary?: boolean },
   ): Promise<HonchoSessionContext> {
-    const query: Record<string, string> = {};
-    if (options?.tokens !== undefined) query['tokens'] = String(options.tokens);
-    if (options?.summary !== undefined) query['summary'] = String(options.summary);
-    return this.call<HonchoSessionContext>(
-      'GET',
-      `/sessions/${encodeURIComponent(sessionId)}/context`,
-      undefined,
+    const query: Record<string, string | number | boolean> = {};
+    if (options?.tokens !== undefined) query['tokens'] = options.tokens;
+    if (options?.summary !== undefined) query['summary'] = options.summary;
+    return this.call<HonchoSessionContext>({
+      method: 'GET',
+      path: `/sessions/${encodeURIComponent(sessionId)}/context`,
       query,
-    );
+    });
   }
 
   async searchWorkspace(query: string, options?: { limit?: number }): Promise<HonchoMessage[]> {
     const body: Record<string, unknown> = { query };
     if (options?.limit !== undefined) body['limit'] = options.limit;
-    const items = await this.call<ApiMessage[] | ApiPage<ApiMessage>>('POST', '/search', body);
+    const items = await this.call<ApiMessage[] | ApiPage<ApiMessage>>({
+      method: 'POST',
+      path: '/search',
+      body,
+    });
     return Array.isArray(items) ? items.map(toMessage) : (items.items ?? []).map(toMessage);
   }
 
   async searchPeer(peerId: string, query: string, options?: { limit?: number }): Promise<HonchoMessage[]> {
     const body: Record<string, unknown> = { query };
     if (options?.limit !== undefined) body['limit'] = options.limit;
-    const items = await this.call<ApiMessage[] | ApiPage<ApiMessage>>(
-      'POST',
-      `/peers/${encodeURIComponent(peerId)}/search`,
+    const items = await this.call<ApiMessage[] | ApiPage<ApiMessage>>({
+      method: 'POST',
+      path: `/peers/${encodeURIComponent(peerId)}/search`,
       body,
-    );
+    });
     return Array.isArray(items) ? items.map(toMessage) : (items.items ?? []).map(toMessage);
   }
 
   async searchSession(sessionId: string, query: string, options?: { limit?: number }): Promise<HonchoMessage[]> {
     const body: Record<string, unknown> = { query };
     if (options?.limit !== undefined) body['limit'] = options.limit;
-    const items = await this.call<ApiMessage[] | ApiPage<ApiMessage>>(
-      'POST',
-      `/sessions/${encodeURIComponent(sessionId)}/search`,
+    const items = await this.call<ApiMessage[] | ApiPage<ApiMessage>>({
+      method: 'POST',
+      path: `/sessions/${encodeURIComponent(sessionId)}/search`,
       body,
-    );
+    });
     return Array.isArray(items) ? items.map(toMessage) : (items.items ?? []).map(toMessage);
   }
 
@@ -277,7 +293,7 @@ export class HonchoService {
     const body: Record<string, unknown> = { observer };
     if (observed) body['observed'] = observed;
     if (sessionId) body['session'] = sessionId;
-    await this.call<unknown>('POST', '/dream', body);
+    await this.call<unknown>({ method: 'POST', path: '/dream', body });
   }
 
   async sendMessage(
@@ -289,26 +305,25 @@ export class HonchoService {
     const body = {
       messages: [{ peer_id: peerId, content, metadata: metadata ?? {} }],
     };
-    await this.call<unknown>(
-      'POST',
-      `/sessions/${encodeURIComponent(sessionId)}/messages`,
+    await this.call<unknown>({
+      method: 'POST',
+      path: `/sessions/${encodeURIComponent(sessionId)}/messages`,
       body,
-    );
+    });
   }
 
   async listSessionMessages(
     sessionId: string,
     options?: { size?: number; peerId?: string },
   ): Promise<HonchoSessionMessageList> {
-    const query: Record<string, string> = {};
-    if (options?.size !== undefined) query['size'] = String(options.size);
+    const query: Record<string, string | number> = {};
+    if (options?.size !== undefined) query['size'] = options.size;
     if (options?.peerId) query['peer_id'] = options.peerId;
-    const page = await this.call<ApiPage<ApiMessage>>(
-      'GET',
-      `/sessions/${encodeURIComponent(sessionId)}/messages`,
-      undefined,
+    const page = await this.call<ApiPage<ApiMessage>>({
+      method: 'GET',
+      path: `/sessions/${encodeURIComponent(sessionId)}/messages`,
       query,
-    );
+    });
     return {
       items: page.items.map(toMessage),
       total: page.total ?? 0,
@@ -319,51 +334,27 @@ export class HonchoService {
 
   private requireSession() {
     const c = this.auth.credentials();
-    if (!c) throw new Error('Not authenticated');
+    if (!c) throw new ApiError('Not authenticated', 401);
     return c;
   }
 
   private requireProfile(): string {
     const id = this.profile.activeProfileId();
     if (!id) {
-      throw new Error('No active profile. Create or select a profile first.');
+      throw new ApiError('No active profile. Create or select a profile first.', 0);
     }
     return id;
   }
 
-  private async call<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-    path: string,
-    body?: unknown,
-    query?: Record<string, string>,
-  ): Promise<T> {
-    const session = this.requireSession();
-    const profileId = this.requireProfile();
-    const url = new URL('/api' + path, window.location.origin);
-    if (query) {
-      for (const [k, v] of Object.entries(query)) {
-        if (v !== undefined && v !== null) url.searchParams.set(k, v);
-      }
-    }
-    const headers: Record<string, string> = {
-      'X-Session-Id': session.sessionId,
-      'X-Honcho-Profile-Id': profileId,
-    };
-    let payload: string | undefined;
-    if (body !== undefined && body !== null) {
-      headers['Content-Type'] = 'application/json';
-      payload = JSON.stringify(body);
-    }
-    const res = await fetch(url.toString(), { method, headers, body: payload });
-    if (res.status === 204) return undefined as T;
-    if (!res.ok) {
-      const errBody = (await res.json().catch(() => ({}))) as { error?: string };
-      const msg = errBody.error ?? `Backend error ${res.status}`;
-      const err = new Error(msg);
-      (err as Error & { backendStatus?: number }).backendStatus = res.status;
-      throw err;
-    }
-    return (await res.json()) as T;
+  /**
+   * Thin wrapper over `ApiClient.request` that always sends the active
+   * profile id. Throws via `requireSession`/`requireProfile` first so
+   * the caller fails fast with a clear message before any network I/O.
+   */
+  private call<T>(opts: CallOpts): Promise<T> {
+    this.requireSession();
+    this.requireProfile();
+    return this.api.request<T>({ ...opts, profileId: this.profile.activeProfileId() ?? undefined });
   }
 
   private async run(fn: () => Promise<void>): Promise<void> {
@@ -395,7 +386,7 @@ export class HonchoService {
   }
 
   private async refreshPeersInternal(): Promise<HonchoPeerSummary[]> {
-    const page = await this.call<ApiPage<ApiPeer>>('GET', '/peers');
+    const page = await this.call<ApiPage<ApiPeer>>({ method: 'GET', path: '/peers' });
     const peers = page.items.map((p) => ({
       id: p.id,
       createdAt: p.created_at,
@@ -406,7 +397,7 @@ export class HonchoService {
   }
 
   private async refreshSessionsInternal(): Promise<HonchoSessionSummary[]> {
-    const page = await this.call<ApiPage<ApiSession>>('GET', '/sessions');
+    const page = await this.call<ApiPage<ApiSession>>({ method: 'GET', path: '/sessions' });
     const sessions = page.items.map((s) => ({
       id: s.id,
       peerIds: [],
@@ -436,41 +427,30 @@ export class HonchoService {
     }
   }
 
-  private persistCache(): void {
-    if (typeof localStorage === 'undefined') return;
-    const id = this.profile.activeProfileId();
-    if (!id) return;
-    const payload = {
-      peers: this._peers(),
-      sessions: this._sessions(),
-    };
+  private writeCache(
+    profileId: string,
+    payload: { peers: HonchoPeerSummary[]; sessions: HonchoSessionSummary[] },
+  ): void {
     try {
-      localStorage.setItem(this.cacheKey(id), JSON.stringify(payload));
+      localStorage.setItem(this.cacheKey(profileId), JSON.stringify(payload));
     } catch {
       return;
     }
   }
 
+  private persistCache(): void {
+    const id = this.profile.activeProfileId();
+    if (!id || typeof localStorage === 'undefined') return;
+    this.writeCache(id, { peers: this._peers(), sessions: this._sessions() });
+  }
+
   friendlyErrorMessage(e: unknown): string {
-    const raw = e instanceof Error ? e.message : String(e);
-    const lower = raw.toLowerCase();
-    if (lower.includes('failed to fetch') || lower.includes('networkerror')) {
-      const url = this.profile.activeProfile()?.baseUrl ?? 'the configured URL';
-      return `Cannot reach Honcho server at ${url}. Check that the backend is running and the Honcho URL is correct.`;
+    if (e instanceof ApiError) {
+      return e.friendlyMessage({
+        baseUrl: this.profile.activeProfile()?.baseUrl,
+      });
     }
-    if (lower.includes('401') || lower.includes('403') || lower.includes('authentication')) {
-      return 'Authentication failed. Try selecting a different profile or logging in again.';
-    }
-    if (lower.includes('404') || lower.includes('not found')) {
-      return 'Not found. Check the workspace ID and Honcho URL for the active profile.';
-    }
-    if (lower.includes('rate limit') || lower.includes('429')) {
-      return 'Rate limit hit. Slow down and retry in a moment.';
-    }
-    if (lower.includes('no active profile') || lower.includes('missing x-honcho-profile-id')) {
-      return 'No active profile. Choose a profile to continue.';
-    }
-    return raw;
+    return formatError(e);
   }
 
   private errorMessage(e: unknown): string {

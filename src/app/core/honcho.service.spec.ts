@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { ApiError } from './api-client';
 import { HonchoAuthService } from './honcho-auth.service';
 import { ProfileService } from './profile.service';
 import { HonchoService } from './honcho.service';
@@ -281,28 +282,40 @@ describe('HonchoService', () => {
   });
 
   describe('friendly error messages', () => {
-    it('should map "Failed to fetch" to a network-reachable error', () => {
-      const msg = service.friendlyErrorMessage(new Error('Failed to fetch'));
+    it('should map status 0 to a network-reachable error', () => {
+      const msg = service.friendlyErrorMessage(new ApiError('Failed to fetch', 0));
       expect(msg).toContain('Cannot reach');
     });
 
     it('should map 401 / authentication errors', () => {
-      expect(service.friendlyErrorMessage(new Error('401 unauthorized'))).toContain(
+      expect(service.friendlyErrorMessage(new ApiError('unauthorized', 401))).toContain(
+        'Authentication',
+      );
+    });
+
+    it('should map 403 to authentication as well (session likely dead)', () => {
+      expect(service.friendlyErrorMessage(new ApiError('forbidden', 403))).toContain(
         'Authentication',
       );
     });
 
     it('should map 404 / not found', () => {
-      expect(service.friendlyErrorMessage(new Error('Not found'))).toContain('Not found');
+      expect(service.friendlyErrorMessage(new ApiError('not found', 404))).toContain('Not found');
     });
 
-    it('should map missing X-Honcho-Profile-Id to a profile-selector hint', () => {
-      expect(
-        service.friendlyErrorMessage(new Error('missing X-Honcho-Profile-Id header')),
-      ).toContain('profile');
+    it('should map 429 to a rate-limit hint', () => {
+      expect(service.friendlyErrorMessage(new ApiError('rate limit', 429))).toContain(
+        'Rate limit',
+      );
     });
 
-    it('should pass through unknown errors', () => {
+    it('should map 5xx to a server-error hint', () => {
+      expect(service.friendlyErrorMessage(new ApiError('boom', 502))).toContain(
+        'server error',
+      );
+    });
+
+    it('should fall back to plain Error.message for non-ApiError', () => {
       expect(service.friendlyErrorMessage(new Error('Some weird thing'))).toBe(
         'Some weird thing',
       );
