@@ -59,8 +59,6 @@ export class MemoryInspector {
   readonly activeTab = signal<TabId>('workspace');
 
   readonly workspace = signal<HonchoWorkspaceInspect | null>(null);
-  readonly peers = signal<HonchoPeerSummary[]>([]);
-  readonly sessions = signal<HonchoSessionSummary[]>([]);
   readonly peerDetail = signal<HonchoPeerInspect | null>(null);
   readonly sessionDetail = signal<HonchoSessionInspect | null>(null);
   readonly conclusions = signal<HonchoConclusion[]>([]);
@@ -83,13 +81,9 @@ export class MemoryInspector {
     try {
       const ws = await this.honcho.inspectWorkspace();
       this.workspace.set(ws);
-      await this.honcho.refreshPeers();
-      await this.honcho.refreshSessions();
       await this.honcho.refreshQueueStatus();
-      this.peers.set(this.honcho.peers());
-      this.sessions.set(this.honcho.sessions());
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(this.honcho.friendlyErrorMessage(e));
     } finally {
       this.loading.set(false);
     }
@@ -106,7 +100,7 @@ export class MemoryInspector {
       this.peerDetail.set(detail);
       this.conclusions.set(detail.recentConclusions);
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(this.honcho.friendlyErrorMessage(e));
     } finally {
       this.loading.set(false);
     }
@@ -122,7 +116,7 @@ export class MemoryInspector {
       const detail = await this.honcho.inspectSession(id);
       this.sessionDetail.set(detail);
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(this.honcho.friendlyErrorMessage(e));
     } finally {
       this.loading.set(false);
     }
@@ -135,7 +129,7 @@ export class MemoryInspector {
       const page = await this.honcho.listConclusions(peerId, { size: 100 });
       this.conclusions.set(page.items);
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(this.honcho.friendlyErrorMessage(e));
     } finally {
       this.loading.set(false);
     }
@@ -148,7 +142,7 @@ export class MemoryInspector {
       const items = await this.honcho.queryConclusions(peerId, query, 25, 0.6);
       this.conclusions.set(items);
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(this.honcho.friendlyErrorMessage(e));
     } finally {
       this.loading.set(false);
     }
@@ -166,7 +160,7 @@ export class MemoryInspector {
       const results = await this.honcho.searchWorkspace(q, { limit: 25 });
       this.searchResults.set(results);
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(this.honcho.friendlyErrorMessage(e));
     } finally {
       this.loading.set(false);
     }
@@ -180,7 +174,7 @@ export class MemoryInspector {
     try {
       await this.honcho.scheduleDream(peerId);
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(this.honcho.friendlyErrorMessage(e));
     } finally {
       this.loading.set(false);
     }
@@ -193,9 +187,5 @@ export class MemoryInspector {
 
   goToDashboard(): void {
     this.router.navigateByUrl('/');
-  }
-
-  toMessage(e: unknown): string {
-    return this.honcho.friendlyErrorMessage(e);
   }
 }

@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { MemoryInspector } from './memory-inspector';
+import { ApiError } from '../../core/api-client';
 import { HonchoService } from '../../core/honcho.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { ProfileService } from '../../core/profile.service';
@@ -147,7 +148,7 @@ describe('MemoryInspector', () => {
   });
 
   it('should expose a user-friendly error via honcho.friendlyErrorMessage', () => {
-    const msg = honcho.friendlyErrorMessage(new Error('Failed to fetch'));
+    const msg = honcho.friendlyErrorMessage(new ApiError('Failed to fetch', 0));
     expect(msg).toContain('Cannot reach');
   });
 

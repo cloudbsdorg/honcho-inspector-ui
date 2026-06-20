@@ -226,10 +226,10 @@
         <div data-testid="peers-pane" class="grid grid-cols-1 gap-3 md:grid-cols-3">
           <aside>
             <h2 class="th-display mb-2 text-lg font-bold tracking-widest" style="color: var(--accent);">
-              Peers ({{ peers().length }})
+              Peers ({{ honcho.peers().length }})
             </h2>
             <ul class="space-y-1">
-              @for (p of peers(); track p.id) {
+              @for (p of honcho.peers(); track p.id) {
                 <li>
                   <button
                     type="button"
@@ -362,10 +362,10 @@
         <div data-testid="sessions-pane" class="grid grid-cols-1 gap-3 md:grid-cols-3">
           <aside>
             <h2 class="th-display mb-2 text-lg font-bold tracking-widest" style="color: var(--accent);">
-              Sessions ({{ sessions().length }})
+              Sessions ({{ honcho.sessions().length }})
             </h2>
             <ul class="space-y-1">
-              @for (s of sessions(); track s.id) {
+              @for (s of honcho.sessions(); track s.id) {
                 <li>
                   <button
                     type="button"
@@ -480,7 +480,7 @@
               style="border-radius: var(--radius); color: var(--text);"
             >
               <option value="">— select peer —</option>
-              @for (p of peers(); track p.id) {
+              @for (p of honcho.peers(); track p.id) {
                 <option [value]="p.id">{{ p.id }}</option>
               }
             </select>
