@@ -1,18 +1,12 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { HonchoAuthService } from './honcho-auth.service';
+import { ApiClient } from './api-client';
 import { Profile, ProfileWithKey } from './models';
 
-/**
- * Manages Honcho API key profiles belonging to the current user.
- *
- * The sessionId used to authenticate against the backend is read from
- * `HonchoAuthService.credentials()` (a signal), so this service does
- * not need to be passed a sessionId on every call. It is a no-op when
- * the user is not authenticated (the resulting fetch will 401).
- */
+const ACTIVE_STORAGE_KEY = 'honcho-active-profile';
+
 @Injectable({ providedIn: 'root' })
 export class ProfileService {
-  private readonly auth = inject(HonchoAuthService);
+  private readonly api = inject(ApiClient);
 
   private readonly _profiles = signal<Profile[]>([]);
   private readonly _activeProfileId = signal<string | null>(null);
@@ -29,7 +23,11 @@ export class ProfileService {
   }
 
   async list(): Promise<Profile[]> {
-    const data = await this.call<Profile[]>('GET', '/api/profiles');
+    const data = await this.api.request<Profile[]>({
+      method: 'GET',
+      path: '/profiles',
+      profileId: null,
+    });
     this._profiles.set(data);
     return data;
   }
@@ -41,7 +39,12 @@ export class ProfileService {
     workspaceId: string;
     honchoUserName: string;
   }): Promise<Profile> {
-    const created = await this.call<Profile>('POST', '/api/profiles', input);
+    const created = await this.api.request<Profile>({
+      method: 'POST',
+      path: '/profiles',
+      body: input,
+      profileId: null,
+    });
     this._profiles.update((current) => [created, ...current]);
     return created;
   }
@@ -56,11 +59,12 @@ export class ProfileService {
       honchoUserName?: string;
     },
   ): Promise<Profile> {
-    const updated = await this.call<Profile>(
-      'PUT',
-      `/api/profiles/${encodeURIComponent(id)}`,
-      partial,
-    );
+    const updated = await this.api.request<Profile>({
+      method: 'PUT',
+      path: `/profiles/${encodeURIComponent(id)}`,
+      body: partial,
+      profileId: null,
+    });
     this._profiles.update((current) =>
       current.map((p) => (p.id === updated.id ? updated : p)),
     );
@@ -68,7 +72,11 @@ export class ProfileService {
   }
 
   async delete(id: string): Promise<void> {
-    await this.call<null>('DELETE', `/api/profiles/${encodeURIComponent(id)}`);
+    await this.api.request<null>({
+      method: 'DELETE',
+      path: `/profiles/${encodeURIComponent(id)}`,
+      profileId: null,
+    });
     this._profiles.update((current) => current.filter((p) => p.id !== id));
     if (this._activeProfileId() === id) {
       this.setActive(null);
@@ -76,39 +84,33 @@ export class ProfileService {
   }
 
   async reveal(id: string): Promise<ProfileWithKey> {
-    return this.call<ProfileWithKey>(
-      'GET',
-      `/api/profiles/${encodeURIComponent(id)}/reveal`,
-    );
+    return this.api.request<ProfileWithKey>({
+      method: 'GET',
+      path: `/profiles/${encodeURIComponent(id)}/reveal`,
+      profileId: null,
+    });
   }
 
   async testConnection(
     id: string,
   ): Promise<{ ok: boolean; message: string }> {
-    return this.call<{ ok: boolean; message: string }>(
-      'POST',
-      `/api/profiles/${encodeURIComponent(id)}/test`,
-    );
+    return this.api.request<{ ok: boolean; message: string }>({
+      method: 'POST',
+      path: `/profiles/${encodeURIComponent(id)}/test`,
+      profileId: null,
+    });
   }
 
   setActive(id: string | null): void {
     this._activeProfileId.set(id);
-    if (typeof localStorage !== 'undefined') {
-      if (id === null) {
-        localStorage.removeItem(this.activeStorageKey());
-      } else {
-        localStorage.setItem(this.activeStorageKey(), JSON.stringify(id));
-      }
-    }
-  }
-
-  private activeStorageKey(): string {
-    return 'honcho-active-profile';
+    if (typeof localStorage === 'undefined') return;
+    if (id === null) localStorage.removeItem(ACTIVE_STORAGE_KEY);
+    else localStorage.setItem(ACTIVE_STORAGE_KEY, JSON.stringify(id));
   }
 
   private loadActiveProfileId(): string | null {
     if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem(this.activeStorageKey());
+    const raw = localStorage.getItem(ACTIVE_STORAGE_KEY);
     if (!raw) return null;
     try {
       const parsed = JSON.parse(raw) as unknown;
@@ -117,50 +119,5 @@ export class ProfileService {
     } catch {
       return null;
     }
-  }
-
-  private sessionId(): string {
-    const c = this.auth.credentials();
-    if (!c) throw new Error('Not authenticated');
-    return c.sessionId;
-  }
-
-  private async call<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-    path: string,
-    body?: unknown,
-  ): Promise<T> {
-    const headers: Record<string, string> = {
-      'X-Session-Id': this.sessionId(),
-    };
-    let payload: string | undefined;
-    if (body !== undefined && body !== null) {
-      headers['Content-Type'] = 'application/json';
-      payload = JSON.stringify(body);
-    }
-    const url = new URL(path, this.origin());
-    const res = await fetch(url.toString(), {
-      method,
-      headers,
-      body: payload,
-    });
-    if (res.status === 204) return undefined as T;
-    if (!res.ok) {
-      const errBody = (await res.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      const msg = errBody.error ?? `Backend error ${res.status}`;
-      const err = new Error(msg);
-      (err as Error & { backendStatus?: number }).backendStatus = res.status;
-      throw err;
-    }
-    return (await res.json()) as T;
-  }
-
-  private origin(): string {
-    if (typeof window !== 'undefined' && window.location?.origin) {
-      return window.location.origin;
-    }
-    return 'http://localhost';
   }
 }
