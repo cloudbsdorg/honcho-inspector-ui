@@ -26,25 +26,26 @@
     </button>
   </header>
 
-  <div
-    *ngIf="error() as e"
-    class="th-border mb-3 border-2 px-3 py-2 text-xs"
-    data-testid="profile-error"
-    [style.borderColor]="'var(--danger)'"
-    [style.color]="'var(--danger)'"
-    style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
-  >
-    {{ e }}
-  </div>
+  @if (error(); as e) {
+    <div
+      class="th-border mb-3 border-2 px-3 py-2 text-xs"
+      data-testid="profile-error"
+      [style.borderColor]="'var(--danger)'"
+      [style.color]="'var(--danger)'"
+      style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
+    >
+      {{ e }}
+    </div>
+  }
 
-  <form
-    *ngIf="isCreateOpen() || edit().open"
-    [formGroup]="form"
-    (ngSubmit)="submit()"
-    class="th-border mb-4 space-y-3 border-2 p-4"
-    data-testid="profile-form"
-    style="border-radius: var(--radius); background: var(--surface);"
-  >
+  @if (isCreateOpen() || edit().open) {
+    <form
+      [formGroup]="form"
+      (ngSubmit)="submit()"
+      class="th-border mb-4 space-y-3 border-2 p-4"
+      data-testid="profile-form"
+      style="border-radius: var(--radius); background: var(--surface);"
+    >
     <h2
       class="th-display text-xs font-bold uppercase tracking-widest"
       style="color: var(--accent);"
@@ -151,6 +152,7 @@
       </button>
     </div>
   </form>
+  }
 
   @if (loading()) {
     <div

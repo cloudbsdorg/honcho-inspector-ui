@@ -5,7 +5,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import {
   FormBuilder,
   FormGroup,
@@ -15,6 +14,7 @@ import {
 import { Router } from '@angular/router';
 import { ProfileService } from '../../core/profile.service';
 import { Profile, ProfileWithKey } from '../../core/models';
+import { formatError } from '../../core/error-message';
 
 interface TestResult {
   ok: boolean;
@@ -28,7 +28,7 @@ interface EditState {
 
 @Component({
   selector: 'app-profile-selector',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-selector.html',
   styleUrl: './profile-selector.css',
@@ -66,7 +66,7 @@ export class ProfileSelector {
     try {
       await this.profiles.list();
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(formatError(e));
     } finally {
       this.loading.set(false);
     }
@@ -148,7 +148,7 @@ export class ProfileSelector {
         this.showCreate.set(false);
       }
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(formatError(e));
     }
   }
 
@@ -166,7 +166,7 @@ export class ProfileSelector {
     try {
       await this.profiles.delete(profile.id);
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(formatError(e));
     }
   }
 
@@ -178,7 +178,7 @@ export class ProfileSelector {
     } catch (e) {
       this.testResults.update((m) => ({
         ...m,
-        [profile.id]: { ok: false, message: this.toMessage(e) },
+        [profile.id]: { ok: false, message: formatError(e) },
       }));
     }
   }
@@ -188,7 +188,7 @@ export class ProfileSelector {
       const result = await this.profiles.reveal(profile.id);
       this.reveal.set(result);
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(formatError(e));
     }
   }
 
@@ -210,10 +210,5 @@ export class ProfileSelector {
 
   isCreateOpen(): boolean {
     return this.showCreate();
-  }
-
-  private toMessage(e: unknown): string {
-    if (e instanceof Error) return e.message;
-    return 'Request failed';
   }
 }
