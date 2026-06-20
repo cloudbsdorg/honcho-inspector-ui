@@ -7,7 +7,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import {
   FormBuilder,
   FormGroup,
@@ -15,6 +14,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
+import { formatError } from '../../core/error-message';
 
 type Mode = 'register' | 'login';
 
@@ -22,7 +22,7 @@ const MIN_PASSWORD_LENGTH = 8;
 
 @Component({
   selector: 'app-login-modal',
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './login-modal.html',
   styleUrl: './login-modal.css',
@@ -76,7 +76,7 @@ export class LoginModal {
       }
       this.loggedIn.emit();
     } catch (e) {
-      this.error.set(this.toMessage(e));
+      this.error.set(formatError(e, 'Authentication failed'));
     } finally {
       this.submitting.set(false);
     }
@@ -93,10 +93,5 @@ export class LoginModal {
     if (c['password']?.errors?.['minlength'])
       return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
     return null;
-  }
-
-  private toMessage(e: unknown): string {
-    if (e instanceof Error) return e.message;
-    return 'Authentication failed';
   }
 }

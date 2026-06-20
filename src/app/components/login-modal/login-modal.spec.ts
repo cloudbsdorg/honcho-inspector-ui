@@ -122,14 +122,14 @@ describe('LoginModal', () => {
     expect(loggedInSpy).toHaveBeenCalled();
   });
 
-  it('should surface backend errors from auth.login on the error signal', async () => {
+  it('should surface a friendly error from auth.login on the error signal', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       jsonResponse({ error: 'invalid username or password' }, 401),
     );
     component.setMode('login');
     component.form.patchValue({ username: 'alice', password: 'passw0rd' });
     await component.submit();
-    expect(component.error()).toContain('invalid');
+    expect(component.error()).toContain('Authentication');
     expect(auth.isAuthenticated()).toBe(false);
   });
 

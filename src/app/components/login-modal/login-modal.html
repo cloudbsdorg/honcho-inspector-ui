@@ -1,10 +1,10 @@
-<div
-  data-testid="login-overlay"
-  *ngIf="open"
-  class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
-  [style.background]="'color-mix(in srgb, var(--bg) 70%, transparent)'"
-  (click)="dismiss()"
->
+@if (open) {
+  <div
+    data-testid="login-overlay"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+    [style.background]="'color-mix(in srgb, var(--bg) 70%, transparent)'"
+    (click)="dismiss()"
+  >
   <div
     class="th-surface th-shadow w-full max-w-md th-border border-2 p-6 sm:p-8"
     style="border-radius: var(--radius);"
@@ -94,16 +94,17 @@
         />
       </label>
 
-      <div
-        *ngIf="error() as e"
-        class="border-2 px-3 py-2 text-sm th-pulse"
-        data-testid="login-error"
-        [style.borderColor]="'var(--danger)'"
-        [style.color]="'var(--danger)'"
-        style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
-      >
-        {{ e }}
-      </div>
+      @if (error(); as e) {
+        <div
+          class="border-2 px-3 py-2 text-sm th-pulse"
+          data-testid="login-error"
+          [style.borderColor]="'var(--danger)'"
+          [style.color]="'var(--danger)'"
+          style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
+        >
+          {{ e }}
+        </div>
+      }
 
       <div class="flex items-center justify-between gap-3 pt-2">
         <button
@@ -142,4 +143,5 @@
       }
     </p>
   </div>
-</div>
+  </div>
+}
