@@ -32,7 +32,7 @@ export class SetupWizard {
   private readonly auth = inject(HonchoAuthService);
   private readonly fb = inject(FormBuilder);
 
-  @Input() open = false;
+  @Input() open = true;
   @Output() completed = new EventEmitter<void>();
   @Output() dismissed = new EventEmitter<void>();
 
