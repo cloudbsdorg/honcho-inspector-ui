@@ -75,15 +75,39 @@ describe('HonchoAuthService', () => {
     expect(auth.isAuthenticated()).toBe(false);
   });
 
-  it('register() should POST /api/auth/register, then call login, then store session', async () => {
-    fetchSpy
-      .mockResolvedValueOnce(jsonResponse(USER, 201))
-      .mockResolvedValueOnce(jsonResponse({ sessionId: 'sess-2', user: USER }));
-    const creds = await auth.register({ username: 'alice', password: 'passw0rd' });
-    expect(fetchSpy.mock.calls[0]?.[0]).toBe('/api/auth/register');
-    expect(fetchSpy.mock.calls[1]?.[0]).toBe('/api/auth/login');
+  it('setupFirstAdmin() should POST /api/setup/first-admin and store { sessionId, user }', async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse({ sessionId: 'sess-2', user: USER }),
+    );
+    const creds = await auth.setupFirstAdmin({
+      username: 'alice',
+      password: 'passw0rd',
+      firstname: 'Alice',
+      lastname: 'Liddell',
+      email: 'alice@example.com',
+    });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/setup/first-admin',
+      expect.objectContaining({ method: 'POST' }),
+    );
     expect(creds.sessionId).toBe('sess-2');
+    expect(creds.user.username).toBe('alice');
     expect(auth.isAuthenticated()).toBe(true);
+    expect(auth.isAdmin()).toBe(false);
+  });
+
+  it('setupFirstAdmin() should reject empty username before calling the backend', async () => {
+    await expect(
+      auth.setupFirstAdmin({ username: '', password: 'passw0rd' }),
+    ).rejects.toThrow(/Username is required/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('setupFirstAdmin() should reject passwords shorter than 8 chars', async () => {
+    await expect(
+      auth.setupFirstAdmin({ username: 'alice', password: 'short' }),
+    ).rejects.toThrow(/at least 8 characters/);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('logout() should POST /api/auth/logout with X-Session-Id and clear localStorage', async () => {

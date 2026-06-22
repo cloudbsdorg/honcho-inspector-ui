@@ -59,6 +59,17 @@
       >
         ◈ Inspector
       </button>
+      @if (isAdmin()) {
+        <button
+          type="button"
+          (click)="openAdmin()"
+          data-testid="open-admin"
+          class="th-border border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest hover:th-glow"
+          style="border-radius: var(--radius); background: var(--surface); color: var(--accent);"
+        >
+          ⚙ Admin
+        </button>
+      }
       <app-theme-picker />
       <button
         type="button"

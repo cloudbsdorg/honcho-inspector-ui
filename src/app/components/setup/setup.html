@@ -1,0 +1,251 @@
+@if (open) {
+  <div
+    data-testid="setup-overlay"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+    [style.background]="'color-mix(in srgb, var(--bg) 70%, transparent)'"
+    (click)="dismiss()"
+  >
+    <div
+      class="th-surface th-shadow w-full max-w-xl th-border border-2 p-6 sm:p-8"
+      style="border-radius: var(--radius);"
+      (click)="$event.stopPropagation()"
+      data-testid="setup-card"
+    >
+      <div class="mb-4 flex items-center gap-3">
+        <div
+          class="th-gradient h-10 w-10"
+          style="border-radius: var(--radius);"
+        ></div>
+        <div>
+          <h1 class="th-display text-2xl font-bold tracking-wider" style="color: var(--accent);">
+            HONCHO INSPECTOR
+          </h1>
+          <p class="text-xs opacity-70">First-run setup — create the first admin</p>
+        </div>
+      </div>
+
+      <ol class="mb-6 flex items-center gap-2" aria-label="setup steps">
+        @for (n of [1, 2, 3]; track n) {
+          <li class="flex flex-1 items-center gap-2">
+            <span
+              class="flex h-7 w-7 items-center justify-center text-xs font-bold uppercase"
+              style="border-radius: var(--radius);"
+              [style.background]="step() >= n ? 'var(--accent)' : 'transparent'"
+              [style.color]="step() >= n ? 'var(--bg)' : 'var(--text-dim)'"
+              [style.border]="'2px solid var(--accent)'"
+            >
+              {{ n }}
+            </span>
+            <span class="text-[10px] font-bold uppercase tracking-widest opacity-70">
+              @switch (n) {
+                @case (1) { Welcome }
+                @case (2) { Account }
+                @case (3) { Confirm }
+              }
+            </span>
+            @if (n < 3) {
+              <span class="mx-1 h-px flex-1" style="background: var(--accent); opacity: 0.3"></span>
+            }
+          </li>
+        }
+      </ol>
+
+      @switch (step()) {
+        @case (1) {
+          <div class="space-y-4" data-testid="setup-step-1">
+            <p class="text-sm">
+              No users exist yet. This wizard creates the first admin. The first admin
+              has full access — user management, audit log, dashboard overview.
+            </p>
+            <div
+              class="border-2 px-3 py-2 text-xs"
+              style="border-radius: var(--radius); border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);"
+            >
+              Choose a strong password. After this, log in uses the same username + password.
+              New users are created by admins from
+              <code class="font-mono">/admin</code>.
+            </div>
+          </div>
+        }
+        @case (2) {
+          <form [formGroup]="form" class="space-y-4" data-testid="setup-step-2">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Username
+                </span>
+                <input
+                  formControlName="username"
+                  type="text"
+                  autocomplete="username"
+                  data-testid="setup-username"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text);"
+                />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Email (optional)
+                </span>
+                <input
+                  formControlName="email"
+                  type="email"
+                  autocomplete="email"
+                  data-testid="setup-email"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text);"
+                />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  First name (optional)
+                </span>
+                <input
+                  formControlName="firstname"
+                  type="text"
+                  autocomplete="given-name"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text);"
+                />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Last name (optional)
+                </span>
+                <input
+                  formControlName="lastname"
+                  type="text"
+                  autocomplete="family-name"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text);"
+                />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Password
+                </span>
+                <input
+                  formControlName="password"
+                  type="password"
+                  autocomplete="new-password"
+                  data-testid="setup-password"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text);"
+                  placeholder="8+ characters"
+                />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Confirm
+                </span>
+                <input
+                  formControlName="confirm"
+                  type="password"
+                  autocomplete="new-password"
+                  data-testid="setup-confirm"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text);"
+                />
+                @if (form.controls['confirm'].value && !passwordsMatch()) {
+                  <span class="mt-1 block text-[10px]" style="color: var(--danger);">
+                    Passwords do not match
+                  </span>
+                }
+              </label>
+            </div>
+          </form>
+        }
+        @case (3) {
+          <div class="space-y-4" data-testid="setup-step-3">
+            <p class="text-sm">Review and confirm:</p>
+            <dl
+              class="grid grid-cols-2 gap-3 border-2 p-4 text-sm"
+              style="border-radius: var(--radius); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, transparent);"
+            >
+              <dt class="opacity-60">Username</dt>
+              <dd class="font-mono">{{ form.controls['username'].value }}</dd>
+              <dt class="opacity-60">Email</dt>
+              <dd class="font-mono">{{ form.controls['email'].value || '—' }}</dd>
+              <dt class="opacity-60">First name</dt>
+              <dd class="font-mono">{{ form.controls['firstname'].value || '—' }}</dd>
+              <dt class="opacity-60">Last name</dt>
+              <dd class="font-mono">{{ form.controls['lastname'].value || '—' }}</dd>
+              <dt class="opacity-60">Role</dt>
+              <dd class="font-mono" style="color: var(--accent);">admin</dd>
+            </dl>
+            <p class="text-xs opacity-70">
+              After confirming, you are signed in as the first admin and redirected
+              to the profile selector. Use
+              <code class="font-mono">/admin</code> to add users.
+            </p>
+          </div>
+        }
+      }
+
+      @if (error(); as e) {
+        <div
+          class="mt-4 border-2 px-3 py-2 text-sm th-pulse"
+          data-testid="setup-error"
+          [style.borderColor]="'var(--danger)'"
+          [style.color]="'var(--danger)'"
+          style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
+        >
+          {{ e }}
+        </div>
+      }
+
+      <div class="mt-6 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          (click)="dismiss()"
+          [disabled]="submitting()"
+          class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+          style="border-radius: var(--radius);"
+        >
+          Cancel
+        </button>
+        <div class="flex gap-2">
+          @if (step() > 1) {
+            <button
+              type="button"
+              (click)="back()"
+              [disabled]="submitting()"
+              data-testid="setup-back"
+              class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+              style="border-radius: var(--radius);"
+            >
+              Back
+            </button>
+          }
+          @if (step() < 3) {
+            <button
+              type="button"
+              (click)="next()"
+              [disabled]="!canAdvance()"
+              data-testid="setup-next"
+              class="px-6 py-2 th-border border-2 th-gradient font-bold uppercase tracking-widest disabled:opacity-50"
+              style="border-radius: var(--radius); color: var(--bg);"
+            >
+              Next
+            </button>
+          } @else {
+            <button
+              type="button"
+              (click)="submit()"
+              [disabled]="submitting()"
+              data-testid="setup-confirm-btn"
+              class="px-6 py-2 th-border border-2 th-gradient font-bold uppercase tracking-widest disabled:opacity-50"
+              style="border-radius: var(--radius); color: var(--bg);"
+            >
+              @if (submitting()) {
+                Creating...
+              } @else {
+                Create admin
+              }
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}

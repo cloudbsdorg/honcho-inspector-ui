@@ -43,24 +43,6 @@ describe('LoginModal', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should default to register mode', () => {
-    expect(component.mode()).toBe('register');
-  });
-
-  it('should switch modes via setMode()', () => {
-    component.setMode('login');
-    expect(component.mode()).toBe('login');
-    component.setMode('register');
-    expect(component.mode()).toBe('register');
-  });
-
-  it('should toggle modes via toggleMode()', () => {
-    component.toggleMode();
-    expect(component.mode()).toBe('login');
-    component.toggleMode();
-    expect(component.mode()).toBe('register');
-  });
-
   it('should not be visible when open is false', () => {
     fixture.componentRef.setInput('open', false);
     fixture.detectChanges();
@@ -77,6 +59,13 @@ describe('LoginModal', () => {
     expect(overlay).not.toBeNull();
   });
 
+  it('should render login username + password fields', () => {
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[data-testid="login-username"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="login-password"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="login-submit"]')).not.toBeNull();
+  });
+
   it('should reject empty form and surface an error', async () => {
     await component.submit();
     expect(component.error()).toBeTruthy();
@@ -84,49 +73,31 @@ describe('LoginModal', () => {
   });
 
   it('should reject passwords shorter than 8 characters', async () => {
-    component.setMode('login');
     component.form.patchValue({ username: 'alice', password: 'short' });
     await component.submit();
     expect(component.error()).toMatch(/at least 8 characters/);
     expect(auth.isAuthenticated()).toBe(false);
   });
 
-  it('should call auth.register + auth.login on a valid register submission and emit loggedIn', async () => {
-    const spy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(jsonResponse(USER, 201)) // register
-      .mockResolvedValueOnce(jsonResponse({ sessionId: 'sess-1', user: USER })); // login
-    const loggedInSpy = vi.fn();
-    component.loggedIn.subscribe(loggedInSpy);
-    component.form.patchValue({ username: 'alice', password: 'passw0rd' });
-    await component.submit();
-    expect(spy.mock.calls[0]?.[0]).toBe('/api/auth/register');
-    expect(spy.mock.calls[1]?.[0]).toBe('/api/auth/login');
-    expect(auth.isAuthenticated()).toBe(true);
-    expect(loggedInSpy).toHaveBeenCalled();
-    expect(component.error()).toBeNull();
-  });
-
-  it('should call only auth.login on a valid login submission and emit loggedIn', async () => {
+  it('should call auth.login on a valid submission and emit loggedIn', async () => {
     const spy = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(jsonResponse({ sessionId: 'sess-1', user: USER }));
     const loggedInSpy = vi.fn();
     component.loggedIn.subscribe(loggedInSpy);
-    component.setMode('login');
     component.form.patchValue({ username: 'alice', password: 'passw0rd' });
     await component.submit();
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0]?.[0]).toBe('/api/auth/login');
     expect(auth.isAuthenticated()).toBe(true);
     expect(loggedInSpy).toHaveBeenCalled();
+    expect(component.error()).toBeNull();
   });
 
   it('should surface a friendly error from auth.login on the error signal', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
       jsonResponse({ error: 'invalid username or password' }, 401),
     );
-    component.setMode('login');
     component.form.patchValue({ username: 'alice', password: 'passw0rd' });
     await component.submit();
     expect(component.error()).toContain('Authentication');

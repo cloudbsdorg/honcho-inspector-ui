@@ -45,6 +45,7 @@ export class Dashboard implements OnInit {
   readonly newPeerId = signal('');
 
   readonly currentThemeName = computed(() => this.theme.currentMeta().name);
+  readonly isAdmin = computed(() => this.auth.isAdmin());
 
   constructor() {
     this.ready = this.bootstrap();
@@ -161,5 +162,9 @@ export class Dashboard implements OnInit {
 
   openInspector(): void {
     this.router.navigateByUrl('/inspector');
+  }
+
+  openAdmin(): void {
+    this.router.navigateByUrl('/admin');
   }
 }

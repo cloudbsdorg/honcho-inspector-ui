@@ -1,7 +1,15 @@
 import { Routes } from '@angular/router';
+import { adminGuard } from './guards/admin.guard';
 import { authGuard } from './guards/auth.guard';
+import { setupGuard } from './guards/setup.guard';
 
 export const routes: Routes = [
+  {
+    path: 'setup',
+    canActivate: [setupGuard],
+    loadComponent: () =>
+      import('./components/setup/setup').then((m) => m.SetupWizard),
+  },
   {
     path: 'login',
     loadComponent: () =>
@@ -14,6 +22,12 @@ export const routes: Routes = [
       import('./components/profile-selector/profile-selector').then(
         (m) => m.ProfileSelector,
       ),
+  },
+  {
+    path: 'admin',
+    canActivate: [authGuard, adminGuard],
+    loadComponent: () =>
+      import('./components/admin/admin').then((m) => m.AdminPanel),
   },
   {
     path: '',

@@ -1,0 +1,28 @@
+:host {
+  display: contents;
+}
+
+[data-testid='setup-card'] {
+  animation: setup-pop 220ms ease-out;
+}
+
+@keyframes setup-pop {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+input:focus {
+  outline: none;
+}
+
+ol[aria-label='setup steps'] {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}

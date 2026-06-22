@@ -22,6 +22,110 @@ export interface HonchoCredentials {
   user: User;
 }
 
+/**
+ * Response body of `GET /api/health`. The two flags are aliases — both
+ * are `true` when `users.count() == 0` (the service is in bootstrap
+ * state and the UI should show the first-run wizard). Kept for
+ * backward compatibility with UI code written before first-run was
+ * formalised; new code should read `firstRun`.
+ */
+export interface HealthResponse {
+  ok: boolean;
+  firstRun: boolean;
+  needsRegister: boolean;
+}
+
+export interface FirstAdminInput {
+  username: string;
+  password: string;
+  firstname?: string;
+  lastname?: string;
+  email?: string;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  firstname: string | null;
+  lastname: string | null;
+  email: string | null;
+  isAdmin: boolean;
+  createdAt: string;
+}
+
+export interface AdminUserPage {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface AdminCreateUserInput {
+  username: string;
+  password: string;
+  firstname?: string;
+  lastname?: string;
+  email?: string;
+  isAdmin?: boolean;
+}
+
+export interface AdminUpdateUserInput {
+  username?: string;
+  firstname?: string | null;
+  lastname?: string | null;
+  email?: string | null;
+  isAdmin?: boolean;
+}
+
+export interface AdminPasswordResetInput {
+  newPassword: string;
+}
+
+export interface AdminAuditEntry {
+  id: number;
+  actorUserId: string | null;
+  action: string;
+  targetUserId: string | null;
+  targetResource: string | null;
+  ip: string | null;
+  sessionId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AdminAuditPage {
+  items: AdminAuditEntry[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+/**
+ * `GET /api/admin/dashboard/overview` — local SQL aggregates plus
+ * 7-day / 30-day growth deltas. Powers the admin overview charts.
+ */
+export interface AdminDashboardOverview {
+  userCount: number;
+  sessionCount: number;
+  profileCount: number;
+  auditCount: number;
+  usersLast7d: number;
+  usersLast30d: number;
+  sessionsLast7d: number;
+  sessionsLast30d: number;
+  auditsLast7d: number;
+  auditsLast30d: number;
+}
+
+export interface AdminMaintenanceStatus {
+  userCount: number;
+  sessionCount: number;
+  auditCount: number;
+  retentionDays: number;
+  maxRows: number;
+  purgeCron: string;
+}
+
 export interface ProfileWithKey {
   profile: Profile;
   apiKey: string; // plaintext, only from /reveal

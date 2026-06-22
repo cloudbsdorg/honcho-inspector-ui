@@ -16,8 +16,6 @@ import {
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { formatError } from '../../core/error-message';
 
-type Mode = 'register' | 'login';
-
 const MIN_PASSWORD_LENGTH = 8;
 
 @Component({
@@ -35,7 +33,6 @@ export class LoginModal {
   @Output() loggedIn = new EventEmitter<void>();
   @Output() dismissed = new EventEmitter<void>();
 
-  readonly mode = signal<Mode>('register');
   readonly error = signal<string | null>(null);
   readonly submitting = signal(false);
 
@@ -51,15 +48,6 @@ export class LoginModal {
     }
   }
 
-  setMode(mode: Mode): void {
-    this.mode.set(mode);
-    this.error.set(null);
-  }
-
-  toggleMode(): void {
-    this.setMode(this.mode() === 'register' ? 'login' : 'register');
-  }
-
   async submit(): Promise<void> {
     if (this.form.invalid) {
       this.error.set(this.firstError() ?? 'Form is invalid');
@@ -69,11 +57,7 @@ export class LoginModal {
     this.error.set(null);
     try {
       const value = this.form.value as { username: string; password: string };
-      if (this.mode() === 'register') {
-        await this.auth.register(value);
-      } else {
-        await this.auth.login(value);
-      }
+      await this.auth.login(value);
       this.loggedIn.emit();
     } catch (e) {
       this.error.set(formatError(e, 'Authentication failed'));

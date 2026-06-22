@@ -86,6 +86,17 @@ describe('authGuard', () => {
     expect(router.serializeUrl(result as UrlTree)).toBe('/login');
   });
 
+  it('should redirect to /setup when backend reports firstRun', async () => {
+    installFetch((p) => {
+      if (p === '/api/health')
+        return jsonResponse({ ok: true, firstRun: true, needsRegister: true });
+      return jsonResponse({});
+    });
+    const result = await executeGuard(fakeRoute(''), {} as never);
+    expect(result).toBeInstanceOf(UrlTree);
+    expect(router.serializeUrl(result as UrlTree)).toBe('/setup');
+  });
+
   it('should allow /login route through even when authenticated', async () => {
     await login(auth);
     const result = await executeGuard(fakeRoute('login'), {} as never);

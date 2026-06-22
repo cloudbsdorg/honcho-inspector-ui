@@ -1,0 +1,16 @@
+:host {
+  display: block;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+}
+
+button {
+  user-select: none;
+}

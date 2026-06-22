@@ -16,6 +16,7 @@ Part of the **honcho-inspector** product, split across two repos:
 - **Angular 22** standalone components, signals, `inject()`
 - **TypeScript 6**, strict mode
 - **Tailwind v4** (via `@tailwindcss/postcss`)
+- **Chart.js 4** for the admin overview graphs (bar, line, doughnut)
 - **Vitest** + Angular `@angular/build:unit-test` for unit tests
 - **No `@angular/forms` HttpClient** — uses `globalThis.fetch` (testable in jsdom)
 - **No `BehaviorSubject`** — all state is `signal()` / `computed()`
@@ -34,7 +35,12 @@ npm install
 npm start                            # ng serve --port 4200, proxies /api/* to localhost:8080
 ```
 
-Open `http://localhost:4200`. The login modal will ask for username + password. First user becomes admin.
+Open `http://localhost:4200`. The flow depends on backend state:
+
+- **First-run** (no users in the backend database) → the UI routes you to `/setup` and shows the **first-run wizard**. Pick a username, password, and optional name/email; submit to create the first admin. You are signed in automatically.
+- **Normal** → the UI routes you to `/login` and shows the **login modal**. Enter your credentials. Users are created by admins from `/admin`, not from the login page.
+
+Public self-registration was removed when the backend added admin RBAC. New accounts are provisioned exclusively by an existing admin.
 
 ### Run with backend
 
@@ -90,32 +96,50 @@ There is a `window.__APP_CONFIG__` runtime override slot for the rare case where
 
 ## Architecture
 
+### Routes
+
+| Path | Guard | Purpose |
+|---|---|---|
+| `/setup` | `setupGuard` | First-run wizard; only reachable when backend reports `firstRun === true` |
+| `/login` | none | Login modal |
+| `/profiles` | `authGuard` | Profile selector (create / edit / delete / test) |
+| `/` | `authGuard` | Dashboard (peers, sessions, queue, chat) |
+| `/inspector` | `authGuard` | Memory inspector (peer deep-dive) |
+| `/admin` | `authGuard`, `adminGuard` | Admin panel (users, audit log, overview charts, maintenance); admin-only |
+| `**` | none | Redirect to `/` |
+
 ### Auth flow
 
-The UI is login-gated by an `authGuard`. The flow is:
+The UI is gated by an `authGuard`. Before redirecting to `/login`, the guard probes `GET /api/health`; if `firstRun === true` it routes to `/setup` instead.
 
-1. **Login** → `POST /api/auth/login` with `{ username, password }` → store `{ sessionId, user }` in localStorage.
-2. **Every API call** → send `X-Session-Id: <sessionId>` header.
-3. **Honcho calls** → also send `X-Honcho-Profile-Id: <activeProfileId>` header.
-4. **Logout** → `POST /api/auth/logout`, then clear localStorage.
+1. **First-run** → `POST /api/setup/first-admin` with `{ username, password, firstname?, lastname?, email? }` → store `{ sessionId, user }` in localStorage.
+2. **Login** → `POST /api/auth/login` with `{ username, password }` → store `{ sessionId, user }` in localStorage.
+3. **Every API call** → send `X-Session-Id: <sessionId>` header.
+4. **Honcho calls** → also send `X-Honcho-Profile-Id: <activeProfileId>` header.
+5. **Logout** → `POST /api/auth/logout`, then clear localStorage.
 
-`HonchoAuthService` is a `providedIn: 'root'` signal service. It owns the `credentials` signal. `ProfileService` owns the `profiles` and `activeProfileId` signals. `HonchoService` reads both.
+`HonchoAuthService` is a `providedIn: 'root'` signal service. It owns the `credentials` signal and exposes `isAdmin` / `user` computed signals. `ProfileService` owns the `profiles` and `activeProfileId` signals. `HonchoService` reads both.
 
 ### Components
 
 - `App` — router host
-- `LoginModal` — login + register form, used at `/login`
-- `ProfileSelector` — list/create/edit/delete/test profiles, used at `/profiles` and embedded in the dashboard header
-- `Dashboard` — the main view (peers, sessions, queue status, chat)
-- `MemoryInspector` — deep-dive on a peer's card / representation / conclusions
-- `ChatPanel` — chat with a peer (Honcho dialectic)
+- `SetupWizard` — multi-step first-run wizard (`/setup`)
+- `LoginModal` — username + password form (`/login`)
+- `ProfileSelector` — list/create/edit/delete/test profiles (`/profiles`)
+- `Dashboard` — main view; header shows an **Admin** button when `auth.isAdmin()` is true
+- `MemoryInspector` — peer deep-dive (`/inspector`)
+- `ChatPanel` — Honcho chat
+- `AdminPanel` — admin-only: users tab, audit tab, overview tab (counts bar chart + 7d/30d growth line chart + audit-action doughnut), maintenance tab (`/admin`)
+- `ChartComponent` — thin Chart.js wrapper (`<canvas>` based, OnPush)
 - `ThemePicker` — six themes: Miami Vice, Retro CRT, Windows 95, SunOS, CDE, Modern Glass
 
 ### Services
 
-- `HonchoAuthService` — session + current user
+- `HonchoAuthService` — session + current user + setup/login/logout/me
+- `HealthService` — `GET /api/health` (firstRun, needsRegister)
 - `ProfileService` — profile CRUD + active selection
 - `HonchoService` — Honcho API client (proxied)
+- `AdminService` — `/api/admin/users`, `/api/admin/audit`, `/api/admin/dashboard/overview`, `/api/admin/maintenance/*`
 - `ThemeService` — current theme, persisted to localStorage
 
 ## Build + deploy
@@ -161,22 +185,29 @@ src/
   app/
     app.ts                  — root component
     app.config.ts           — DI providers
-    app.routes.ts           — /login, /profiles, /, /inspector
+    app.routes.ts           — /setup, /login, /profiles, /admin, /, /inspector
     core/
-      honcho-auth.service.ts   — session + current user
+      honcho-auth.service.ts   — session + current user + setup/login/logout/me
+      health.service.ts        — GET /api/health
+      admin.service.ts         — /api/admin/* (users, audit, dashboard, maintenance)
       profile.service.ts       — profile CRUD + active selection
       honcho.service.ts        — Honcho API client (proxied)
       theme.service.ts         — current theme
-      models.ts                — shared types
+      models.ts                — shared types (Health, AdminUser, AdminAuditEntry, …)
     components/
+      setup/                   — first-run wizard (3 steps)
       login-modal/             — username/password form
       profile-selector/        — list/create/edit/delete/test profiles
-      dashboard/               — main view
+      dashboard/               — main view (admin nav shown to isAdmin)
       memory-inspector/        — peer deep-dive
       chat-panel/              — Honcho chat
+      admin/                   — admin panel (users / audit / overview charts / maintenance)
+      charts/                  — Chart.js wrapper
       theme-picker/            — theme switcher
     guards/
-      auth.guard.ts            — checks session + active profile
+      auth.guard.ts            — checks session + active profile; probes /api/health for firstRun
+      setup.guard.ts           — only allows /setup when firstRun === true
+      admin.guard.ts           — gates /admin to isAdmin === true
 src/test-setup.ts               — jsdom localStorage polyfill
 proxy.conf.json                 — /api/* → http://localhost:8080 (or NG_BACKEND_URL)
 ```

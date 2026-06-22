@@ -1,26 +1,15 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ApiClient, ApiError } from './api-client';
-import { HonchoCredentials, User } from './models';
+import { FirstAdminInput, HonchoCredentials, User } from './models';
 
 const STORAGE_KEY = 'honcho-credentials';
 const MIN_PASSWORD_LENGTH = 8;
-
-export interface RegisterInput {
-  username: string;
-  password: string;
-}
 
 export interface LoginInput {
   username: string;
   password: string;
 }
 
-/**
- * Manages the user's session against the backend (`/api/auth/*`).
- *
- * `HonchoCredentials` is just `{ sessionId, user }` — workspaceId /
- * baseUrl / honchoUserName live on `Profile` (see `ProfileService`).
- */
 @Injectable({ providedIn: 'root' })
 export class HonchoAuthService {
   private readonly api = inject(ApiClient);
@@ -30,24 +19,31 @@ export class HonchoAuthService {
   readonly credentials = this._credentials.asReadonly();
   readonly isAuthenticated = computed(() => this._credentials() !== null);
   readonly user = computed(() => this._credentials()?.user ?? null);
+  readonly isAdmin = computed(() => this._credentials()?.user.isAdmin ?? false);
 
   constructor() {
     this._credentials.set(this.loadFromStorage());
   }
 
-  async register(input: RegisterInput): Promise<HonchoCredentials> {
-    const cleaned = this.validate(input);
-    await this.api.request<unknown>({
+  async setupFirstAdmin(input: FirstAdminInput): Promise<HonchoCredentials> {
+    const cleaned = this.validateFirstAdmin(input);
+    const result = await this.api.request<{ sessionId: string; user: User }>({
       method: 'POST',
-      path: '/auth/register',
+      path: '/setup/first-admin',
       body: cleaned,
       anonymous: true,
     });
-    return this.login(input);
+    const stored: HonchoCredentials = {
+      sessionId: result.sessionId,
+      user: result.user,
+    };
+    this._credentials.set(stored);
+    this.persist(stored);
+    return stored;
   }
 
   async login(input: LoginInput): Promise<HonchoCredentials> {
-    const cleaned = this.validate(input);
+    const cleaned = this.validateLogin(input);
     const result = await this.api.request<{ sessionId: string; user: User }>({
       method: 'POST',
       path: '/auth/login',
@@ -66,7 +62,6 @@ export class HonchoAuthService {
   async logout(): Promise<void> {
     const creds = this._credentials();
     if (creds) {
-      // Best-effort: never let the local clear depend on the network.
       await this.api
         .request<unknown>({ method: 'POST', path: '/auth/logout', anonymous: true })
         .catch(() => undefined);
@@ -98,7 +93,7 @@ export class HonchoAuthService {
     this.persist(null);
   }
 
-  private validate(input: RegisterInput | LoginInput): RegisterInput {
+  private validateLogin(input: LoginInput): LoginInput {
     const username = input.username?.trim() ?? '';
     const password = input.password ?? '';
     if (username === '') throw new ApiError('Username is required', 400);
@@ -109,6 +104,22 @@ export class HonchoAuthService {
       );
     }
     return { username, password };
+  }
+
+  private validateFirstAdmin(input: FirstAdminInput): FirstAdminInput {
+    const username = input.username?.trim() ?? '';
+    const password = input.password ?? '';
+    const firstname = input.firstname?.trim() || undefined;
+    const lastname = input.lastname?.trim() || undefined;
+    const email = input.email?.trim() || undefined;
+    if (username === '') throw new ApiError('Username is required', 400);
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      throw new ApiError(
+        `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+        400,
+      );
+    }
+    return { username, password, firstname, lastname, email };
   }
 
   private loadFromStorage(): HonchoCredentials | null {
