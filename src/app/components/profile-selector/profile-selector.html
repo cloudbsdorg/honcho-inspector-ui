@@ -139,6 +139,20 @@
         Cancel
       </button>
       <button
+        type="button"
+        (click)="validate()"
+        [disabled]="validating()"
+        data-testid="profile-validate"
+        class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+        style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim);"
+      >
+        @if (validating()) {
+          Validating…
+        } @else {
+          Validate
+        }
+      </button>
+      <button
         type="submit"
         data-testid="profile-save"
         class="th-border border-2 px-4 py-1.5 text-xs font-bold uppercase tracking-widest"
@@ -151,6 +165,24 @@
         }
       </button>
     </div>
+
+    @if (validateResult(); as r) {
+      <div
+        class="mt-2 th-border border-2 px-3 py-2 text-xs"
+        [style.borderColor]="r.ok ? 'var(--success)' : 'var(--danger)'"
+        [style.color]="r.ok ? 'var(--success)' : 'var(--danger)'"
+        [attr.data-testid]="r.ok ? 'validate-ok' : 'validate-fail'"
+        style="border-radius: var(--radius);"
+      >
+        @if (r.ok) {
+          <span class="font-bold">Connection ok.</span>
+          <span class="opacity-80"> {{ r.message || 'Reachable.' }}</span>
+        } @else {
+          <span class="font-bold">Connection failed.</span>
+          <span class="opacity-80"> {{ r.error || 'Unknown error.' }}</span>
+        }
+      </div>
+    }
   </form>
   }
 

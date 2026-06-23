@@ -101,6 +101,27 @@ export class ProfileService {
     });
   }
 
+  /**
+   * Pre-save connectivity check. The backend hits the upstream Honcho
+   * with the supplied credentials and returns whether the request
+   * succeeded. Used by the profile form's "Validate" button so the
+   * user can confirm a profile works before clicking Save (which would
+   * persist the encrypted API key to the DB).
+   */
+  async validate(input: {
+    apiKey: string;
+    baseUrl: string;
+    workspaceId: string;
+    honchoUserName: string;
+  }): Promise<{ ok: boolean; message?: string; error?: string }> {
+    return this.api.request<{ ok: boolean; message?: string; error?: string }>({
+      method: 'POST',
+      path: '/profiles/validate',
+      body: input,
+      profileId: null,
+    });
+  }
+
   setActive(id: string | null): void {
     this._activeProfileId.set(id);
     if (typeof localStorage === 'undefined') return;

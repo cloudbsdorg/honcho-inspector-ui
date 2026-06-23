@@ -7,6 +7,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   FormBuilder,
   FormGroup,
@@ -28,6 +29,7 @@ const MIN_PASSWORD_LENGTH = 8;
 export class LoginModal {
   private readonly auth = inject(HonchoAuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly router = inject(Router);
 
   @Input() open = true;
   @Output() loggedIn = new EventEmitter<void>();
@@ -59,6 +61,12 @@ export class LoginModal {
       const value = this.form.value as { username: string; password: string };
       await this.auth.login(value);
       this.loggedIn.emit();
+      // After successful login, push the user to the profile selector
+      // so they pick an active Honcho profile before landing on the
+      // dashboard. Same rationale as SetupWizard.submit(): the modal
+      // is a route component with no parent to listen to loggedIn,
+      // so the explicit navigation has to happen here.
+      await this.router.navigate(['/profiles']);
     } catch (e) {
       this.error.set(formatError(e, 'Authentication failed'));
     } finally {

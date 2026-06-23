@@ -48,6 +48,11 @@ export class ProfileSelector {
   readonly showCreate = signal(false);
   readonly reveal = signal<ProfileWithKey | null>(null);
   readonly testResults = signal<Record<string, TestResult>>({});
+  // Pre-save validate result. null = not yet validated; otherwise
+  // {ok: true} or {ok: false, error: ...}. Cleared when the form
+  // fields change so the user sees a fresh result after edits.
+  readonly validateResult = signal<{ ok: boolean; message?: string; error?: string } | null>(null);
+  readonly validating = signal(false);
   readonly edit = signal<EditState>({ open: false, profile: null });
 
   readonly form: FormGroup = this.fb.group({
@@ -102,6 +107,37 @@ export class ProfileSelector {
     this.showCreate.set(false);
     this.edit.set({ open: false, profile: null });
     this.error.set(null);
+  }
+
+  async validate(): Promise<void> {
+    this.validateResult.set(null);
+    const value = this.form.value as {
+      label: string;
+      apiKey: string;
+      baseUrl: string;
+      workspaceId: string;
+      honchoUserName: string;
+    };
+    // Validate only requires the connectivity fields; missing label
+    // is fine because nothing is being saved.
+    if (!value.apiKey?.trim() || !value.baseUrl?.trim() || !value.workspaceId?.trim() || !value.honchoUserName?.trim()) {
+      this.validateResult.set({ ok: false, error: 'API key, base URL, workspace ID, and Honcho user name are all required to validate' });
+      return;
+    }
+    this.validating.set(true);
+    try {
+      const res = await this.profiles.validate({
+        apiKey: value.apiKey,
+        baseUrl: value.baseUrl,
+        workspaceId: value.workspaceId,
+        honchoUserName: value.honchoUserName,
+      });
+      this.validateResult.set(res);
+    } catch (e) {
+      this.validateResult.set({ ok: false, error: formatError(e) });
+    } finally {
+      this.validating.set(false);
+    }
   }
 
   async submit(): Promise<void> {
