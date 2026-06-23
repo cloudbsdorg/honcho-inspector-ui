@@ -1,0 +1,24 @@
+:host {
+  display: block;
+  flex-shrink: 0;
+}
+
+a.app-header-link {
+  color: var(--accent);
+  background: var(--surface);
+  text-decoration: none;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+a.app-header-link:hover {
+  box-shadow: var(--accent) 0 0 6px -1px;
+}
+
+a.app-header-link.is-active {
+  color: var(--bg);
+  background: var(--accent);
+}
+
+a.app-header-link.is-active:hover {
+  box-shadow: none;
+}

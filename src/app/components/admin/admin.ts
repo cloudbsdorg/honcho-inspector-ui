@@ -6,7 +6,6 @@ import {
   signal,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { Router } from '@angular/router';
 import { AdminService, type PageSize } from '../../core/admin.service';
 import { formatError } from '../../core/error-message';
 import {
@@ -34,7 +33,6 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
 })
 export class AdminPanel {
   private readonly admin = inject(AdminService);
-  private readonly router = inject(Router);
 
   readonly tab = signal<Tab>('overview');
   readonly error = signal<string | null>(null);
@@ -389,9 +387,5 @@ export class AdminPanel {
   formatMetadata(metadata: Record<string, unknown> | undefined | null): string {
     if (!metadata || Object.keys(metadata).length === 0) return '—';
     return JSON.stringify(metadata);
-  }
-
-  back(): void {
-    this.router.navigateByUrl('/');
   }
 }

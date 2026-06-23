@@ -26,3 +26,16 @@ if (typeof globalThis.localStorage === 'undefined') {
     configurable: true,
   });
 }
+
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  class ResizeObserverStub {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    value: ResizeObserverStub,
+    writable: true,
+    configurable: true,
+  });
+}

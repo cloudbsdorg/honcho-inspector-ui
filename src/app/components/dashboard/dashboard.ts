@@ -13,14 +13,13 @@ import { HonchoService } from '../../core/honcho.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { ProfileService } from '../../core/profile.service';
 import { ThemeService } from '../../core/theme.service';
-import { ThemePicker } from '../theme-picker/theme-picker';
 import { ChatPanel } from '../chat-panel/chat-panel';
 import { WorkspaceOverview } from './workspace-overview';
 import { MetricsService } from '../../core/metrics.service';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, FormsModule, ThemePicker, ChatPanel, WorkspaceOverview],
+  imports: [CommonModule, FormsModule, ChatPanel, WorkspaceOverview],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
@@ -36,9 +35,6 @@ export class Dashboard implements OnInit {
   private readonly SELECTED_PEER_KEY = 'honcho-dashboard-selected-peer';
 
   readonly ready: Promise<void>;
-  readonly userName = computed(() => this.auth.user()?.username ?? '');
-  readonly profile = this.profileService.activeProfile;
-  readonly profiles = this.profileService.profiles;
 
   readonly selectedPeerId = signal<string | null>(null);
   readonly peerCard = signal<string[]>([]);
@@ -48,7 +44,6 @@ export class Dashboard implements OnInit {
   readonly newPeerId = signal('');
 
   readonly currentThemeName = computed(() => this.theme.currentMeta().name);
-  readonly isAdmin = computed(() => this.auth.isAdmin());
 
   constructor() {
     this.ready = this.bootstrap();
@@ -143,35 +138,5 @@ export class Dashboard implements OnInit {
     this.newPeerId.set('');
     await this.honcho.refreshPeers();
     await this.selectPeer(id);
-  }
-
-  switchProfile(id: string): void {
-    this.profileService.setActive(id);
-    this.honcho.reset();
-    // Force a refresh; reload peers for the new profile
-    this.refreshAll();
-  }
-
-  goToProfiles(): void {
-    this.router.navigateByUrl('/profiles');
-  }
-
-  logout(): void {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(this.SELECTED_PEER_KEY);
-    }
-    this.selectedPeerId.set(null);
-    this.peerCard.set([]);
-    this.peerRepresentation.set('');
-    this.honcho.reset();
-    this.auth.logout();
-  }
-
-  openInspector(): void {
-    this.router.navigateByUrl('/inspector');
-  }
-
-  openAdmin(): void {
-    this.router.navigateByUrl('/admin');
   }
 }

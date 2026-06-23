@@ -11,7 +11,6 @@ import { Router } from '@angular/router';
 import { HonchoService } from '../../core/honcho.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { ProfileService } from '../../core/profile.service';
-import { ThemePicker } from '../theme-picker/theme-picker';
 import {
   HonchoConclusion,
   HonchoMessage,
@@ -32,7 +31,7 @@ interface Tab {
 
 @Component({
   selector: 'app-memory-inspector',
-  imports: [CommonModule, FormsModule, ThemePicker],
+  imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './memory-inspector.html',
   styleUrl: './memory-inspector.css',

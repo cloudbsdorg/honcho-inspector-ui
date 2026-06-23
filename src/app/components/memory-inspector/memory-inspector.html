@@ -1,49 +1,24 @@
-<div class="flex h-dvh flex-col">
-  <header
-    class="th-border flex flex-shrink-0 items-center justify-between gap-3 border-b-2 px-4 py-3"
+<div class="flex min-h-0 flex-1 flex-col" data-testid="memory-inspector">
+  <div
+    class="th-border flex flex-shrink-0 items-center justify-between gap-3 border-b-2 px-4 py-2"
     style="background: var(--surface);"
+    data-testid="memory-inspector-subheader"
   >
-    <div class="flex items-center gap-3">
-      <button
-        type="button"
-        (click)="goToDashboard()"
-        data-testid="back-to-dashboard"
-        class="th-border border-2 px-2 py-1 text-xs font-bold uppercase tracking-widest"
-        style="border-radius: var(--radius); background: var(--bg); color: var(--accent);"
+    <div>
+      <h1
+        class="th-display text-base font-bold tracking-widest"
+        style="color: var(--accent);"
       >
-        ← Dashboard
-      </button>
-      <div>
-        <h1
-          class="th-display text-xl font-bold tracking-widest"
-          style="color: var(--accent);"
-        >
-          MEMORY INSPECTOR
-        </h1>
-        <div class="text-[10px] opacity-70" style="color: var(--text-dim);">
-          workspace
-          <span style="color: var(--accent);">{{ workspaceId() }}</span>
-          · honcho user
-          <span style="color: var(--accent);">{{ honchoUserName() }}</span>
-          · logged in as
-          <span style="color: var(--accent);">{{ userName() }}</span>
-        </div>
+        MEMORY INSPECTOR
+      </h1>
+      <div class="text-[10px] opacity-70" style="color: var(--text-dim);">
+        workspace
+        <span style="color: var(--accent);">{{ workspaceId() }}</span>
+        · honcho user
+        <span style="color: var(--accent);">{{ honchoUserName() }}</span>
       </div>
     </div>
-
-    <div class="flex items-center gap-2">
-      <app-theme-picker />
-      <button
-        type="button"
-        (click)="logout()"
-        data-testid="logout-button"
-        class="th-border border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
-        style="border-radius: var(--radius); background: var(--surface); color: var(--text);"
-      >
-        Logout
-      </button>
-    </div>
-  </header>
+  </div>
 
   <nav
     class="th-border flex flex-shrink-0 gap-1 border-b-2 px-2 py-1"
@@ -176,22 +151,22 @@
                 <ul class="space-y-1 text-xs">
                   <li>reasoning:
                     <span style="color: var(--accent);">
-                      {{ ws.configuration.reasoning?.enabled ? 'on' : 'off' }}
+                      {{ ws.configuration?.reasoning?.enabled ? 'on' : 'off' }}
                     </span>
                   </li>
                   <li>peerCard:
                     <span style="color: var(--accent);">
-                      {{ ws.configuration.peerCard?.create ? 'on' : 'off' }}
+                      {{ ws.configuration?.peerCard?.create ? 'on' : 'off' }}
                     </span>
                   </li>
                   <li>summary:
                     <span style="color: var(--accent);">
-                      {{ ws.configuration.summary?.enabled ? 'on' : 'off' }}
+                      {{ ws.configuration?.summary?.enabled ? 'on' : 'off' }}
                     </span>
                   </li>
                   <li>dream:
                     <span style="color: var(--accent);">
-                      {{ ws.configuration.dream?.enabled ? 'on' : 'off' }}
+                      {{ ws.configuration?.dream?.enabled ? 'on' : 'off' }}
                     </span>
                   </li>
                 </ul>

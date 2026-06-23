@@ -1,6 +1,8 @@
+import { Component, ViewChild } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Dashboard } from './dashboard';
+import { AppHeader } from '../app-header/app-header';
 import { HonchoService } from '../../core/honcho.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { ProfileService } from '../../core/profile.service';
@@ -65,8 +67,20 @@ async function bootstrapSession() {
   localStorage.setItem('honcho-active-profile', JSON.stringify(PROFILE_A.id));
 }
 
+@Component({
+  standalone: true,
+  imports: [AppHeader, Dashboard],
+  template: `
+    <app-header />
+    <app-dashboard />
+  `,
+})
+class TestHost {
+  @ViewChild(Dashboard) dashboard?: Dashboard;
+}
+
 describe('Dashboard', () => {
-  let fixture: ComponentFixture<Dashboard>;
+  let fixture: ComponentFixture<TestHost>;
   let component: Dashboard;
   let honcho: HonchoService;
   let auth: HonchoAuthService;
@@ -78,7 +92,7 @@ describe('Dashboard', () => {
     await bootstrapSession();
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
-      imports: [Dashboard],
+      imports: [TestHost],
       providers: [provideRouter([])],
     }).compileComponents();
     auth = TestBed.inject(HonchoAuthService);
@@ -102,8 +116,9 @@ describe('Dashboard', () => {
       if (path === '/api/peers/bob/representation') return jsonResponse('bob is cool');
       return jsonResponse({});
     });
-    fixture = TestBed.createComponent(Dashboard);
-    component = fixture.componentInstance;
+    fixture = TestBed.createComponent(TestHost);
+    fixture.detectChanges();
+    component = fixture.componentInstance.dashboard!;
     await component.ready;
     fixture.detectChanges();
   });
@@ -118,19 +133,19 @@ describe('Dashboard', () => {
     expect(text).toContain('Peers (2)');
   });
 
-  it('should render the theme picker in the header', () => {
+  it('should render the app header with the theme picker', () => {
     const picker = (fixture.nativeElement as HTMLElement).querySelector('app-theme-picker');
     expect(picker).toBeTruthy();
   });
 
-  it('should render the inspector link in the header', () => {
+  it('should render the inspector link in the app header', () => {
     const link = (fixture.nativeElement as HTMLElement).querySelector(
       '[data-testid="open-inspector"]',
     );
     expect(link).toBeTruthy();
   });
 
-  it('should render the profile switcher with all loaded profiles', () => {
+  it('should render the profile switcher in the app header with all loaded profiles', () => {
     const select = (fixture.nativeElement as HTMLElement).querySelector(
       '[data-testid="profile-switcher"]',
     ) as HTMLSelectElement;
@@ -138,8 +153,26 @@ describe('Dashboard', () => {
     expect(select.options.length).toBe(2);
   });
 
-  it('should show the empty state when no peer is selected', () => {
-    const empty = (fixture.nativeElement as HTMLElement).querySelector(
+  it('should render the workspace overview when peers are present and no peer is selected', () => {
+    const overview = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-workspace-overview',
+    );
+    expect(overview).toBeTruthy();
+  });
+
+  it('should show the welcome empty state when there are no peers', async () => {
+    installFetch((path) => {
+      if (path === '/api/profiles') return jsonResponse([PROFILE_A, PROFILE_B]);
+      if (path === '/api/peers') return jsonResponse({ items: [] });
+      if (path === '/api/sessions') return jsonResponse({ items: [] });
+      return jsonResponse({});
+    });
+    const newFixture = TestBed.createComponent(TestHost);
+    newFixture.detectChanges();
+    const newComponent = newFixture.componentInstance.dashboard!;
+    await newComponent.ready;
+    newFixture.detectChanges();
+    const empty = (newFixture.nativeElement as HTMLElement).querySelector(
       '[data-testid="empty-state"]',
     );
     expect(empty).toBeTruthy();
@@ -147,8 +180,9 @@ describe('Dashboard', () => {
 
   it('should restore the selected peer from localStorage on init', async () => {
     localStorage.setItem('honcho-dashboard-selected-peer', 'bob');
-    const newFixture = TestBed.createComponent(Dashboard);
-    const newComponent = newFixture.componentInstance;
+    const newFixture = TestBed.createComponent(TestHost);
+    newFixture.detectChanges();
+    const newComponent = newFixture.componentInstance.dashboard!;
     await newComponent.ready;
     expect(newComponent.selectedPeerId()).toBe('bob');
   });
@@ -158,23 +192,11 @@ describe('Dashboard', () => {
     expect(localStorage.getItem('honcho-dashboard-selected-peer')).toBe('alice');
   });
 
-  it('should clear the persisted selected peer on logout', async () => {
-    localStorage.setItem('honcho-dashboard-selected-peer', 'alice');
-    installFetch(() => jsonResponse({ ok: true }));
-    component.logout();
-    expect(localStorage.getItem('honcho-dashboard-selected-peer')).toBeNull();
-  });
-
   it('should expose a human-friendly lastRefreshLabel', () => {
     expect(component.lastRefreshLabel(Date.now() - 30_000)).toBe('30s ago');
     expect(component.lastRefreshLabel(Date.now() - 90_000)).toBe('1m ago');
     expect(component.lastRefreshLabel(Date.now() - 3_600_000)).toBe('1h ago');
     expect(component.lastRefreshLabel(Date.now() - 86_400_000)).toBe('1d ago');
     expect(component.lastRefreshLabel(Date.now())).toBe('just now');
-  });
-
-  it('switchProfile() should update the active profile and reset the cache', () => {
-    component.switchProfile(PROFILE_B.id);
-    expect(profiles.activeProfileId()).toBe(PROFILE_B.id);
   });
 });

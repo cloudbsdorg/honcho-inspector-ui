@@ -529,7 +529,15 @@ function toMetadata(api: ApiWorkspaceMetadata): HonchoWorkspaceMetadata {
   };
 }
 
-function toConfig(api: ApiWorkspaceConfig): HonchoWorkspaceConfig {
+function toConfig(api: ApiWorkspaceConfig | null | undefined): HonchoWorkspaceConfig {
+  if (!api) {
+    return {
+      reasoning: { enabled: null },
+      peerCard: { create: null },
+      summary: { enabled: null },
+      dream: { enabled: null },
+    };
+  }
   return {
     reasoning: { enabled: api.reasoning?.enabled ?? null },
     peerCard: { create: api.peer_card?.create ?? null },
