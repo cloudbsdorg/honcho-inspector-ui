@@ -15,10 +15,12 @@ import { ProfileService } from '../../core/profile.service';
 import { ThemeService } from '../../core/theme.service';
 import { ThemePicker } from '../theme-picker/theme-picker';
 import { ChatPanel } from '../chat-panel/chat-panel';
+import { WorkspaceOverview } from './workspace-overview';
+import { MetricsService } from '../../core/metrics.service';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, FormsModule, ThemePicker, ChatPanel],
+  imports: [CommonModule, FormsModule, ThemePicker, ChatPanel, WorkspaceOverview],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
@@ -29,6 +31,7 @@ export class Dashboard implements OnInit {
   private readonly router = inject(Router);
   readonly theme = inject(ThemeService);
   readonly profileService = inject(ProfileService);
+  private readonly metrics = inject(MetricsService);
 
   private readonly SELECTED_PEER_KEY = 'honcho-dashboard-selected-peer';
 
@@ -70,6 +73,8 @@ export class Dashboard implements OnInit {
     const refreshes = [
       this.honcho.refreshPeers().catch(() => undefined),
       this.honcho.refreshSessions().catch(() => undefined),
+      this.honcho.refreshQueueStatus().catch(() => undefined),
+      this.metrics.load().catch(() => undefined),
     ];
     if (restoredPeer) {
       refreshes.push(this.selectPeer(restoredPeer));
@@ -81,6 +86,8 @@ export class Dashboard implements OnInit {
     await Promise.all([
       this.honcho.refreshPeers().catch(() => undefined),
       this.honcho.refreshSessions().catch(() => undefined),
+      this.honcho.refreshQueueStatus().catch(() => undefined),
+      this.metrics.load().catch(() => undefined),
     ]);
   }
 

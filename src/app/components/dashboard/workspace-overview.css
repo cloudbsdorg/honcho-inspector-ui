@@ -1,0 +1,8 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+[data-testid='workspace-overview'] {
+  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
+}

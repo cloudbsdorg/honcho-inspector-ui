@@ -67,6 +67,13 @@ export interface RequestOptions {
    * `/api/auth/register`, `/api/auth/logout`.
    */
   anonymous?: boolean;
+  /**
+   * Path prefix prepended to the request path. Defaults to `/api`
+   * (the standard backend namespace). Pass `''` to hit endpoints
+   * at the root — e.g. `/actuator/health` or `/actuator/metrics/...`,
+   * which Spring Boot Actuator serves at the root, not under `/api`.
+   */
+  pathPrefix?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -82,7 +89,7 @@ export class ApiClient {
 
   async request<T>(opts: RequestOptions): Promise<T> {
     const auth = this.injector.get(HonchoAuthService);
-    const url = this.buildPath(opts.path, opts.query);
+    const url = this.buildPath(opts.path, opts.query, opts.pathPrefix);
     const headers = this.buildHeaders(opts, auth);
     const body = this.encodeBody(opts.body, headers);
     let res: Response;
@@ -103,7 +110,7 @@ export class ApiClient {
     return (await res.json()) as T;
   }
 
-  private buildPath(path: string, query?: RequestOptions['query']): string {
+  private buildPath(path: string, query?: RequestOptions['query'], pathPrefix?: string): string {
     const params = new URLSearchParams();
     if (query) {
       for (const [k, v] of Object.entries(query)) {
@@ -112,7 +119,8 @@ export class ApiClient {
       }
     }
     const qs = params.toString();
-    return '/api' + path + (qs ? '?' + qs : '');
+    const prefix = pathPrefix ?? '/api';
+    return prefix + path + (qs ? '?' + qs : '');
   }
 
   private buildHeaders(opts: RequestOptions, auth: HonchoAuthService): Record<string, string> {

@@ -209,13 +209,6 @@
           </ul>
         }
       </div>
-
-      <div
-        class="border-t-2 th-border p-2 text-[10px]"
-        style="color: var(--text-dim);"
-      >
-        theme: <span style="color: var(--accent);">{{ currentThemeName() }}</span>
-      </div>
     </aside>
 
     <!-- MAIN -->
@@ -305,53 +298,52 @@
           </div>
         </div>
       } @else {
-        <div
-          class="flex h-full flex-col items-center justify-center p-8 text-center"
-          data-testid="empty-state"
-        >
+        @if (honcho.peers().length > 0) {
+          <app-workspace-overview />
+        } @else {
           <div
-            class="th-gradient mb-6 h-20 w-20"
-            style="border-radius: var(--radius);"
-          ></div>
-          <h2
-            class="th-display text-3xl font-bold tracking-widest"
-            style="color: var(--accent);"
+            class="flex h-full flex-col items-center justify-center p-8 text-center"
+            data-testid="empty-state"
           >
-            {{ honcho.peers().length > 0 ? 'SELECT A PEER' : 'WELCOME' }}
-          </h2>
-          <p
-            class="mt-3 max-w-md text-sm"
-            style="color: var(--text-dim);"
-          >
-            @if (honcho.peers().length > 0) {
-              Choose a peer from the sidebar to inspect their memory and chat
-              with them.
-            } @else {
-              You have no peers yet. Add one with the + button in the sidebar to
-              get started. Honcho will build a representation of every peer
-              from the messages they receive.
-            }
-          </p>
-          @if (honcho.error() && honcho.peers().length === 0) {
+            <div
+              class="th-gradient mb-6 h-20 w-20"
+              style="border-radius: var(--radius);"
+            ></div>
+            <h2
+              class="th-display text-3xl font-bold tracking-widest"
+              style="color: var(--accent);"
+            >
+              WELCOME
+            </h2>
             <p
-              class="mt-4 th-border border-2 px-3 py-2 text-xs"
-              style="border-radius: var(--radius); background: var(--surface); color: var(--danger);"
-              data-testid="error-message"
+              class="mt-3 max-w-md text-sm"
+              style="color: var(--text-dim);"
             >
-              {{ honcho.friendlyError() }}
+              You have no peers yet. Add one with the + button in the sidebar
+              to get started. Honcho will build a representation of every
+              peer from the messages they receive.
             </p>
-            <button
-              type="button"
-              (click)="refreshAll()"
-              [disabled]="honcho.loading()"
-              data-testid="retry-button"
-              class="th-border mt-2 border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
-              style="border-radius: var(--radius); background: var(--surface); color: var(--accent);"
-            >
-              ↻ Retry
-            </button>
-          }
-        </div>
+            @if (honcho.error()) {
+              <p
+                class="mt-4 th-border border-2 px-3 py-2 text-xs"
+                style="border-radius: var(--radius); background: var(--surface); color: var(--danger);"
+                data-testid="error-message"
+              >
+                {{ honcho.friendlyError() }}
+              </p>
+              <button
+                type="button"
+                (click)="refreshAll()"
+                [disabled]="honcho.loading()"
+                data-testid="retry-button"
+                class="th-border mt-2 border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
+                style="border-radius: var(--radius); background: var(--surface); color: var(--accent);"
+              >
+                ↻ Retry
+              </button>
+            }
+          </div>
+        }
       }
     </main>
   </div>
