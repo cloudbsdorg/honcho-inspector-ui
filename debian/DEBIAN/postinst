@@ -1,66 +1,63 @@
 #!/bin/sh
 set -e
 
-case "$1" in
-    install|configure)
-        # Create the service user/group if missing. configure is
-        # what dpkg invokes after `dpkg -i`; install is what some
-        # higher-level tools use. Both mean "first-time setup is
-        # safe to run".
-        if ! getent group www-data >/dev/null; then
-            addgroup --system www-data
-        fi
-        if ! getent passwd www-data >/dev/null; then
-            adduser --system \
-                --home /var/lib/honcho-inspector-ui \
-                --no-create-home \
-                --shell /usr/sbin/nologin \
-                --ingroup www-data \
-                --gecos "Honcho Inspector UI service account" \
-                www-data
-        fi
-        # State, log, config directories with correct ownership and mode.
-        install -d -m 0750 -o root -g www-data /var/lib/honcho-inspector-ui
-        install -d -m 0750 -o root -g www-data /var/log/honcho-inspector-ui
-        install -d -m 0750 -o root -g www-data /etc/honcho-inspector-ui
-        # Make the shipped app tree readable by the service user.
-        chown -R root:www-data /usr/local/share/honcho-inspector-ui
-        find /usr/local/share/honcho-inspector-ui -type d \
-            -exec chmod 0755 {} +
-        find /usr/local/share/honcho-inspector-ui -type f \
-            -exec chmod 0644 {} +
-        if [ -d /usr/local/share/honcho-inspector-ui/node_modules/.bin ]; then
-            find /usr/local/share/honcho-inspector-ui/node_modules/.bin \
-                -type f -exec chmod 0755 {} +
-        fi
-        # Seed the proxy config ONLY if missing; the package is
-        # idempotent and respects operator edits.
-        if [ ! -f /etc/honcho-inspector-ui/proxy.conf.json ]; then
-            install -m 0644 -o root -g www-data \
-                /usr/local/share/honcho-inspector-ui/proxy.conf.json \
-                /etc/honcho-inspector-ui/proxy.conf.json
-        fi
-        ;;
-    upgrade)
-        # Refresh permissions on upgrade (npm ci ran at install time).
-        chown -R root:www-data /usr/local/share/honcho-inspector-ui
-        find /usr/local/share/honcho-inspector-ui -type d \
-            -exec chmod 0755 {} +
-        find /usr/local/share/honcho-inspector-ui -type f \
-            -exec chmod 0644 {} +
-        ;;
-    abort-upgrade)
-        ;;
-    *)
-        echo "postinst called with unknown argument \`$1'" >&2
-        exit 1
-        ;;
-esac
+# This postinst is invoked by fpm's debhelper-style wrapper. The wrapper
+# already handles "configure vs upgrade vs abort-remove" dispatch via
+# the `after_install` / `after_upgrade` function scaffolding, so we
+# just put our setup logic here as flat commands -- the wrapper will
+# run them in the right phase.
+#
+# dpkg invokes this with $1=configure $2=<old-version|empty>.
 
-if [ -d /run/systemd/system ]; then
-    systemctl daemon-reload
+# Create the service user/group if missing. Both 'install' and
+# 'configure' phases can land here; both are safe to run.
+if ! getent group www-data >/dev/null; then
+    addgroup --system www-data
+fi
+if ! getent passwd www-data >/dev/null; then
+    adduser --system \
+        --home /var/lib/honcho-inspector-ui \
+        --no-create-home \
+        --shell /usr/sbin/nologin \
+        --ingroup www-data \
+        --gecos "Honcho Inspector UI service account" \
+        www-data
 fi
 
-#DEBHELPER#
+# State, log, config directories with correct ownership and mode.
+# 0770 (group-writable, not 0750) so www-data can write to
+# /var/lib/honcho-inspector-ui -- npm ci needs to populate .npm/
+# and .cache/ under the var-lib root, and ng serve writes to
+# .angular/cache/. Without group-writable, npm ci fails with
+# EACCES on its own cache directory.
+install -d -m 0770 -o root -g www-data /var/lib/honcho-inspector-ui
+install -d -m 0770 -o root -g www-data /var/log/honcho-inspector-ui
+install -d -m 0750 -o root -g www-data /etc/honcho-inspector-ui
+
+# Chown the shipped source tree to root:www-data and chmod
+# dirs to 0775 (group-writable) so www-data can land .angular/
+# cache and node_modules/ on first boot (npm ci in ExecStartPre).
+# We intentionally do NOT chmod the source files: the deb
+# ships source as-is, and npm ci will set the right perms on
+# everything it installs.
+chown -R root:www-data /usr/local/share/honcho-inspector-ui
+find /usr/local/share/honcho-inspector-ui -type d \
+    -exec chmod 0775 {} +
+
+# Seed the proxy config ONLY if missing; the package is
+# idempotent and respects operator edits.
+if [ ! -f /etc/honcho-inspector-ui/proxy.conf.json ]; then
+    install -m 0644 -o root -g www-data \
+        /usr/local/share/honcho-inspector-ui/proxy.conf.json \
+        /etc/honcho-inspector-ui/proxy.conf.json
+fi
+
+# Reload systemd so the new unit file is picked up and start
+# the service.
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+    systemctl enable honcho-inspector-ui.service
+    systemctl restart honcho-inspector-ui.service || true
+fi
 
 exit 0

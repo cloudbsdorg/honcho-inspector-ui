@@ -1,11 +1,18 @@
 #!/bin/sh
 set -e
 
-if [ -d /run/systemd/system ]; then
-    systemctl --quiet is-enabled honcho-inspector-ui.service && \
-        systemctl stop honcho-inspector-ui.service || true
-fi
+# This prerm is invoked by fpm's debhelper-style wrapper. The wrapper
+# handles "remove vs upgrade" dispatch via the `before_remove` /
+# `before_upgrade` function scaffolding; we just put our cleanup
+# logic here as flat commands.
+#
+# dpkg invokes this with $1=remove|upgrade $2=<new-version|empty>.
 
-#DEBHELPER#
+# Stop and disable the service before files are removed. This is
+# idempotent and runs on both `dpkg -r` and `dpkg --purge`.
+if [ -d /run/systemd/system ]; then
+    systemctl stop honcho-inspector-ui.service || true
+    systemctl disable honcho-inspector.service || true
+fi
 
 exit 0

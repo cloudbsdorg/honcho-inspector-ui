@@ -5,10 +5,18 @@ Priority: optional
 Architecture: all
 Maintainer: cloudBSD <admin@cloudbsd.org>
 Depends: nodejs (>= 20), npm, adduser
+Recommends: ca-certificates
 Description: Honcho Inspector UI
  Angular 22 view-only dashboard for the Honcho Inspector backend.
  Provides a self-contained web UI on port 4200 with profile
  management, workspace inspection, and admin tools. Runs the Angular
  dev server (ng serve) as a node app under systemd, bound to all
- interfaces. Ships the source tree plus a reproducible
- node_modules (npm ci at install time).
+ interfaces.
+ .
+ node_modules is NOT shipped -- the systemd unit runs `npm ci` as
+ ExecStartPre on first boot so the right native binaries (esbuild,
+ rollup) for the host architecture get pulled automatically. This
+ keeps the deb genuinely Architecture: all (amd64, arm64, etc.)
+ instead of being an amd64-only package with linux-x64 binaries
+ hard-coded. First-boot cost: 30-60s of npm install.
+

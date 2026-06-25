@@ -9,8 +9,8 @@
 # Debian package build artifacts
 /debian/stage/
 
-# Container build artifacts
-/packaging/container/stage/
+# fpm scratch
+/tmp/fpm-*/
 
 # Node
 /node_modules

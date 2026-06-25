@@ -12,12 +12,19 @@ WorkingDirectory=/usr/local/share/honcho-inspector-ui
 
 Environment=NG_CLI_ANALYTICS=false
 Environment=NODE_ENV=production
-Environment=HOME=/var/lib/honcho-inspector-ui
 # Pin PATH so the apt-installed Node wins over any SDKMAN or
 # homebrew-installed Node in /usr/local/bin. /usr/bin comes first;
 # the deb depends on the distro's nodejs package (>= 20) which
 # satisfies Angular CLI's minimum version.
 Environment=PATH=/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/bin
+# Pin npm's cache and config dirs to paths the service user owns.
+# The system's www-data has HOME=/var/www by default; systemd
+# ignores Environment=HOME=... for system users (a known systemd
+# quirk). We work around it by setting npm_config_cache and
+# XDG_CACHE_HOME explicitly, both of which npm and Node respect
+# unconditionally.
+Environment=npm_config_cache=/var/lib/honcho-inspector-ui/.npm
+Environment=XDG_CACHE_HOME=/var/lib/honcho-inspector-ui/.cache
 
 # The Angular dev server IS the public listener. It binds on all
 # interfaces (0.0.0.0:4200). The app is self-contained: an operator
@@ -27,6 +34,15 @@ Environment=PATH=/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/bin
 # The backend (honcho-inspector.service) is bound to loopback only;
 # browser->/api/* requests go through the Vite proxy in proxy.conf.json
 # to the backend's loopback listener.
+#
+# ExecStartPre installs node_modules via `npm ci`. This is a one-shot
+# on first boot: npm is idempotent so subsequent boots just check
+# the lock and skip. The dep cache lives under the working directory's
+# .angular/cache and node_modules -- which are writable thanks to
+# ReadWritePaths below. The first boot can take 30-60s for npm ci
+# on a fresh host (downloading the dep tree + the arch-specific
+# esbuild binary); TimeoutStartSec=300 gives it 5 minutes.
+ExecStartPre=/usr/bin/env npm ci --omit=dev --no-audit --no-fund
 ExecStart=/usr/bin/env npx --no-install ng serve \
     --host 0.0.0.0 \
     --port 4200 \
@@ -34,6 +50,7 @@ ExecStart=/usr/bin/env npx --no-install ng serve \
     --watch=false
 Restart=always
 RestartSec=5
+TimeoutStartSec=300
 TimeoutStopSec=30
 
 NoNewPrivileges=true
@@ -57,7 +74,11 @@ RestrictSUIDSGID=true
 LockPersonality=true
 SystemCallArchitectures=native
 
-ReadWritePaths=/var/lib/honcho-inspector-ui
+# ReadWritePaths: the working dir needs .angular/cache/ (Vite dep
+# optimization), node_modules/ (npm install target), and any esbuild
+# temp files. ReadWritePaths must list all of them or ProtectSystem=strict
+# blocks writes and the service dies with EACCES or ENOENT.
+ReadWritePaths=/var/lib/honcho-inspector-ui /usr/local/share/honcho-inspector-ui
 
 # RestrictAddressFamilies intentionally NOT set. ng serve's interface
 # discovery via libuv's uv_interface_addresses calls getifaddrs(3),
