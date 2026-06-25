@@ -24,9 +24,7 @@ export class ThemePicker {
 
   readonly themes = this.themeService.availableThemes;
   readonly activeId = computed<ThemeId>(() => this.themeService.theme());
-  readonly activeMeta = computed(() =>
-    this.themes().find((t) => t.id === this.activeId()),
-  );
+  readonly activeMeta = computed(() => this.themes().find((t) => t.id === this.activeId()));
   readonly isOpen = signal(false);
 
   toggle(): void {

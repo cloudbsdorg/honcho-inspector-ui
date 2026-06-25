@@ -82,14 +82,16 @@ export class AdminService {
     });
   }
 
-  listAudit(opts: {
-    actor?: string;
-    target?: string;
-    action?: string;
-    since?: string;
-    page?: number;
-    pageSize?: PageSize | 'ALL';
-  } = {}): Promise<AdminAuditPage> {
+  listAudit(
+    opts: {
+      actor?: string;
+      target?: string;
+      action?: string;
+      since?: string;
+      page?: number;
+      pageSize?: PageSize | 'ALL';
+    } = {},
+  ): Promise<AdminAuditPage> {
     return this.api.request<AdminAuditPage>({
       method: 'GET',
       path: '/admin/audit',

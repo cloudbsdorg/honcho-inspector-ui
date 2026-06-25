@@ -37,9 +37,7 @@ describe('HonchoAuthService', () => {
   });
 
   it('login() should POST /api/auth/login and store { sessionId, user }', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse({ sessionId: 'sess-1', user: USER }),
-    );
+    fetchSpy.mockResolvedValueOnce(jsonResponse({ sessionId: 'sess-1', user: USER }));
     const creds = await auth.login({ username: 'alice', password: 'passw0rd' });
     expect(fetchSpy).toHaveBeenCalledWith(
       '/api/auth/login',
@@ -52,33 +50,29 @@ describe('HonchoAuthService', () => {
   });
 
   it('login() should reject empty username before calling the backend', async () => {
-    await expect(
-      auth.login({ username: '   ', password: 'passw0rd' }),
-    ).rejects.toThrow(/Username is required/);
+    await expect(auth.login({ username: '   ', password: 'passw0rd' })).rejects.toThrow(
+      /Username is required/,
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('login() should reject passwords shorter than 8 chars', async () => {
-    await expect(
-      auth.login({ username: 'alice', password: 'short' }),
-    ).rejects.toThrow(/at least 8 characters/);
+    await expect(auth.login({ username: 'alice', password: 'short' })).rejects.toThrow(
+      /at least 8 characters/,
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('login() should surface backend error messages and stay unauthenticated', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse({ error: 'invalid username or password' }, 401),
+    fetchSpy.mockResolvedValueOnce(jsonResponse({ error: 'invalid username or password' }, 401));
+    await expect(auth.login({ username: 'alice', password: 'passw0rd' })).rejects.toThrow(
+      /invalid username or password/,
     );
-    await expect(
-      auth.login({ username: 'alice', password: 'passw0rd' }),
-    ).rejects.toThrow(/invalid username or password/);
     expect(auth.isAuthenticated()).toBe(false);
   });
 
   it('setupFirstAdmin() should POST /api/setup/first-admin and store { sessionId, user }', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse({ sessionId: 'sess-2', user: USER }),
-    );
+    fetchSpy.mockResolvedValueOnce(jsonResponse({ sessionId: 'sess-2', user: USER }));
     const creds = await auth.setupFirstAdmin({
       username: 'alice',
       password: 'passw0rd',
@@ -97,16 +91,16 @@ describe('HonchoAuthService', () => {
   });
 
   it('setupFirstAdmin() should reject empty username before calling the backend', async () => {
-    await expect(
-      auth.setupFirstAdmin({ username: '', password: 'passw0rd' }),
-    ).rejects.toThrow(/Username is required/);
+    await expect(auth.setupFirstAdmin({ username: '', password: 'passw0rd' })).rejects.toThrow(
+      /Username is required/,
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('setupFirstAdmin() should reject passwords shorter than 8 chars', async () => {
-    await expect(
-      auth.setupFirstAdmin({ username: 'alice', password: 'short' }),
-    ).rejects.toThrow(/at least 8 characters/);
+    await expect(auth.setupFirstAdmin({ username: 'alice', password: 'short' })).rejects.toThrow(
+      /at least 8 characters/,
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 

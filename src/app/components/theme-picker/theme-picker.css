@@ -6,7 +6,9 @@
   background: transparent;
   color: var(--text);
   border: 2px solid transparent;
-  transition: background 0.12s, border-color 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
 }
 
 .th-theme-option:hover {

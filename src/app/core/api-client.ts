@@ -156,7 +156,11 @@ export function snakeToCamel(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(snakeToCamel);
   }
-  if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    Object.getPrototypeOf(value) === Object.prototype
+  ) {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       out[snakeKey(k)] = snakeToCamel(v);
@@ -169,4 +173,3 @@ export function snakeToCamel(value: unknown): unknown {
 function snakeKey(k: string): string {
   return k.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 }
-

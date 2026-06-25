@@ -79,8 +79,9 @@
   --font-body: 'Pixelated MS Sans Serif', 'MS Sans Serif', 'Tahoma', sans-serif;
   --font-display: 'Pixelated MS Sans Serif', 'MS Sans Serif', sans-serif;
   --radius: 0;
-  --shadow: inset -1px -1px 0 #000, inset 1px 1px 0 #ffffff,
-    inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf;
+  --shadow:
+    inset -1px -1px 0 #000, inset 1px 1px 0 #ffffff, inset -2px -2px 0 #808080,
+    inset 2px 2px 0 #dfdfdf;
   --font-scale: 1;
   --scanlines: 0;
   --chrome: 1;
@@ -246,7 +247,9 @@ body::before {
     box-shadow: 0 0 4px var(--accent);
   }
   50% {
-    box-shadow: 0 0 20px var(--accent), 0 0 40px var(--accent-2);
+    box-shadow:
+      0 0 20px var(--accent),
+      0 0 40px var(--accent-2);
   }
 }
 .th-pulse {
@@ -266,12 +269,7 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: 9998;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    var(--accent) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(180deg, transparent 0%, var(--accent) 50%, transparent 100%);
   opacity: 0.04;
   height: 100px;
   animation: scan 8s linear infinite;
@@ -294,12 +292,7 @@ body::before {
   }
 }
 .th-gradient {
-  background: linear-gradient(
-    135deg,
-    var(--accent),
-    var(--accent-2),
-    var(--accent-3)
-  );
+  background: linear-gradient(135deg, var(--accent), var(--accent-2), var(--accent-3));
   background-size: 200% 200%;
   animation: gradient-shift 6s ease infinite;
 }

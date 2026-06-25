@@ -1,28 +1,25 @@
 <div class="flex min-h-0 flex-1 flex-col" data-testid="memory-inspector">
   <div
     class="th-border flex flex-shrink-0 items-center justify-between gap-3 border-b-2 px-4 py-2"
-    style="background: var(--surface);"
+    style="background: var(--surface)"
     data-testid="memory-inspector-subheader"
   >
     <div>
-      <h1
-        class="th-display text-base font-bold tracking-widest"
-        style="color: var(--accent);"
-      >
+      <h1 class="th-display text-base font-bold tracking-widest" style="color: var(--accent)">
         MEMORY INSPECTOR
       </h1>
-      <div class="text-[10px] opacity-70" style="color: var(--text-dim);">
+      <div class="text-[10px] opacity-70" style="color: var(--text-dim)">
         workspace
-        <span style="color: var(--accent);">{{ workspaceId() }}</span>
+        <span style="color: var(--accent)">{{ workspaceId() }}</span>
         · honcho user
-        <span style="color: var(--accent);">{{ honchoUserName() }}</span>
+        <span style="color: var(--accent)">{{ honchoUserName() }}</span>
       </div>
     </div>
   </div>
 
   <nav
     class="th-border flex flex-shrink-0 gap-1 border-b-2 px-2 py-1"
-    style="background: var(--bg-2);"
+    style="background: var(--bg-2)"
     role="tablist"
   >
     @for (t of tabs(); track t.id) {
@@ -34,15 +31,12 @@
         [attr.data-tab-id]="t.id"
         (click)="setTab(t.id)"
         class="px-3 py-2 text-xs font-bold uppercase tracking-widest transition-all"
-        style="border-radius: var(--radius);"
-        [style.background]="
-          activeTab() === t.id ? 'var(--accent)' : 'transparent'
-        "
-        [style.color]="
-          activeTab() === t.id ? 'var(--bg)' : 'var(--text-dim)'
-        "
+        style="border-radius: var(--radius)"
+        [style.background]="activeTab() === t.id ? 'var(--accent)' : 'transparent'"
+        [style.color]="activeTab() === t.id ? 'var(--bg)' : 'var(--text-dim)'"
       >
-        <span class="mr-1">{{ t.icon }}</span>{{ t.label }}
+        <span class="mr-1">{{ t.icon }}</span
+        >{{ t.label }}
       </button>
     }
   </nav>
@@ -51,11 +45,11 @@
     @if (honcho.isStale() && !error()) {
       <div
         class="th-border mb-3 flex items-center justify-between gap-2 border-2 px-3 py-2 text-xs"
-        style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim);"
+        style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
         data-testid="stale-banner"
       >
         <span>
-          <span style="color: var(--danger);">●</span>
+          <span style="color: var(--danger)">●</span>
           {{ honcho.friendlyError() }}
         </span>
         <button
@@ -64,7 +58,7 @@
           [disabled]="loading()"
           data-testid="retry-button"
           class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
-          style="border-radius: var(--radius); background: var(--bg); color: var(--accent);"
+          style="border-radius: var(--radius); background: var(--bg); color: var(--accent)"
         >
           ↻ Retry
         </button>
@@ -73,7 +67,7 @@
     @if (error(); as e) {
       <div
         class="th-border mb-3 border-2 px-3 py-2 text-sm"
-        style="border-radius: var(--radius); background: var(--surface); color: var(--danger);"
+        style="border-radius: var(--radius); background: var(--surface); color: var(--danger)"
       >
         {{ e }}
       </div>
@@ -83,7 +77,7 @@
       @case ('workspace') {
         <div data-testid="workspace-pane">
           <div class="mb-3 flex items-center justify-between">
-            <h2 class="th-display text-lg font-bold tracking-widest" style="color: var(--accent);">
+            <h2 class="th-display text-lg font-bold tracking-widest" style="color: var(--accent)">
               Workspace Overview
             </h2>
             <button
@@ -91,7 +85,7 @@
               (click)="loadWorkspace()"
               [disabled]="loading()"
               class="th-border border-2 px-3 py-1 text-xs font-bold uppercase"
-              style="border-radius: var(--radius); background: var(--accent); color: var(--bg);"
+              style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
             >
               @if (loading()) {
                 <span class="th-display">...</span>
@@ -105,22 +99,31 @@
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
               <section
                 class="th-border border-2 p-3"
-                style="border-radius: var(--radius); background: var(--surface);"
+                style="border-radius: var(--radius); background: var(--surface)"
               >
-                <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent-2);">
+                <h3
+                  class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                  style="color: var(--accent-2)"
+                >
                   Counts
                 </h3>
                 <div class="grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <div class="th-display text-2xl" style="color: var(--accent);">{{ ws.peerCount }}</div>
+                    <div class="th-display text-2xl" style="color: var(--accent)">
+                      {{ ws.peerCount }}
+                    </div>
                     <div class="text-[10px] uppercase opacity-70">peers</div>
                   </div>
                   <div>
-                    <div class="th-display text-2xl" style="color: var(--accent-2);">{{ ws.sessionCount }}</div>
+                    <div class="th-display text-2xl" style="color: var(--accent-2)">
+                      {{ ws.sessionCount }}
+                    </div>
                     <div class="text-[10px] uppercase opacity-70">sessions</div>
                   </div>
                   <div>
-                    <div class="th-display text-2xl" style="color: var(--accent-3);">{{ ws.queue.totalWorkUnits }}</div>
+                    <div class="th-display text-2xl" style="color: var(--accent-3)">
+                      {{ ws.queue.totalWorkUnits }}
+                    </div>
                     <div class="text-[10px] uppercase opacity-70">queue</div>
                   </div>
                 </div>
@@ -128,44 +131,65 @@
 
               <section
                 class="th-border border-2 p-3"
-                style="border-radius: var(--radius); background: var(--surface);"
+                style="border-radius: var(--radius); background: var(--surface)"
               >
-                <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent-2);">
+                <h3
+                  class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                  style="color: var(--accent-2)"
+                >
                   Queue Status
                 </h3>
                 <ul class="space-y-1 text-sm">
-                  <li>total: <span style="color: var(--accent);">{{ ws.queue.totalWorkUnits }}</span></li>
-                  <li>in progress: <span style="color: var(--accent-2);">{{ ws.queue.inProgressWorkUnits }}</span></li>
-                  <li>pending: <span style="color: var(--accent-3);">{{ ws.queue.pendingWorkUnits }}</span></li>
-                  <li>completed (recent): <span class="opacity-70">{{ ws.queue.completedWorkUnits }}</span></li>
+                  <li>
+                    total: <span style="color: var(--accent)">{{ ws.queue.totalWorkUnits }}</span>
+                  </li>
+                  <li>
+                    in progress:
+                    <span style="color: var(--accent-2)">{{ ws.queue.inProgressWorkUnits }}</span>
+                  </li>
+                  <li>
+                    pending:
+                    <span style="color: var(--accent-3)">{{ ws.queue.pendingWorkUnits }}</span>
+                  </li>
+                  <li>
+                    completed (recent):
+                    <span class="opacity-70">{{ ws.queue.completedWorkUnits }}</span>
+                  </li>
                 </ul>
               </section>
 
               <section
                 class="th-border border-2 p-3"
-                style="border-radius: var(--radius); background: var(--surface);"
+                style="border-radius: var(--radius); background: var(--surface)"
               >
-                <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent-2);">
+                <h3
+                  class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                  style="color: var(--accent-2)"
+                >
                   Configuration
                 </h3>
                 <ul class="space-y-1 text-xs">
-                  <li>reasoning:
-                    <span style="color: var(--accent);">
+                  <li>
+                    reasoning:
+                    <span style="color: var(--accent)">
                       {{ ws.configuration?.reasoning?.enabled ? 'on' : 'off' }}
                     </span>
                   </li>
-                  <li>peerCard:
-                    <span style="color: var(--accent);">
+                  <li>
+                    peerCard:
+                    <span style="color: var(--accent)">
                       {{ ws.configuration?.peerCard?.create ? 'on' : 'off' }}
                     </span>
                   </li>
-                  <li>summary:
-                    <span style="color: var(--accent);">
+                  <li>
+                    summary:
+                    <span style="color: var(--accent)">
                       {{ ws.configuration?.summary?.enabled ? 'on' : 'off' }}
                     </span>
                   </li>
-                  <li>dream:
-                    <span style="color: var(--accent);">
+                  <li>
+                    dream:
+                    <span style="color: var(--accent)">
                       {{ ws.configuration?.dream?.enabled ? 'on' : 'off' }}
                     </span>
                   </li>
@@ -174,12 +198,17 @@
 
               <section
                 class="th-border col-span-1 border-2 p-3 md:col-span-2 lg:col-span-3"
-                style="border-radius: var(--radius); background: var(--surface);"
+                style="border-radius: var(--radius); background: var(--surface)"
               >
-                <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent-2);">
+                <h3
+                  class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                  style="color: var(--accent-2)"
+                >
                   Metadata
                 </h3>
-                <pre class="overflow-x-auto text-xs" style="color: var(--text-dim);">{{ ws.metadata | json }}</pre>
+                <pre class="overflow-x-auto text-xs" style="color: var(--text-dim)">{{
+                  ws.metadata | json
+                }}</pre>
               </section>
             </div>
           } @else if (loading()) {
@@ -189,7 +218,7 @@
               type="button"
               (click)="loadWorkspace()"
               class="th-border border-2 px-3 py-2 text-sm font-bold uppercase"
-              style="border-radius: var(--radius); background: var(--accent); color: var(--bg);"
+              style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
             >
               Load Workspace
             </button>
@@ -200,7 +229,10 @@
       @case ('peers') {
         <div data-testid="peers-pane" class="grid grid-cols-1 gap-3 md:grid-cols-3">
           <aside>
-            <h2 class="th-display mb-2 text-lg font-bold tracking-widest" style="color: var(--accent);">
+            <h2
+              class="th-display mb-2 text-lg font-bold tracking-widest"
+              style="color: var(--accent)"
+            >
               Peers ({{ honcho.peers().length }})
             </h2>
             <ul class="space-y-1">
@@ -213,13 +245,11 @@
                     [attr.data-peer-id]="p.id"
                     [attr.data-active]="selectedPeerId() === p.id"
                     class="th-border w-full border-2 px-2 py-2 text-left text-sm"
-                    style="border-radius: var(--radius);"
+                    style="border-radius: var(--radius)"
                     [style.background]="
                       selectedPeerId() === p.id ? 'var(--accent)' : 'var(--surface)'
                     "
-                    [style.color]="
-                      selectedPeerId() === p.id ? 'var(--bg)' : 'var(--text)'
-                    "
+                    [style.color]="selectedPeerId() === p.id ? 'var(--bg)' : 'var(--text)'"
                   >
                     {{ p.id }}
                   </button>
@@ -232,7 +262,10 @@
             @if (peerDetail(); as pd) {
               <div class="space-y-3">
                 <div class="flex items-center justify-between">
-                  <h2 class="th-display text-2xl font-bold tracking-wider" style="color: var(--accent);">
+                  <h2
+                    class="th-display text-2xl font-bold tracking-wider"
+                    style="color: var(--accent)"
+                  >
                     {{ pd.id }}
                   </h2>
                   <button
@@ -240,23 +273,40 @@
                     (click)="triggerDream()"
                     data-testid="dream-button"
                     class="th-border border-2 px-3 py-1 text-xs font-bold uppercase"
-                    style="border-radius: var(--radius); background: var(--accent-2); color: var(--bg);"
+                    style="
+                      border-radius: var(--radius);
+                      background: var(--accent-2);
+                      color: var(--bg);
+                    "
                   >
                     Dream now
                   </button>
                 </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div class="th-border border-2 p-2 text-center" style="border-radius: var(--radius); background: var(--surface);">
-                    <div class="th-display text-2xl" style="color: var(--accent);">{{ pd.conclusionCount }}</div>
+                  <div
+                    class="th-border border-2 p-2 text-center"
+                    style="border-radius: var(--radius); background: var(--surface)"
+                  >
+                    <div class="th-display text-2xl" style="color: var(--accent)">
+                      {{ pd.conclusionCount }}
+                    </div>
                     <div class="text-[10px] uppercase opacity-70">conclusions</div>
                   </div>
-                  <div class="th-border border-2 p-2 text-center" style="border-radius: var(--radius); background: var(--surface);">
-                    <div class="th-display text-2xl" style="color: var(--accent-2);">{{ pd.sessionCount }}</div>
+                  <div
+                    class="th-border border-2 p-2 text-center"
+                    style="border-radius: var(--radius); background: var(--surface)"
+                  >
+                    <div class="th-display text-2xl" style="color: var(--accent-2)">
+                      {{ pd.sessionCount }}
+                    </div>
                     <div class="text-[10px] uppercase opacity-70">sessions</div>
                   </div>
-                  <div class="th-border border-2 p-2 text-center" style="border-radius: var(--radius); background: var(--surface);">
-                    <div class="th-display text-2xl" style="color: var(--accent-3);">
+                  <div
+                    class="th-border border-2 p-2 text-center"
+                    style="border-radius: var(--radius); background: var(--surface)"
+                  >
+                    <div class="th-display text-2xl" style="color: var(--accent-3)">
                       {{ pd.card ? pd.card.length : 0 }}
                     </div>
                     <div class="text-[10px] uppercase opacity-70">card facts</div>
@@ -265,22 +315,25 @@
 
                 <section
                   class="th-border border-2 p-3"
-                  style="border-radius: var(--radius); background: var(--surface);"
+                  style="border-radius: var(--radius); background: var(--surface)"
                 >
-                  <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent-2);">
+                  <h3
+                    class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                    style="color: var(--accent-2)"
+                  >
                     Peer Card
                   </h3>
                   @if (pd.card && pd.card.length > 0) {
                     <ul class="space-y-1 text-sm">
                       @for (fact of pd.card; track fact) {
                         <li class="flex gap-2">
-                          <span style="color: var(--accent);">▸</span>
+                          <span style="color: var(--accent)">▸</span>
                           <span>{{ fact }}</span>
                         </li>
                       }
                     </ul>
                   } @else {
-                    <p class="text-xs opacity-60" style="color: var(--text-dim);">
+                    <p class="text-xs opacity-60" style="color: var(--text-dim)">
                       No card yet. Send messages or run a dream to generate one.
                     </p>
                   }
@@ -288,15 +341,20 @@
 
                 <section
                   class="th-border border-2 p-3"
-                  style="border-radius: var(--radius); background: var(--surface);"
+                  style="border-radius: var(--radius); background: var(--surface)"
                 >
-                  <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent-3);">
+                  <h3
+                    class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                    style="color: var(--accent-3)"
+                  >
                     Representation
                   </h3>
                   @if (pd.representation) {
-                    <p class="text-sm leading-relaxed" style="white-space: pre-wrap;">{{ pd.representation }}</p>
+                    <p class="text-sm leading-relaxed" style="white-space: pre-wrap">
+                      {{ pd.representation }}
+                    </p>
                   } @else {
-                    <p class="text-xs opacity-60" style="color: var(--text-dim);">
+                    <p class="text-xs opacity-60" style="color: var(--text-dim)">
                       No representation yet.
                     </p>
                   }
@@ -304,17 +362,62 @@
 
                 <section
                   class="th-border border-2 p-3"
-                  style="border-radius: var(--radius); background: var(--surface);"
+                  style="border-radius: var(--radius); background: var(--surface)"
                 >
-                  <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent);">
+                  <h3
+                    class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                    style="color: var(--accent-2)"
+                  >
+                    Recent Sessions ({{ pd.sessionCount }})
+                  </h3>
+                  @if (pd.sessions && pd.sessions.length > 0) {
+                    <ul class="space-y-1 text-sm">
+                      @for (s of pd.sessions; track s.id) {
+                        <li class="flex justify-between items-center gap-2">
+                          <button
+                            type="button"
+                            (click)="setTab('sessions'); selectSession(s.id)"
+                            class="hover:underline cursor-pointer text-left font-mono"
+                            style="
+                              color: var(--accent);
+                              background: transparent;
+                              border: none;
+                              padding: 0;
+                            "
+                          >
+                            <span class="mr-1">▸</span>{{ s.id }}
+                          </button>
+                          @if (s.createdAt) {
+                            <span class="text-[10px] opacity-60" style="color: var(--text-dim)">
+                              {{ s.createdAt | date: 'shortDate' }}
+                            </span>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  } @else {
+                    <p class="text-xs opacity-60" style="color: var(--text-dim)">
+                      No sessions found for this peer.
+                    </p>
+                  }
+                </section>
+
+                <section
+                  class="th-border border-2 p-3"
+                  style="border-radius: var(--radius); background: var(--surface)"
+                >
+                  <h3
+                    class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                    style="color: var(--accent)"
+                  >
                     Recent Conclusions ({{ pd.recentConclusions.length }})
                   </h3>
                   <ul class="space-y-1 text-xs">
                     @for (c of pd.recentConclusions; track c.id) {
                       <li class="flex gap-2">
-                        <span style="color: var(--accent);">▸</span>
+                        <span style="color: var(--accent)">▸</span>
                         <span class="flex-1">{{ c.content }}</span>
-                        <span class="opacity-50" style="color: var(--text-dim);">
+                        <span class="opacity-50" style="color: var(--text-dim)">
                           {{ c.createdAt | date: 'short' }}
                         </span>
                       </li>
@@ -325,7 +428,7 @@
             } @else if (loading()) {
               <p class="text-sm opacity-60">loading...</p>
             } @else {
-              <p class="text-sm opacity-60" style="color: var(--text-dim);">
+              <p class="text-sm opacity-60" style="color: var(--text-dim)">
                 Select a peer to inspect.
               </p>
             }
@@ -336,7 +439,10 @@
       @case ('sessions') {
         <div data-testid="sessions-pane" class="grid grid-cols-1 gap-3 md:grid-cols-3">
           <aside>
-            <h2 class="th-display mb-2 text-lg font-bold tracking-widest" style="color: var(--accent);">
+            <h2
+              class="th-display mb-2 text-lg font-bold tracking-widest"
+              style="color: var(--accent)"
+            >
               Sessions ({{ honcho.sessions().length }})
             </h2>
             <ul class="space-y-1">
@@ -349,13 +455,11 @@
                     [attr.data-session-id]="s.id"
                     [attr.data-active]="selectedSessionId() === s.id"
                     class="th-border w-full border-2 px-2 py-2 text-left text-sm"
-                    style="border-radius: var(--radius);"
+                    style="border-radius: var(--radius)"
                     [style.background]="
                       selectedSessionId() === s.id ? 'var(--accent)' : 'var(--surface)'
                     "
-                    [style.color]="
-                      selectedSessionId() === s.id ? 'var(--bg)' : 'var(--text)'
-                    "
+                    [style.color]="selectedSessionId() === s.id ? 'var(--bg)' : 'var(--text)'"
                   >
                     {{ s.id }}
                   </button>
@@ -367,30 +471,51 @@
           <section class="md:col-span-2">
             @if (sessionDetail(); as sd) {
               <div class="space-y-3">
-                <h2 class="th-display text-2xl font-bold tracking-wider" style="color: var(--accent);">
+                <h2
+                  class="th-display text-2xl font-bold tracking-wider"
+                  style="color: var(--accent)"
+                >
                   {{ sd.id }}
                 </h2>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div class="th-border border-2 p-2 text-center" style="border-radius: var(--radius); background: var(--surface);">
-                    <div class="th-display text-2xl" style="color: var(--accent);">{{ sd.messageCount }}</div>
+                  <div
+                    class="th-border border-2 p-2 text-center"
+                    style="border-radius: var(--radius); background: var(--surface)"
+                  >
+                    <div class="th-display text-2xl" style="color: var(--accent)">
+                      {{ sd.messageCount }}
+                    </div>
                     <div class="text-[10px] uppercase opacity-70">messages</div>
                   </div>
-                  <div class="th-border border-2 p-2 text-center" style="border-radius: var(--radius); background: var(--surface);">
-                    <div class="th-display text-2xl" style="color: var(--accent-2);">{{ sd.peerIds.length }}</div>
+                  <div
+                    class="th-border border-2 p-2 text-center"
+                    style="border-radius: var(--radius); background: var(--surface)"
+                  >
+                    <div class="th-display text-2xl" style="color: var(--accent-2)">
+                      {{ sd.peerIds.length }}
+                    </div>
                     <div class="text-[10px] uppercase opacity-70">peers</div>
                   </div>
-                  <div class="th-border border-2 p-2 text-center" style="border-radius: var(--radius); background: var(--surface);">
-                    <div class="th-display text-2xl" style="color: var(--accent-3);">{{ sd.queue.totalWorkUnits }}</div>
+                  <div
+                    class="th-border border-2 p-2 text-center"
+                    style="border-radius: var(--radius); background: var(--surface)"
+                  >
+                    <div class="th-display text-2xl" style="color: var(--accent-3)">
+                      {{ sd.queue.totalWorkUnits }}
+                    </div>
                     <div class="text-[10px] uppercase opacity-70">queue</div>
                   </div>
                 </div>
 
                 <section
                   class="th-border border-2 p-3"
-                  style="border-radius: var(--radius); background: var(--surface);"
+                  style="border-radius: var(--radius); background: var(--surface)"
                 >
-                  <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent-2);">
+                  <h3
+                    class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                    style="color: var(--accent-2)"
+                  >
                     Peers in Session
                   </h3>
                   <ul class="space-y-1 text-sm">
@@ -400,7 +525,7 @@
                           type="button"
                           (click)="setTab('peers'); selectPeer(pid)"
                           class="underline"
-                          style="color: var(--accent);"
+                          style="color: var(--accent)"
                         >
                           {{ pid }}
                         </button>
@@ -411,29 +536,36 @@
 
                 <section
                   class="th-border border-2 p-3"
-                  style="border-radius: var(--radius); background: var(--surface);"
+                  style="border-radius: var(--radius); background: var(--surface)"
                 >
-                  <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent-3);">
+                  <h3
+                    class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+                    style="color: var(--accent-3)"
+                  >
                     Summaries
                   </h3>
                   @if (sd.summaries.shortSummary) {
                     <p class="mb-2 text-xs uppercase opacity-70">short</p>
                     <p class="text-sm">{{ sd.summaries.shortSummary.content }}</p>
                   } @else {
-                    <p class="text-xs opacity-60" style="color: var(--text-dim);">no short summary</p>
+                    <p class="text-xs opacity-60" style="color: var(--text-dim)">
+                      no short summary
+                    </p>
                   }
                   @if (sd.summaries.longSummary) {
                     <p class="mb-2 mt-3 text-xs uppercase opacity-70">long</p>
                     <p class="text-sm">{{ sd.summaries.longSummary.content }}</p>
                   } @else {
-                    <p class="mt-1 text-xs opacity-60" style="color: var(--text-dim);">no long summary</p>
+                    <p class="mt-1 text-xs opacity-60" style="color: var(--text-dim)">
+                      no long summary
+                    </p>
                   }
                 </section>
               </div>
             } @else if (loading()) {
               <p class="text-sm opacity-60">loading...</p>
             } @else {
-              <p class="text-sm opacity-60" style="color: var(--text-dim);">
+              <p class="text-sm opacity-60" style="color: var(--text-dim)">
                 Select a session to inspect.
               </p>
             }
@@ -444,7 +576,7 @@
       @case ('conclusions') {
         <div data-testid="conclusions-pane">
           <div class="mb-3 flex items-center justify-between gap-2">
-            <h2 class="th-display text-lg font-bold tracking-widest" style="color: var(--accent);">
+            <h2 class="th-display text-lg font-bold tracking-widest" style="color: var(--accent)">
               Conclusions
             </h2>
             <select
@@ -452,7 +584,7 @@
               (ngModelChange)="selectedPeerId.set($event); loadConclusions($event)"
               data-testid="conclusions-peer-select"
               class="th-surface th-border border-2 px-2 py-1 text-xs"
-              style="border-radius: var(--radius); color: var(--text);"
+              style="border-radius: var(--radius); color: var(--text)"
             >
               <option value="">— select peer —</option>
               @for (p of honcho.peers(); track p.id) {
@@ -462,7 +594,7 @@
           </div>
 
           @if (conclusions().length === 0) {
-            <p class="text-sm opacity-60" style="color: var(--text-dim);">
+            <p class="text-sm opacity-60" style="color: var(--text-dim)">
               No conclusions yet for the selected peer.
             </p>
           } @else {
@@ -470,14 +602,14 @@
               @for (c of conclusions(); track c.id) {
                 <li
                   class="th-border border-2 px-3 py-2"
-                  style="border-radius: var(--radius); background: var(--surface);"
+                  style="border-radius: var(--radius); background: var(--surface)"
                 >
                   <div class="text-sm">{{ c.content }}</div>
-                  <div class="mt-1 text-[10px] opacity-60" style="color: var(--text-dim);">
-                    observer: <span style="color: var(--accent);">{{ c.observerId }}</span>
-                    · observed: <span style="color: var(--accent-2);">{{ c.observedId }}</span>
+                  <div class="mt-1 text-[10px] opacity-60" style="color: var(--text-dim)">
+                    observer: <span style="color: var(--accent)">{{ c.observerId }}</span> ·
+                    observed: <span style="color: var(--accent-2)">{{ c.observedId }}</span>
                     @if (c.sessionId) {
-                      · session: <span style="color: var(--accent-3);">{{ c.sessionId }}</span>
+                      · session: <span style="color: var(--accent-3)">{{ c.sessionId }}</span>
                     } @else {
                       · <em>global</em>
                     }
@@ -504,50 +636,54 @@
               name="query"
               placeholder="Semantic search across all messages..."
               class="th-surface th-border flex-1 border-2 px-3 py-2 text-sm outline-none"
-              style="border-radius: var(--radius); color: var(--text);"
+              style="border-radius: var(--radius); color: var(--text)"
             />
             <button
               type="submit"
               [disabled]="!searchInput().trim() || loading()"
               class="th-border border-2 px-4 py-2 text-xs font-bold uppercase th-gradient"
-              style="border-radius: var(--radius); color: var(--bg);"
+              style="border-radius: var(--radius); color: var(--bg)"
             >
               Search
             </button>
           </form>
 
           @if (searchResults().length > 0) {
-            <p class="mb-2 text-[10px] uppercase opacity-70" style="color: var(--text-dim);">
+            <p class="mb-2 text-[10px] uppercase opacity-70" style="color: var(--text-dim)">
               {{ searchResults().length }} result(s)
             </p>
             <ul class="space-y-2">
               @for (m of searchResults(); track m.id) {
                 <li
                   class="th-border border-2 px-3 py-2"
-                  style="border-radius: var(--radius); background: var(--surface);"
+                  style="border-radius: var(--radius); background: var(--surface)"
                 >
                   <div class="text-sm">{{ m.content }}</div>
-                  <div class="mt-1 text-[10px] opacity-60" style="color: var(--text-dim);">
+                  <div class="mt-1 text-[10px] opacity-60" style="color: var(--text-dim)">
                     <button
                       type="button"
                       (click)="setTab('peers'); selectPeer(m.peerId)"
                       class="underline"
-                      style="color: var(--accent);"
-                    >{{ m.peerId }}</button>
+                      style="color: var(--accent)"
+                    >
+                      {{ m.peerId }}
+                    </button>
                     in
                     <button
                       type="button"
                       (click)="setTab('sessions'); selectSession(m.sessionId)"
                       class="underline"
-                      style="color: var(--accent-2);"
-                    >{{ m.sessionId }}</button>
+                      style="color: var(--accent-2)"
+                    >
+                      {{ m.sessionId }}
+                    </button>
                     · {{ m.createdAt | date: 'short' }}
                   </div>
                 </li>
               }
             </ul>
           } @else if (searchInput().trim() && !loading()) {
-            <p class="text-sm opacity-60" style="color: var(--text-dim);">
+            <p class="text-sm opacity-60" style="color: var(--text-dim)">
               No matches for "{{ searchInput() }}".
             </p>
           }

@@ -1,17 +1,14 @@
 <div class="flex min-h-0 flex-1 flex-col" data-testid="admin-page">
   <div
     class="th-border flex flex-shrink-0 items-center justify-between gap-3 border-b-2 px-4 py-2"
-    style="background: var(--surface);"
+    style="background: var(--surface)"
     data-testid="admin-subheader"
   >
     <div>
-      <h1
-        class="th-display text-base font-bold tracking-widest"
-        style="color: var(--accent);"
-      >
+      <h1 class="th-display text-base font-bold tracking-widest" style="color: var(--accent)">
         ADMIN
       </h1>
-      <p class="text-[10px] opacity-70" style="color: var(--text-dim);">
+      <p class="text-[10px] opacity-70" style="color: var(--text-dim)">
         User management · audit log · system overview
       </p>
     </div>
@@ -19,7 +16,7 @@
 
   <div
     class="th-border flex flex-shrink-0 gap-1 border-b-2 p-2"
-    style="background: var(--bg-2); border-radius: 0;"
+    style="background: var(--bg-2); border-radius: 0"
     role="tablist"
   >
     @for (t of ['overview', 'users', 'audit', 'maintenance']; track t) {
@@ -30,7 +27,7 @@
         [attr.aria-selected]="tab() === t"
         [attr.data-testid]="'admin-tab-' + t"
         class="flex-1 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
-        style="border-radius: var(--radius);"
+        style="border-radius: var(--radius)"
         [style.background]="tab() === t ? 'var(--accent)' : 'transparent'"
         [style.color]="tab() === t ? 'var(--bg)' : 'var(--text-dim)'"
       >
@@ -45,425 +42,457 @@
       data-testid="admin-error"
       [style.borderColor]="'var(--danger)'"
       [style.color]="'var(--danger)'"
-      style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
+      style="
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--danger) 10%, transparent);
+      "
     >
       {{ e }}
     </div>
   }
 
   <div class="min-h-0 flex-1 overflow-y-auto p-4" data-testid="admin-tab-body">
-  @switch (tab()) {
-    @case ('overview') {
-      <div class="grid grid-cols-1 gap-6 lg:grid-cols-2" data-testid="admin-overview">
-        <div class="th-border border-2 p-4" style="border-radius: var(--radius);">
-          <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">
-            Counts
-          </h2>
-          <div class="h-72">
-            @if (overviewCountsChart(); as cfg) {
-              <app-chart type="bar" [data]="cfg.data" [options]="cfg.options"></app-chart>
-            } @else if (busy()) {
-              <div class="flex h-full items-center justify-center text-xs opacity-60">Loading...</div>
-            } @else if (error(); as e) {
-              <div class="flex h-full items-center justify-center px-4 text-center text-xs" style="color: var(--danger);">
-                {{ e }}
-              </div>
-            } @else {
-              <div class="flex h-full items-center justify-center text-xs opacity-60">
-                No data yet.
-                <button type="button" class="ml-2 underline" (click)="loadOverview()">Retry</button>
-              </div>
-            }
+    @switch (tab()) {
+      @case ('overview') {
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2" data-testid="admin-overview">
+          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
+            <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">Counts</h2>
+            <div class="h-72">
+              @if (overviewCountsChart(); as cfg) {
+                <app-chart type="bar" [data]="cfg.data" [options]="cfg.options"></app-chart>
+              } @else if (busy()) {
+                <div class="flex h-full items-center justify-center text-xs opacity-60">
+                  Loading...
+                </div>
+              } @else if (error(); as e) {
+                <div
+                  class="flex h-full items-center justify-center px-4 text-center text-xs"
+                  style="color: var(--danger)"
+                >
+                  {{ e }}
+                </div>
+              } @else {
+                <div class="flex h-full items-center justify-center text-xs opacity-60">
+                  No data yet.
+                  <button type="button" class="ml-2 underline" (click)="loadOverview()">
+                    Retry
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
+            <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">
+              Growth (7d vs 30d)
+            </h2>
+            <div class="h-72">
+              @if (overviewGrowthChart(); as cfg) {
+                <app-chart type="line" [data]="cfg.data" [options]="cfg.options"></app-chart>
+              } @else if (busy()) {
+                <div class="flex h-full items-center justify-center text-xs opacity-60">
+                  Loading...
+                </div>
+              } @else if (error(); as e) {
+                <div
+                  class="flex h-full items-center justify-center px-4 text-center text-xs"
+                  style="color: var(--danger)"
+                >
+                  {{ e }}
+                </div>
+              } @else {
+                <div class="flex h-full items-center justify-center text-xs opacity-60">
+                  No data yet.
+                  <button type="button" class="ml-2 underline" (click)="loadOverview()">
+                    Retry
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+          <div class="th-border border-2 p-4 lg:col-span-2" style="border-radius: var(--radius)">
+            <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">
+              Recent audit activity by action
+            </h2>
+            <div class="mx-auto h-72 max-w-md">
+              @if (auditActionChart(); as cfg) {
+                <app-chart type="doughnut" [data]="cfg.data" [options]="cfg.options"></app-chart>
+              } @else {
+                <div class="flex h-full items-center justify-center text-xs opacity-60">
+                  @if (auditTotal() === 0) {
+                    No audit events yet. Create a user, change a password, or trigger another
+                    auditable action to populate this chart.
+                  } @else {
+                    Open the Audit tab to view the underlying events.
+                  }
+                </div>
+              }
+            </div>
           </div>
         </div>
-        <div class="th-border border-2 p-4" style="border-radius: var(--radius);">
-          <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">
-            Growth (7d vs 30d)
-          </h2>
-          <div class="h-72">
-            @if (overviewGrowthChart(); as cfg) {
-              <app-chart type="line" [data]="cfg.data" [options]="cfg.options"></app-chart>
-            } @else if (busy()) {
-              <div class="flex h-full items-center justify-center text-xs opacity-60">Loading...</div>
-            } @else if (error(); as e) {
-              <div class="flex h-full items-center justify-center px-4 text-center text-xs" style="color: var(--danger);">
-                {{ e }}
-              </div>
-            } @else {
-              <div class="flex h-full items-center justify-center text-xs opacity-60">
-                No data yet.
-                <button type="button" class="ml-2 underline" (click)="loadOverview()">Retry</button>
-              </div>
-            }
-          </div>
-        </div>
-        <div class="th-border border-2 p-4 lg:col-span-2" style="border-radius: var(--radius);">
-          <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">
-            Recent audit activity by action
-          </h2>
-          <div class="mx-auto h-72 max-w-md">
-            @if (auditActionChart(); as cfg) {
-              <app-chart type="doughnut" [data]="cfg.data" [options]="cfg.options"></app-chart>
-            } @else {
-              <div class="flex h-full items-center justify-center text-xs opacity-60">
-                Load the Audit tab to see this chart
-              </div>
-            }
-          </div>
-        </div>
-      </div>
-    }
+      }
 
-    @case ('users') {
-      <div class="space-y-4" data-testid="admin-users">
-        <div class="th-border border-2 p-4" style="border-radius: var(--radius);">
-          <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">
-            Create user
-          </h2>
-          <form class="grid grid-cols-1 gap-3 sm:grid-cols-4" (submit)="$event.preventDefault(); createUser()">
-            <input
-              [value]="newUsername()"
-              (input)="newUsername.set($any($event.target).value)"
-              placeholder="username"
-              autocomplete="off"
-              data-testid="admin-new-username"
-              class="th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
-              style="border-radius: var(--radius); color: var(--text);"
-            />
-            <input
-              [value]="newPassword()"
-              (input)="newPassword.set($any($event.target).value)"
-              placeholder="password (8+)"
-              type="password"
-              autocomplete="new-password"
-              data-testid="admin-new-password"
-              class="th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
-              style="border-radius: var(--radius); color: var(--text);"
-            />
-            <label class="flex items-center gap-2 text-xs">
+      @case ('users') {
+        <div class="space-y-4" data-testid="admin-users">
+          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
+            <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">Create user</h2>
+            <form
+              class="grid grid-cols-1 gap-3 sm:grid-cols-4"
+              (submit)="$event.preventDefault(); createUser()"
+            >
               <input
-                type="checkbox"
-                [checked]="newIsAdmin()"
-                (change)="newIsAdmin.set($any($event.target).checked)"
+                [value]="newUsername()"
+                (input)="newUsername.set($any($event.target).value)"
+                placeholder="username"
+                autocomplete="off"
+                data-testid="admin-new-username"
+                class="th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                style="border-radius: var(--radius); color: var(--text)"
               />
-              Admin
-            </label>
-            <button
-              type="submit"
-              [disabled]="busy()"
-              data-testid="admin-create"
-              class="px-3 py-2 th-border border-2 th-gradient font-bold uppercase tracking-widest disabled:opacity-50"
-              style="border-radius: var(--radius); color: var(--bg);"
-            >
-              Create
-            </button>
-          </form>
-        </div>
+              <input
+                [value]="newPassword()"
+                (input)="newPassword.set($any($event.target).value)"
+                placeholder="password (8+)"
+                type="password"
+                autocomplete="new-password"
+                data-testid="admin-new-password"
+                class="th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                style="border-radius: var(--radius); color: var(--text)"
+              />
+              <label class="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  [checked]="newIsAdmin()"
+                  (change)="newIsAdmin.set($any($event.target).checked)"
+                />
+                Admin
+              </label>
+              <button
+                type="submit"
+                [disabled]="busy()"
+                data-testid="admin-create"
+                class="px-3 py-2 th-border border-2 th-gradient font-bold uppercase tracking-widest disabled:opacity-50"
+                style="border-radius: var(--radius); color: var(--bg)"
+              >
+                Create
+              </button>
+            </form>
+          </div>
 
-        <div class="th-border border-2 p-4" style="border-radius: var(--radius);">
-          <div class="mb-3 flex items-center gap-2">
-            <input
-              [value]="usersSearch()"
-              (input)="usersSearch.set($any($event.target).value)"
-              (keydown.enter)="searchUsers()"
-              placeholder="Search username/firstname/lastname/email"
-              data-testid="admin-search"
-              class="flex-1 th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
-              style="border-radius: var(--radius); color: var(--text);"
-            />
-            <button
-              type="button"
-              (click)="searchUsers()"
-              class="px-3 py-2 th-border border-2 th-surface hover:th-glow"
-              style="border-radius: var(--radius);"
-            >
-              Search
-            </button>
-            @if (usersSearchActive()) {
+          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
+            <div class="mb-3 flex items-center gap-2">
+              <input
+                [value]="usersSearch()"
+                (input)="usersSearch.set($any($event.target).value)"
+                (keydown.enter)="searchUsers()"
+                placeholder="Search username/firstname/lastname/email"
+                data-testid="admin-search"
+                class="flex-1 th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                style="border-radius: var(--radius); color: var(--text)"
+              />
               <button
                 type="button"
-                (click)="clearUsersSearch()"
+                (click)="searchUsers()"
                 class="px-3 py-2 th-border border-2 th-surface hover:th-glow"
-                style="border-radius: var(--radius);"
+                style="border-radius: var(--radius)"
               >
-                Clear
+                Search
               </button>
-            }
-            <select
-              [value]="usersPageSize()"
-              (change)="setUsersPageSize($any($event.target).value)"
-              class="th-surface th-border border-2 px-2 py-2 outline-none"
-              style="border-radius: var(--radius); color: var(--text);"
-              data-testid="admin-pagesize"
-            >
-              @for (s of pageSizeOptions; track s) {
-                <option [value]="s">{{ pageSizeLabel(s) }}</option>
+              @if (usersSearchActive()) {
+                <button
+                  type="button"
+                  (click)="clearUsersSearch()"
+                  class="px-3 py-2 th-border border-2 th-surface hover:th-glow"
+                  style="border-radius: var(--radius)"
+                >
+                  Clear
+                </button>
               }
-            </select>
-          </div>
+              <select
+                [value]="usersPageSize()"
+                (change)="setUsersPageSize($any($event.target).value)"
+                class="th-surface th-border border-2 px-2 py-2 outline-none"
+                style="border-radius: var(--radius); color: var(--text)"
+                data-testid="admin-pagesize"
+              >
+                @for (s of pageSizeOptions; track s) {
+                  <option [value]="s">{{ pageSizeLabel(s) }}</option>
+                }
+              </select>
+            </div>
 
-          <table class="w-full text-sm" data-testid="admin-users-table">
-            <thead class="text-xs uppercase opacity-70">
-              <tr class="border-b" style="border-color: var(--accent);">
-                <th class="py-2 text-left">Username</th>
-                <th class="py-2 text-left">Name</th>
-                <th class="py-2 text-left">Email</th>
-                <th class="py-2 text-left">Role</th>
-                <th class="py-2 text-left">Created</th>
-                <th class="py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (u of users(); track u.id) {
-                <tr class="border-b" style="border-color: var(--accent);" [attr.data-testid]="'admin-user-' + u.username">
-                  <td class="py-2 font-mono">{{ u.username }}</td>
-                  <td class="py-2">
-                    {{ u.firstname ?? '' }} {{ u.lastname ?? '' }}
-                  </td>
-                  <td class="py-2 font-mono text-xs opacity-70">{{ u.email ?? '—' }}</td>
-                  <td class="py-2">
-                    <span
-                      class="px-2 py-0.5 text-xs font-bold uppercase"
-                      style="border-radius: var(--radius);"
-                      [style.background]="u.isAdmin ? 'var(--accent)' : 'transparent'"
-                      [style.color]="u.isAdmin ? 'var(--bg)' : 'var(--text-dim)'"
-                      [style.border]="'1px solid var(--accent)'"
-                    >
-                      {{ u.isAdmin ? 'admin' : 'user' }}
-                    </span>
-                  </td>
-                  <td class="py-2 text-xs opacity-70">{{ u.createdAt | date: 'short' }}</td>
-                  <td class="py-2 text-right">
-                    <div class="flex justify-end gap-1">
-                      <button
-                        type="button"
-                        (click)="promoteUser(u)"
-                        [disabled]="busy()"
-                        class="px-2 py-1 text-xs th-border border-2 th-surface hover:th-glow disabled:opacity-50"
-                        style="border-radius: var(--radius);"
-                        [attr.data-testid]="'admin-promote-' + u.username"
-                      >
-                        {{ u.isAdmin ? 'Demote' : 'Promote' }}
-                      </button>
-                      <button
-                        type="button"
-                        (click)="resetPassword(u)"
-                        [disabled]="busy()"
-                        class="px-2 py-1 text-xs th-border border-2 th-surface hover:th-glow disabled:opacity-50"
-                        style="border-radius: var(--radius);"
-                      >
-                        Reset pwd
-                      </button>
-                      <button
-                        type="button"
-                        (click)="revokeSessions(u)"
-                        [disabled]="busy()"
-                        class="px-2 py-1 text-xs th-border border-2 th-surface hover:th-glow disabled:opacity-50"
-                        style="border-radius: var(--radius);"
-                      >
-                        Revoke
-                      </button>
-                      <button
-                        type="button"
-                        (click)="deleteUser(u)"
-                        [disabled]="busy()"
-                        class="px-2 py-1 text-xs th-border border-2 th-surface hover:th-glow disabled:opacity-50"
-                        style="border-radius: var(--radius); color: var(--danger);"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
+            <table class="w-full text-sm" data-testid="admin-users-table">
+              <thead class="text-xs uppercase opacity-70">
+                <tr class="border-b" style="border-color: var(--accent)">
+                  <th class="py-2 text-left">Username</th>
+                  <th class="py-2 text-left">Name</th>
+                  <th class="py-2 text-left">Email</th>
+                  <th class="py-2 text-left">Role</th>
+                  <th class="py-2 text-left">Created</th>
+                  <th class="py-2 text-right">Actions</th>
                 </tr>
-              } @empty {
-                <tr>
-                  <td colspan="6" class="py-6 text-center text-xs opacity-60">
-                    @if (usersSearchActive()) {
-                      No users match.
-                    } @else {
-                      No users yet.
-                    }
-                  </td>
-                </tr>
+              </thead>
+              <tbody>
+                @for (u of users(); track u.id) {
+                  <tr
+                    class="border-b"
+                    style="border-color: var(--accent)"
+                    [attr.data-testid]="'admin-user-' + u.username"
+                  >
+                    <td class="py-2 font-mono">{{ u.username }}</td>
+                    <td class="py-2">{{ u.firstname ?? '' }} {{ u.lastname ?? '' }}</td>
+                    <td class="py-2 font-mono text-xs opacity-70">{{ u.email ?? '—' }}</td>
+                    <td class="py-2">
+                      <span
+                        class="px-2 py-0.5 text-xs font-bold uppercase"
+                        style="border-radius: var(--radius)"
+                        [style.background]="u.isAdmin ? 'var(--accent)' : 'transparent'"
+                        [style.color]="u.isAdmin ? 'var(--bg)' : 'var(--text-dim)'"
+                        [style.border]="'1px solid var(--accent)'"
+                      >
+                        {{ u.isAdmin ? 'admin' : 'user' }}
+                      </span>
+                    </td>
+                    <td class="py-2 text-xs opacity-70">{{ u.createdAt | date: 'short' }}</td>
+                    <td class="py-2 text-right">
+                      <div class="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          (click)="promoteUser(u)"
+                          [disabled]="busy()"
+                          class="px-2 py-1 text-xs th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+                          style="border-radius: var(--radius)"
+                          [attr.data-testid]="'admin-promote-' + u.username"
+                        >
+                          {{ u.isAdmin ? 'Demote' : 'Promote' }}
+                        </button>
+                        <button
+                          type="button"
+                          (click)="resetPassword(u)"
+                          [disabled]="busy()"
+                          class="px-2 py-1 text-xs th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+                          style="border-radius: var(--radius)"
+                        >
+                          Reset pwd
+                        </button>
+                        <button
+                          type="button"
+                          (click)="revokeSessions(u)"
+                          [disabled]="busy()"
+                          class="px-2 py-1 text-xs th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+                          style="border-radius: var(--radius)"
+                        >
+                          Revoke
+                        </button>
+                        <button
+                          type="button"
+                          (click)="deleteUser(u)"
+                          [disabled]="busy()"
+                          class="px-2 py-1 text-xs th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+                          style="border-radius: var(--radius); color: var(--danger)"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="6" class="py-6 text-center text-xs opacity-60">
+                      @if (usersSearchActive()) {
+                        No users match.
+                      } @else {
+                        No users yet.
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <p class="mt-2 text-xs opacity-60">
+              Total: {{ usersTotal() }} user{{ usersTotal() === 1 ? '' : 's' }}
+              @if (usersSearchActive()) {
+                · filter: "{{ usersSearch() }}"
               }
-            </tbody>
-          </table>
-          <p class="mt-2 text-xs opacity-60">
-            Total: {{ usersTotal() }} user{{ usersTotal() === 1 ? '' : 's' }}
-            @if (usersSearchActive()) {
-              · filter: "{{ usersSearch() }}"
-            }
-          </p>
-        </div>
-      </div>
-    }
-
-    @case ('audit') {
-      <div class="space-y-4" data-testid="admin-audit">
-        <div class="th-border border-2 p-4" style="border-radius: var(--radius);">
-          <div class="mb-3 flex flex-wrap items-center gap-2">
-            <select
-              [value]="auditAction()"
-              (change)="auditAction.set($any($event.target).value); loadAudit()"
-              class="th-surface th-border border-2 px-2 py-2 outline-none"
-              style="border-radius: var(--radius); color: var(--text);"
-              data-testid="admin-audit-action"
-            >
-              <option value="">All actions</option>
-              @for (a of auditActions; track a) {
-                <option [value]="a">{{ a }}</option>
-              }
-            </select>
-            <input
-              type="datetime-local"
-              [value]="auditSince()"
-              (change)="auditSince.set($any($event.target).value); loadAudit()"
-              class="th-surface th-border border-2 px-2 py-2 outline-none"
-              style="border-radius: var(--radius); color: var(--text);"
-              data-testid="admin-audit-since"
-            />
-            <select
-              [value]="auditPageSize()"
-              (change)="setAuditPageSize($any($event.target).value)"
-              class="th-surface th-border border-2 px-2 py-2 outline-none"
-              style="border-radius: var(--radius); color: var(--text);"
-            >
-              @for (s of pageSizeOptions; track s) {
-                <option [value]="s">{{ pageSizeLabel(s) }}</option>
-              }
-            </select>
-            <button
-              type="button"
-              (click)="loadAudit()"
-              class="px-3 py-2 th-border border-2 th-surface hover:th-glow"
-              style="border-radius: var(--radius);"
-            >
-              Refresh
-            </button>
-          </div>
-
-          <table class="w-full text-sm" data-testid="admin-audit-table">
-            <thead class="text-xs uppercase opacity-70">
-              <tr class="border-b" style="border-color: var(--accent);">
-                <th class="py-2 text-left">When</th>
-                <th class="py-2 text-left">Action</th>
-                <th class="py-2 text-left">Actor</th>
-                <th class="py-2 text-left">Target</th>
-                <th class="py-2 text-left">IP</th>
-                <th class="py-2 text-left">Metadata</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (e of audit(); track e.id) {
-                <tr class="border-b" style="border-color: var(--accent);">
-                  <td class="py-2 text-xs opacity-70">{{ e.createdAt | date: 'short' }}</td>
-                  <td class="py-2">
-                    <code class="font-mono text-xs" style="color: var(--accent);">{{ e.action }}</code>
-                  </td>
-                  <td class="py-2 font-mono text-xs">{{ e.actorUserId ?? '—' }}</td>
-                  <td class="py-2 font-mono text-xs">{{ e.targetUserId ?? '—' }}</td>
-                  <td class="py-2 font-mono text-xs opacity-70">{{ e.ip ?? '—' }}</td>
-                  <td class="py-2 font-mono text-xs opacity-70">
-                    {{ formatMetadata(e.metadata) }}
-                  </td>
-                </tr>
-              } @empty {
-                <tr>
-                  <td colspan="6" class="py-6 text-center text-xs opacity-60">
-                    No audit entries yet.
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-          <p class="mt-2 text-xs opacity-60">
-            Total: {{ auditTotal() }} row{{ auditTotal() === 1 ? '' : 's' }}
-            @if (auditAction()) { · action: {{ auditAction() }} }
-            @if (auditSince()) { · since: {{ auditSince() }} }
-          </p>
-        </div>
-      </div>
-    }
-
-    @case ('maintenance') {
-      <div class="space-y-4" data-testid="admin-maintenance">
-        <div class="th-border border-2 p-4" style="border-radius: var(--radius);">
-          <h2 class="mb-3 text-xs font-bold uppercase tracking-widest opacity-80">
-            Row counts
-          </h2>
-          @if (maintenance(); as m) {
-            <dl class="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <dt class="opacity-60">Audit rows</dt>
-                <dd class="text-xl font-bold">{{ m.auditRows }}</dd>
-              </div>
-              <div>
-                <dt class="opacity-60">Retention (days)</dt>
-                <dd class="font-mono">{{ m.auditRetentionDays }}</dd>
-              </div>
-              <div>
-                <dt class="opacity-60">Max rows</dt>
-                <dd class="font-mono">{{ m.auditMaxRows }}</dd>
-              </div>
-            </dl>
-          } @else if (busy()) {
-            <p class="text-xs opacity-60">Loading...</p>
-          } @else if (error(); as e) {
-            <p class="text-xs" style="color: var(--danger);">{{ e }}</p>
-          } @else {
-            <p class="text-xs opacity-60">
-              No data.
-              <button type="button" class="ml-2 underline" (click)="loadMaintenance()">Retry</button>
             </p>
-          }
-        </div>
-        <div class="th-border border-2 p-4" style="border-radius: var(--radius);">
-          <h2 class="mb-3 text-xs font-bold uppercase tracking-widest opacity-80">
-            Retention
-          </h2>
-          @if (maintenance(); as m) {
-            <dl class="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <dt class="opacity-60">Purge cron</dt>
-                <dd class="font-mono">{{ m.auditPurgeCron }}</dd>
-              </div>
-              <div>
-                <dt class="opacity-60">Generated at</dt>
-                <dd class="font-mono text-xs">{{ m.generatedAt | date: 'short' }}</dd>
-              </div>
-            </dl>
-          }
-        </div>
-        <div class="th-border border-2 p-4" style="border-radius: var(--radius);">
-          <h2 class="mb-3 text-xs font-bold uppercase tracking-widest opacity-80">
-            Manual sweeps
-          </h2>
-          <div class="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              (click)="purgeAudit()"
-              [disabled]="busy()"
-              class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
-              style="border-radius: var(--radius);"
-            >
-              Purge audit
-            </button>
-            <button
-              type="button"
-              (click)="purgeExpiredSessions()"
-              [disabled]="busy()"
-              class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
-              style="border-radius: var(--radius);"
-            >
-              Purge expired sessions
-            </button>
-            @if (purgeResult() !== null) {
-              <span class="text-xs opacity-70">Deleted {{ purgeResult() }} row(s)</span>
-            }
           </div>
         </div>
-      </div>
+      }
+
+      @case ('audit') {
+        <div class="space-y-4" data-testid="admin-audit">
+          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+              <select
+                [value]="auditAction()"
+                (change)="auditAction.set($any($event.target).value); loadAudit()"
+                class="th-surface th-border border-2 px-2 py-2 outline-none"
+                style="border-radius: var(--radius); color: var(--text)"
+                data-testid="admin-audit-action"
+              >
+                <option value="">All actions</option>
+                @for (a of auditActions; track a) {
+                  <option [value]="a">{{ a }}</option>
+                }
+              </select>
+              <input
+                type="datetime-local"
+                [value]="auditSince()"
+                (change)="auditSince.set($any($event.target).value); loadAudit()"
+                class="th-surface th-border border-2 px-2 py-2 outline-none"
+                style="border-radius: var(--radius); color: var(--text)"
+                data-testid="admin-audit-since"
+              />
+              <select
+                [value]="auditPageSize()"
+                (change)="setAuditPageSize($any($event.target).value)"
+                class="th-surface th-border border-2 px-2 py-2 outline-none"
+                style="border-radius: var(--radius); color: var(--text)"
+              >
+                @for (s of pageSizeOptions; track s) {
+                  <option [value]="s">{{ pageSizeLabel(s) }}</option>
+                }
+              </select>
+              <button
+                type="button"
+                (click)="loadAudit()"
+                class="px-3 py-2 th-border border-2 th-surface hover:th-glow"
+                style="border-radius: var(--radius)"
+              >
+                Refresh
+              </button>
+            </div>
+
+            <table class="w-full text-sm" data-testid="admin-audit-table">
+              <thead class="text-xs uppercase opacity-70">
+                <tr class="border-b" style="border-color: var(--accent)">
+                  <th class="py-2 text-left">When</th>
+                  <th class="py-2 text-left">Action</th>
+                  <th class="py-2 text-left">Actor</th>
+                  <th class="py-2 text-left">Target</th>
+                  <th class="py-2 text-left">IP</th>
+                  <th class="py-2 text-left">Metadata</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (e of audit(); track e.id) {
+                  <tr class="border-b" style="border-color: var(--accent)">
+                    <td class="py-2 text-xs opacity-70">{{ e.createdAt | date: 'short' }}</td>
+                    <td class="py-2">
+                      <code class="font-mono text-xs" style="color: var(--accent)">{{
+                        e.action
+                      }}</code>
+                    </td>
+                    <td class="py-2 font-mono text-xs">{{ e.actorUserId ?? '—' }}</td>
+                    <td class="py-2 font-mono text-xs">{{ e.targetUserId ?? '—' }}</td>
+                    <td class="py-2 font-mono text-xs opacity-70">{{ e.ip ?? '—' }}</td>
+                    <td class="py-2 font-mono text-xs opacity-70">
+                      {{ formatMetadata(e.metadata) }}
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="6" class="py-6 text-center text-xs opacity-60">
+                      No audit entries yet.
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <p class="mt-2 text-xs opacity-60">
+              Total: {{ auditTotal() }} row{{ auditTotal() === 1 ? '' : 's' }}
+              @if (auditAction()) {
+                · action: {{ auditAction() }}
+              }
+              @if (auditSince()) {
+                · since: {{ auditSince() }}
+              }
+            </p>
+          </div>
+        </div>
+      }
+
+      @case ('maintenance') {
+        <div class="space-y-4" data-testid="admin-maintenance">
+          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
+            <h2 class="mb-3 text-xs font-bold uppercase tracking-widest opacity-80">Row counts</h2>
+            @if (maintenance(); as m) {
+              <dl class="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <dt class="opacity-60">Audit rows</dt>
+                  <dd class="text-xl font-bold">{{ m.auditRows }}</dd>
+                </div>
+                <div>
+                  <dt class="opacity-60">Retention (days)</dt>
+                  <dd class="font-mono">{{ m.auditRetentionDays }}</dd>
+                </div>
+                <div>
+                  <dt class="opacity-60">Max rows</dt>
+                  <dd class="font-mono">{{ m.auditMaxRows }}</dd>
+                </div>
+              </dl>
+            } @else if (busy()) {
+              <p class="text-xs opacity-60">Loading...</p>
+            } @else if (error(); as e) {
+              <p class="text-xs" style="color: var(--danger)">{{ e }}</p>
+            } @else {
+              <p class="text-xs opacity-60">
+                No data.
+                <button type="button" class="ml-2 underline" (click)="loadMaintenance()">
+                  Retry
+                </button>
+              </p>
+            }
+          </div>
+          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
+            <h2 class="mb-3 text-xs font-bold uppercase tracking-widest opacity-80">Retention</h2>
+            @if (maintenance(); as m) {
+              <dl class="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <dt class="opacity-60">Purge schedule</dt>
+                  <dd class="font-bold" data-testid="purge-schedule">
+                    {{ describeCron(m.auditPurgeCron) }}
+                  </dd>
+                  @if (m.auditPurgeCron) {
+                    <dd class="mt-1 font-mono text-xs opacity-50">{{ m.auditPurgeCron }}</dd>
+                  }
+                </div>
+                <div>
+                  <dt class="opacity-60">Generated at</dt>
+                  <dd class="font-mono text-xs">{{ m.generatedAt | date: 'short' }}</dd>
+                </div>
+              </dl>
+            }
+          </div>
+          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
+            <h2 class="mb-3 text-xs font-bold uppercase tracking-widest opacity-80">
+              Manual sweeps
+            </h2>
+            <div class="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                (click)="purgeAudit()"
+                [disabled]="busy()"
+                class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+                style="border-radius: var(--radius)"
+              >
+                Purge audit
+              </button>
+              <button
+                type="button"
+                (click)="purgeExpiredSessions()"
+                [disabled]="busy()"
+                class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+                style="border-radius: var(--radius)"
+              >
+                Purge expired sessions
+              </button>
+              @if (purgeResult() !== null) {
+                <span class="text-xs opacity-70">Deleted {{ purgeResult() }} row(s)</span>
+              }
+            </div>
+          </div>
+        </div>
+      }
     }
-  }
   </div>
 </div>

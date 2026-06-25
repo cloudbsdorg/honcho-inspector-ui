@@ -13,12 +13,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function pathOf(input: RequestInfo | URL): string {
-  const s =
-    typeof input === 'string'
-      ? input
-      : input instanceof URL
-        ? input.toString()
-        : input.url;
+  const s = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   return s.replace(/^https?:\/\/[^/]+/, '');
 }
 
@@ -35,9 +30,7 @@ const PROFILE: Profile = {
   updatedAt: '2026-01-01T00:00:00Z',
 };
 
-function installFetch(
-  handler: (path: string, init?: RequestInit) => Response | Promise<Response>,
-) {
+function installFetch(handler: (path: string, init?: RequestInit) => Response | Promise<Response>) {
   const fn = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     return Promise.resolve(handler(pathOf(input), init));
   });
@@ -46,9 +39,11 @@ function installFetch(
 }
 
 async function login(auth: HonchoAuthService) {
-  globalThis.fetch = vi.fn().mockResolvedValue(
-    jsonResponse({ sessionId: 'sess-abc', user: USER }),
-  ) as unknown as typeof fetch;
+  globalThis.fetch = vi
+    .fn()
+    .mockResolvedValue(
+      jsonResponse({ sessionId: 'sess-abc', user: USER }),
+    ) as unknown as typeof fetch;
   await auth.login({ username: 'alice', password: 'passw0rd' });
 }
 
@@ -104,9 +99,7 @@ describe('HonchoService', () => {
   it('should map snake_case peers response to camelCase model', async () => {
     installFetch(() =>
       jsonResponse({
-        items: [
-          { id: 'alice', created_at: '2024-01-01T00:00:00Z', metadata: { source: 'test' } },
-        ],
+        items: [{ id: 'alice', created_at: '2024-01-01T00:00:00Z', metadata: { source: 'test' } }],
       }),
     );
     await service.refreshPeers();
@@ -119,9 +112,7 @@ describe('HonchoService', () => {
   });
 
   it('should map snake_case sessions response to camelCase model', async () => {
-    installFetch(() =>
-      jsonResponse({ items: [{ id: 's1', created_at: '2024-02-02T00:00:00Z' }] }),
-    );
+    installFetch(() => jsonResponse({ items: [{ id: 's1', created_at: '2024-02-02T00:00:00Z' }] }));
     await service.refreshSessions();
     expect(service.sessions()[0]).toEqual({
       id: 's1',
@@ -208,7 +199,10 @@ describe('HonchoService', () => {
     it('should load peers from localStorage on init', async () => {
       localStorage.setItem(
         'honcho-cache-profile-1',
-        JSON.stringify({ peers: [{ id: 'cached-peer', createdAt: '', metadata: {} }], sessions: [] }),
+        JSON.stringify({
+          peers: [{ id: 'cached-peer', createdAt: '', metadata: {} }],
+          sessions: [],
+        }),
       );
       await service.init();
       expect(service.peers()[0]?.id).toBe('cached-peer');
@@ -227,9 +221,7 @@ describe('HonchoService', () => {
     });
 
     it('should clear the cache on reset()', async () => {
-      installFetch(() =>
-        jsonResponse({ items: [{ id: 'a', created_at: '', metadata: {} }] }),
-      );
+      installFetch(() => jsonResponse({ items: [{ id: 'a', created_at: '', metadata: {} }] }));
       await service.refreshPeers();
       expect(localStorage.getItem('honcho-cache-profile-1')).toBeTruthy();
       service.reset();
@@ -250,9 +242,9 @@ describe('HonchoService', () => {
       );
       await service.refreshPeers();
       expect(localStorage.getItem('honcho-cache-profile-2')).toBeTruthy();
-      expect(
-        JSON.parse(localStorage.getItem('honcho-cache-profile-1')!).peers[0].id,
-      ).toBe('p1-peer');
+      expect(JSON.parse(localStorage.getItem('honcho-cache-profile-1')!).peers[0].id).toBe(
+        'p1-peer',
+      );
     });
   });
 
@@ -304,21 +296,15 @@ describe('HonchoService', () => {
     });
 
     it('should map 429 to a rate-limit hint', () => {
-      expect(service.friendlyErrorMessage(new ApiError('rate limit', 429))).toContain(
-        'Rate limit',
-      );
+      expect(service.friendlyErrorMessage(new ApiError('rate limit', 429))).toContain('Rate limit');
     });
 
     it('should map 5xx to a server-error hint', () => {
-      expect(service.friendlyErrorMessage(new ApiError('boom', 502))).toContain(
-        'server error',
-      );
+      expect(service.friendlyErrorMessage(new ApiError('boom', 502))).toContain('server error');
     });
 
     it('should fall back to plain Error.message for non-ApiError', () => {
-      expect(service.friendlyErrorMessage(new Error('Some weird thing'))).toBe(
-        'Some weird thing',
-      );
+      expect(service.friendlyErrorMessage(new Error('Some weird thing'))).toBe('Some weird thing');
     });
   });
 
@@ -334,7 +320,12 @@ describe('HonchoService', () => {
               summary: { enabled: false },
               dream: { enabled: true },
             },
-            queue: { total_work_units: 3, completed_work_units: 1, in_progress_work_units: 1, pending_work_units: 1 },
+            queue: {
+              total_work_units: 3,
+              completed_work_units: 1,
+              in_progress_work_units: 1,
+              pending_work_units: 1,
+            },
           });
         }
         if (path === '/api/peers') {

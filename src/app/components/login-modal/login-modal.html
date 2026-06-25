@@ -7,21 +7,21 @@
   >
     <div
       class="th-surface th-shadow w-full max-w-md th-border border-2 p-6 sm:p-8"
-      style="border-radius: var(--radius);"
+      style="border-radius: var(--radius)"
       (click)="$event.stopPropagation()"
     >
       <div class="mb-6 flex items-center gap-3">
-        <div
-          class="th-gradient h-10 w-10"
-          style="border-radius: var(--radius);"
-        ></div>
+        <img
+          src="honcho-logo.svg"
+          alt="Honcho Logo"
+          class="h-10 w-10 object-cover"
+          style="border-radius: var(--radius)"
+        />
         <div>
-          <h1 class="th-display text-2xl font-bold tracking-wider" style="color: var(--accent);">
+          <h1 class="th-display text-2xl font-bold tracking-wider" style="color: var(--accent)">
             HONCHO
           </h1>
-          <p class="text-xs opacity-70">
-            Sign in to continue
-          </p>
+          <p class="text-xs opacity-70">Sign in to continue</p>
         </div>
       </div>
 
@@ -36,7 +36,7 @@
             autocomplete="username"
             data-testid="login-username"
             class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
-            style="border-radius: var(--radius);"
+            style="border-radius: var(--radius)"
             [style.color]="'var(--text)'"
           />
         </label>
@@ -51,7 +51,7 @@
             autocomplete="current-password"
             data-testid="login-password"
             class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
-            style="border-radius: var(--radius);"
+            style="border-radius: var(--radius)"
             [style.color]="'var(--text)'"
           />
         </label>
@@ -62,7 +62,10 @@
             data-testid="login-error"
             [style.borderColor]="'var(--danger)'"
             [style.color]="'var(--danger)'"
-            style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
+            style="
+              border-radius: var(--radius);
+              background: color-mix(in srgb, var(--danger) 10%, transparent);
+            "
           >
             {{ e }}
           </div>
@@ -73,7 +76,7 @@
             type="button"
             (click)="dismiss()"
             class="px-4 py-2 th-border border-2 th-surface hover:th-glow"
-            style="border-radius: var(--radius);"
+            style="border-radius: var(--radius)"
           >
             Cancel
           </button>
@@ -82,7 +85,7 @@
             [disabled]="submitting()"
             data-testid="login-submit"
             class="px-6 py-2 th-border border-2 th-gradient font-bold uppercase tracking-widest disabled:opacity-50"
-            style="border-radius: var(--radius); color: var(--bg);"
+            style="border-radius: var(--radius); color: var(--bg)"
           >
             @if (submitting()) {
               Working...

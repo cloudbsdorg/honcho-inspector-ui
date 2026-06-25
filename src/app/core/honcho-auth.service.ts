@@ -98,10 +98,7 @@ export class HonchoAuthService {
     const password = input.password ?? '';
     if (username === '') throw new ApiError('Username is required', 400);
     if (password.length < MIN_PASSWORD_LENGTH) {
-      throw new ApiError(
-        `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-        400,
-      );
+      throw new ApiError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`, 400);
     }
     return { username, password };
   }
@@ -114,10 +111,7 @@ export class HonchoAuthService {
     const email = input.email?.trim() || undefined;
     if (username === '') throw new ApiError('Username is required', 400);
     if (password.length < MIN_PASSWORD_LENGTH) {
-      throw new ApiError(
-        `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-        400,
-      );
+      throw new ApiError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`, 400);
     }
     return { username, password, firstname, lastname, email };
   }

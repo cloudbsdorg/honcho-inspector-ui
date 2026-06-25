@@ -1,16 +1,14 @@
 <div class="flex h-full flex-col" data-testid="chat-panel">
   <div
     class="th-border flex-1 space-y-3 overflow-y-auto border-2 p-3"
-    style="border-radius: var(--radius); background: var(--bg-2);"
+    style="border-radius: var(--radius); background: var(--bg-2)"
   >
     @if (turns().length === 0) {
-      <div class="text-center text-sm opacity-60" style="color: var(--text-dim);">
-        <p class="th-display text-lg" style="color: var(--accent);">
-          &gt; chat with {{ peerId }}
-        </p>
+      <div class="text-center text-sm opacity-60" style="color: var(--text-dim)">
+        <p class="th-display text-lg" style="color: var(--accent)">&gt; chat with {{ peerId }}</p>
         <p class="mt-2 text-xs">
-          Ask anything. Honcho will use {{ peerId }}'s accumulated memory to
-          reason about the answer.
+          Ask anything. Honcho will use {{ peerId }}'s accumulated memory to reason about the
+          answer.
         </p>
       </div>
     }
@@ -22,15 +20,11 @@
       >
         <div
           class="th-border max-w-[80%] border-2 px-3 py-2 text-sm"
-          style="border-radius: var(--radius);"
-          [style.background]="
-            turn.role === 'user' ? 'var(--accent)' : 'var(--surface)'
-          "
+          style="border-radius: var(--radius)"
+          [style.background]="turn.role === 'user' ? 'var(--accent)' : 'var(--surface)'"
           [style.color]="turn.role === 'user' ? 'var(--bg)' : 'var(--text)'"
         >
-          <div
-            class="mb-1 text-[10px] font-bold uppercase tracking-widest opacity-70"
-          >
+          <div class="mb-1 text-[10px] font-bold uppercase tracking-widest opacity-70">
             {{ turn.role }}
           </div>
           <div class="whitespace-pre-wrap break-words">{{ turn.content }}</div>
@@ -45,17 +39,16 @@
       data-testid="chat-error"
       [style.borderColor]="'var(--danger)'"
       [style.color]="'var(--danger)'"
-      style="border-radius: var(--radius); background: color-mix(in srgb, var(--danger) 10%, transparent);"
+      style="
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--danger) 10%, transparent);
+      "
     >
       {{ e }}
     </div>
   }
 
-  <form
-    (ngSubmit)="send()"
-    class="mt-3 flex gap-2"
-    data-testid="chat-form"
-  >
+  <form (ngSubmit)="send()" class="mt-3 flex gap-2" data-testid="chat-form">
     <input
       type="text"
       [ngModel]="inputValue()"
@@ -65,13 +58,13 @@
       autocomplete="off"
       placeholder="Ask {{ peerId }} anything..."
       class="th-surface th-border flex-1 border-2 px-3 py-2 text-sm outline-none"
-      style="border-radius: var(--radius); color: var(--text);"
+      style="border-radius: var(--radius); color: var(--text)"
     />
     <button
       type="submit"
       [disabled]="!canSend()"
       class="th-border border-2 px-4 py-2 text-sm font-bold uppercase tracking-widest th-gradient"
-      style="border-radius: var(--radius); color: var(--bg);"
+      style="border-radius: var(--radius); color: var(--bg)"
     >
       @if (busy()) {
         <span class="th-display">...</span>

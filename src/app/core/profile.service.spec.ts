@@ -11,18 +11,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function pathOf(input: RequestInfo | URL): string {
-  const s =
-    typeof input === 'string'
-      ? input
-      : input instanceof URL
-        ? input.toString()
-        : input.url;
+  const s = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   return s.replace(/^https?:\/\/[^/]+/, '');
 }
 
-function installFetch(
-  handler: (path: string, init?: RequestInit) => Response | Promise<Response>,
-) {
+function installFetch(handler: (path: string, init?: RequestInit) => Response | Promise<Response>) {
   const fn = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     return Promise.resolve(handler(pathOf(input), init));
   });
@@ -33,10 +26,7 @@ function installFetch(
 const USER = { id: 'u1', username: 'alice', isAdmin: false, createdAt: '2026-01-01T00:00:00Z' };
 
 function seedAuth() {
-  localStorage.setItem(
-    'honcho-credentials',
-    JSON.stringify({ sessionId: 'sess-1', user: USER }),
-  );
+  localStorage.setItem('honcho-credentials', JSON.stringify({ sessionId: 'sess-1', user: USER }));
 }
 
 const SAMPLE: Profile = {

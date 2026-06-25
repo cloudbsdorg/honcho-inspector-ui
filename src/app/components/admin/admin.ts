@@ -16,6 +16,7 @@ import {
   AdminUser,
 } from '../../core/models';
 import { ChartComponent } from '../charts/chart.component';
+import { describeCron } from '../../core/cron';
 
 type Tab = 'overview' | 'users' | 'audit' | 'maintenance';
 type PageSizeUi = 10 | 20 | 30;
@@ -35,6 +36,7 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
 })
 export class AdminPanel implements OnInit {
   private readonly admin = inject(AdminService);
+  protected readonly describeCron = describeCron;
 
   readonly tab = signal<Tab>('overview');
 
@@ -347,7 +349,9 @@ export class AdminPanel implements OnInit {
   }
 
   async purgeAudit(): Promise<void> {
-    if (!confirm('Run audit retention sweep now? Rows older than the retention window are deleted.')) {
+    if (
+      !confirm('Run audit retention sweep now? Rows older than the retention window are deleted.')
+    ) {
       return;
     }
     this.busy.set(true);

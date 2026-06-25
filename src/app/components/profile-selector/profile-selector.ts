@@ -1,16 +1,5 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
-import {
-  FormBuilder,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ProfileService } from '../../core/profile.service';
 import { Profile, ProfileWithKey } from '../../core/models';
@@ -120,8 +109,16 @@ export class ProfileSelector {
     };
     // Validate only requires the connectivity fields; missing label
     // is fine because nothing is being saved.
-    if (!value.apiKey?.trim() || !value.baseUrl?.trim() || !value.workspaceId?.trim() || !value.honchoUserName?.trim()) {
-      this.validateResult.set({ ok: false, error: 'API key, base URL, workspace ID, and Honcho user name are all required to validate' });
+    if (
+      !value.apiKey?.trim() ||
+      !value.baseUrl?.trim() ||
+      !value.workspaceId?.trim() ||
+      !value.honchoUserName?.trim()
+    ) {
+      this.validateResult.set({
+        ok: false,
+        error: 'API key, base URL, workspace ID, and Honcho user name are all required to validate',
+      });
       return;
     }
     this.validating.set(true);
@@ -195,9 +192,7 @@ export class ProfileSelector {
 
   async delete(profile: Profile): Promise<void> {
     if (typeof window === 'undefined') return;
-    const ok = window.confirm(
-      `Delete profile "${profile.label}"? This cannot be undone.`,
-    );
+    const ok = window.confirm(`Delete profile "${profile.label}"? This cannot be undone.`);
     if (!ok) return;
     try {
       await this.profiles.delete(profile.id);

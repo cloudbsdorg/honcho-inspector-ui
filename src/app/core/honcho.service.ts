@@ -42,9 +42,7 @@ export class HonchoService {
   readonly isReady = computed(
     () => this.auth.isAuthenticated() && this.profile.activeProfileId() !== null,
   );
-  readonly isStale = computed(
-    () => this._error() !== null && this._peers().length > 0,
-  );
+  readonly isStale = computed(() => this._error() !== null && this._peers().length > 0);
   readonly friendlyError = computed(() => {
     const e = this._error();
     return e ? this.friendlyErrorMessage(e) : null;
@@ -120,7 +118,10 @@ export class HonchoService {
     return this.runOrThrow(async () => {
       const [card, rep, conclusions, sessionCount] = await Promise.all([
         this.call<string[]>({ method: 'GET', path: `/peers/${encodeURIComponent(peerId)}/card` }),
-        this.call<string>({ method: 'GET', path: `/peers/${encodeURIComponent(peerId)}/representation` }),
+        this.call<string>({
+          method: 'GET',
+          path: `/peers/${encodeURIComponent(peerId)}/representation`,
+        }),
         this.call<ApiPage<ApiConclusion>>({
           method: 'GET',
           path: `/peers/${encodeURIComponent(peerId)}/conclusions`,
@@ -138,7 +139,11 @@ export class HonchoService {
         configuration: null,
         sessionCount: sessionCount.items?.length ?? 0,
         conclusionCount: conclusions.items.length,
-        sessions: [],
+        sessions: ((sessionCount.items as ApiSession[]) ?? []).map((s) => ({
+          id: s.id,
+          peerIds: [],
+          createdAt: (s as any).createdAt ?? s.created_at ?? '',
+        })),
         recentConclusions: conclusions.items.map(toConclusion),
       };
     });
@@ -147,7 +152,10 @@ export class HonchoService {
   async inspectSession(sessionId: string): Promise<HonchoSessionInspect> {
     return this.runOrThrow(async () => {
       const [details, peers, summaries, messages] = await Promise.all([
-        this.call<ApiSession>({ method: 'GET', path: `/sessions/${encodeURIComponent(sessionId)}` }),
+        this.call<ApiSession>({
+          method: 'GET',
+          path: `/sessions/${encodeURIComponent(sessionId)}`,
+        }),
         this.call<{ peers: string[] } | string[]>({
           method: 'GET',
           path: `/sessions/${encodeURIComponent(sessionId)}/peers`,
@@ -175,13 +183,19 @@ export class HonchoService {
 
   async getPeerCard(peerId: string): Promise<string[]> {
     return (
-      (await this.call<string[]>({ method: 'GET', path: `/peers/${encodeURIComponent(peerId)}/card` })) ?? []
+      (await this.call<string[]>({
+        method: 'GET',
+        path: `/peers/${encodeURIComponent(peerId)}/card`,
+      })) ?? []
     );
   }
 
   async getPeerRepresentation(peerId: string): Promise<string> {
     return (
-      (await this.call<string>({ method: 'GET', path: `/peers/${encodeURIComponent(peerId)}/representation` })) ?? ''
+      (await this.call<string>({
+        method: 'GET',
+        path: `/peers/${encodeURIComponent(peerId)}/representation`,
+      })) ?? ''
     );
   }
 
@@ -267,7 +281,11 @@ export class HonchoService {
     return Array.isArray(items) ? items.map(toMessage) : (items.items ?? []).map(toMessage);
   }
 
-  async searchPeer(peerId: string, query: string, options?: { limit?: number }): Promise<HonchoMessage[]> {
+  async searchPeer(
+    peerId: string,
+    query: string,
+    options?: { limit?: number },
+  ): Promise<HonchoMessage[]> {
     const body: Record<string, unknown> = { query };
     if (options?.limit !== undefined) body['limit'] = options.limit;
     const items = await this.call<ApiMessage[] | ApiPage<ApiMessage>>({
@@ -278,7 +296,11 @@ export class HonchoService {
     return Array.isArray(items) ? items.map(toMessage) : (items.items ?? []).map(toMessage);
   }
 
-  async searchSession(sessionId: string, query: string, options?: { limit?: number }): Promise<HonchoMessage[]> {
+  async searchSession(
+    sessionId: string,
+    query: string,
+    options?: { limit?: number },
+  ): Promise<HonchoMessage[]> {
     const body: Record<string, unknown> = { query };
     if (options?.limit !== undefined) body['limit'] = options.limit;
     const items = await this.call<ApiMessage[] | ApiPage<ApiMessage>>({
@@ -389,7 +411,7 @@ export class HonchoService {
     const page = await this.call<ApiPage<ApiPeer>>({ method: 'GET', path: '/peers' });
     const peers = page.items.map((p) => ({
       id: p.id,
-      createdAt: p.created_at,
+      createdAt: (p as any).createdAt ?? p.created_at,
       metadata: p.metadata ?? {},
     }));
     this._peers.set(peers);
@@ -401,7 +423,7 @@ export class HonchoService {
     const sessions = page.items.map((s) => ({
       id: s.id,
       peerIds: [],
-      createdAt: s.created_at,
+      createdAt: (s as any).createdAt ?? s.created_at,
     }));
     this._sessions.set(sessions);
     return sessions;
@@ -524,7 +546,7 @@ interface ApiSessionSummaries {
 function toMetadata(api: ApiWorkspaceMetadata): HonchoWorkspaceMetadata {
   return {
     id: api.id ?? '',
-    createdAt: api.created_at ?? '',
+    createdAt: (api as any).createdAt ?? api.created_at ?? '',
     raw: api,
   };
 }
@@ -538,9 +560,10 @@ function toConfig(api: ApiWorkspaceConfig | null | undefined): HonchoWorkspaceCo
       dream: { enabled: null },
     };
   }
+  const peerCardConfig = (api as any).peerCard ?? api.peer_card;
   return {
     reasoning: { enabled: api.reasoning?.enabled ?? null },
-    peerCard: { create: api.peer_card?.create ?? null },
+    peerCard: { create: peerCardConfig?.create ?? null },
     summary: { enabled: api.summary?.enabled ?? null },
     dream: { enabled: api.dream?.enabled ?? null },
   };
@@ -549,10 +572,10 @@ function toConfig(api: ApiWorkspaceConfig | null | undefined): HonchoWorkspaceCo
 function toQueueStatus(api: ApiQueueStatus | null | undefined): HonchoQueueStatus {
   if (!api) return emptyQueue();
   return {
-    totalWorkUnits: api.total_work_units ?? 0,
-    completedWorkUnits: api.completed_work_units ?? 0,
-    inProgressWorkUnits: api.in_progress_work_units ?? 0,
-    pendingWorkUnits: api.pending_work_units ?? 0,
+    totalWorkUnits: (api as any).totalWorkUnits ?? api.total_work_units ?? 0,
+    completedWorkUnits: (api as any).completedWorkUnits ?? api.completed_work_units ?? 0,
+    inProgressWorkUnits: (api as any).inProgressWorkUnits ?? api.in_progress_work_units ?? 0,
+    pendingWorkUnits: (api as any).pendingWorkUnits ?? api.pending_work_units ?? 0,
   };
 }
 
@@ -569,36 +592,65 @@ function toConclusion(api: ApiConclusion): HonchoConclusion {
   return {
     id: api.id,
     content: api.content,
-    observerId: api.observer_id ?? '',
-    observedId: api.observed_id ?? '',
-    sessionId: api.session_id ?? null,
-    createdAt: api.created_at ?? '',
+    observerId: (api as any).observerId ?? api.observer_id ?? '',
+    observedId: (api as any).observedId ?? api.observed_id ?? '',
+    sessionId: (api as any).sessionId ?? api.session_id ?? null,
+    createdAt: (api as any).createdAt ?? api.created_at ?? '',
   };
 }
 
 function toMessage(api: ApiMessage): HonchoMessage {
   return {
     id: api.id,
-    peerId: api.peer_id ?? '',
+    peerId: (api as any).peerId ?? api.peer_id ?? '',
     content: api.content,
-    sessionId: api.session_id ?? '',
-    createdAt: api.created_at ?? '',
+    sessionId: (api as any).sessionId ?? api.session_id ?? '',
+    createdAt: (api as any).createdAt ?? api.created_at ?? '',
     metadata: api.metadata ?? {},
   };
 }
 
-function toSummaries(sessionId: string, api: ApiSessionSummaries): {
+function toSummaries(
+  sessionId: string,
+  api: ApiSessionSummaries,
+): {
   id: string;
-  shortSummary: { content: string; messageId: string; summaryType: 'short'; createdAt: string; tokenCount: number } | null;
-  longSummary: { content: string; messageId: string; summaryType: 'long'; createdAt: string; tokenCount: number } | null;
+  shortSummary: {
+    content: string;
+    messageId: string;
+    summaryType: 'short';
+    createdAt: string;
+    tokenCount: number;
+  } | null;
+  longSummary: {
+    content: string;
+    messageId: string;
+    summaryType: 'long';
+    createdAt: string;
+    tokenCount: number;
+  } | null;
 } {
+  const short = (api as any).shortSummary ?? api.short_summary;
+  const long = (api as any).longSummary ?? api.long_summary;
   return {
     id: sessionId,
-    shortSummary: api.short_summary
-      ? { content: api.short_summary.content, messageId: '', summaryType: 'short', createdAt: api.short_summary.created_at ?? '', tokenCount: 0 }
+    shortSummary: short
+      ? {
+          content: short.content,
+          messageId: '',
+          summaryType: 'short',
+          createdAt: short.createdAt ?? short.created_at ?? '',
+          tokenCount: 0,
+        }
       : null,
-    longSummary: api.long_summary
-      ? { content: api.long_summary.content, messageId: '', summaryType: 'long', createdAt: api.long_summary.created_at ?? '', tokenCount: 0 }
+    longSummary: long
+      ? {
+          content: long.content,
+          messageId: '',
+          summaryType: 'long',
+          createdAt: long.createdAt ?? long.created_at ?? '',
+          tokenCount: 0,
+        }
       : null,
   };
 }

@@ -13,18 +13,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function pathOf(input: RequestInfo | URL): string {
-  const s =
-    typeof input === 'string'
-      ? input
-      : input instanceof URL
-        ? input.toString()
-        : input.url;
+  const s = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   return s.replace(/^https?:\/\/[^/]+/, '');
 }
 
-function installFetch(
-  handler: (path: string, init?: RequestInit) => Response | Promise<Response>,
-) {
+function installFetch(handler: (path: string, init?: RequestInit) => Response | Promise<Response>) {
   const fn = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     return Promise.resolve(handler(pathOf(input), init));
   });
@@ -64,10 +57,7 @@ describe('ProfileSelector', () => {
   beforeEach(async () => {
     localStorage.clear();
     // Pre-seed an authenticated session so ngOnInit can load profiles.
-    localStorage.setItem(
-      'honcho-credentials',
-      JSON.stringify({ sessionId: 'sess-1', user: USER }),
-    );
+    localStorage.setItem('honcho-credentials', JSON.stringify({ sessionId: 'sess-1', user: USER }));
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [ProfileSelector],

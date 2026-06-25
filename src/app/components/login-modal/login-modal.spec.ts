@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { LoginModal } from './login-modal';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 
@@ -26,6 +27,7 @@ describe('LoginModal', () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [LoginModal],
+      providers: [provideRouter([{ path: 'profiles', redirectTo: '' }])],
     }).compileComponents();
     auth = TestBed.inject(HonchoAuthService);
     fixture = TestBed.createComponent(LoginModal);

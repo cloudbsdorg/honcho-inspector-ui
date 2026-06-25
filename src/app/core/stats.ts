@@ -216,7 +216,12 @@ export function topNByCount<T>(
 export function bucketLabel(startMs: number, granularity: Granularity): string {
   const d = new Date(startMs);
   const pad = (n: number) => String(n).padStart(2, '0');
-  if (granularity === '1m' || granularity === '5m' || granularity === '15m' || granularity === '30m') {
+  if (
+    granularity === '1m' ||
+    granularity === '5m' ||
+    granularity === '15m' ||
+    granularity === '30m'
+  ) {
     return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
   if (granularity === '1h' || granularity === '6h' || granularity === '12h') {

@@ -27,10 +27,7 @@ const PROFILE: Profile = {
 };
 
 async function loginAndInit() {
-  localStorage.setItem(
-    'honcho-credentials',
-    JSON.stringify({ sessionId: 'sess-abc', user: USER }),
-  );
+  localStorage.setItem('honcho-credentials', JSON.stringify({ sessionId: 'sess-abc', user: USER }));
   localStorage.setItem('honcho-active-profile', JSON.stringify(PROFILE.id));
 }
 
@@ -92,9 +89,9 @@ describe('ChatPanel', () => {
   });
 
   it('should call /api/peers/{id}/chat on send and append a user + assistant turn', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      jsonResponse('mock reply for alice'),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse('mock reply for alice'));
     component.inputValue.set('hi alice');
     await component.send();
     expect(component.turns().length).toBe(2);
@@ -109,9 +106,9 @@ describe('ChatPanel', () => {
   });
 
   it('should include X-Session-Id AND X-Honcho-Profile-Id in chat requests', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      jsonResponse('mock reply'),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse('mock reply'));
     component.inputValue.set('hi');
     await component.send();
     const init = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined;
@@ -129,9 +126,7 @@ describe('ChatPanel', () => {
   });
 
   it('should surface the honcho error in the error signal when chat fails (not as a turn)', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-      jsonResponse({ error: 'nope' }, 502),
-    );
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse({ error: 'nope' }, 502));
     component.inputValue.set('hi');
     await component.send();
     expect(component.turns().length).toBe(1);

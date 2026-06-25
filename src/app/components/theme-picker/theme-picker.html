@@ -7,11 +7,15 @@
     [attr.aria-expanded]="isOpen()"
     [attr.aria-label]="'Theme: ' + activeMeta()?.name + '. Click to change.'"
     class="th-border flex items-center gap-2 border-2 px-2 py-1 text-xs font-bold uppercase tracking-widest transition-all hover:th-glow"
-    style="border-radius: var(--radius); background: var(--surface); color: var(--text);"
+    style="border-radius: var(--radius); background: var(--surface); color: var(--text)"
   >
     <span
       class="block h-4 w-4 border th-border"
-      style="border-radius: var(--radius); background-image: var(--active-preview); background-size: cover;"
+      style="
+        border-radius: var(--radius);
+        background-image: var(--active-preview);
+        background-size: cover;
+      "
       [style.--active-preview]="activeMeta()?.preview"
     ></span>
     <span class="hidden sm:inline">{{ activeMeta()?.name }}</span>
@@ -23,7 +27,7 @@
       data-testid="theme-menu"
       role="menu"
       class="th-border th-shadow absolute right-0 z-50 mt-1 w-64 border-2 p-1 th-menu-enter"
-      style="border-radius: var(--radius); background: var(--surface); color: var(--text);"
+      style="border-radius: var(--radius); background: var(--surface); color: var(--text)"
     >
       @for (t of themes(); track t.id) {
         <button
@@ -35,24 +39,25 @@
           (click)="select(t.id)"
           class="th-theme-option flex w-full items-center gap-3 px-2 py-2 text-left text-sm"
           [class.th-theme-option-active]="activeId() === t.id"
-          style="border-radius: var(--radius);"
+          style="border-radius: var(--radius)"
         >
           <span
             class="block h-8 w-8 flex-shrink-0 border-2 th-border"
-            style="border-radius: var(--radius); background-image: var(--swatch); background-size: cover;"
+            style="
+              border-radius: var(--radius);
+              background-image: var(--swatch);
+              background-size: cover;
+            "
             [style.--swatch]="t.preview"
           ></span>
           <span class="min-w-0 flex-1">
             <span class="block font-bold">{{ t.name }}</span>
-            <span
-              class="block truncate text-[10px] opacity-70"
-              style="color: var(--text-dim);"
-            >
+            <span class="block truncate text-[10px] opacity-70" style="color: var(--text-dim)">
               {{ t.description }}
             </span>
           </span>
           @if (activeId() === t.id) {
-            <span style="color: var(--accent);" class="text-lg">✓</span>
+            <span style="color: var(--accent)" class="text-lg">✓</span>
           }
         </button>
       }

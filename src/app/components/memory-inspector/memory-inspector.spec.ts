@@ -16,18 +16,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function pathOf(input: RequestInfo | URL): string {
-  const s =
-    typeof input === 'string'
-      ? input
-      : input instanceof URL
-        ? input.toString()
-        : input.url;
+  const s = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   return s.replace(/^https?:\/\/[^/]+/, '');
 }
 
-function installFetch(
-  handler: (path: string, init?: RequestInit) => Response | Promise<Response>,
-) {
+function installFetch(handler: (path: string, init?: RequestInit) => Response | Promise<Response>) {
   const fn = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     return Promise.resolve(handler(pathOf(input), init));
   });
@@ -50,10 +43,7 @@ const PROFILE: Profile = {
 };
 
 async function bootstrapSession() {
-  localStorage.setItem(
-    'honcho-credentials',
-    JSON.stringify({ sessionId: 'sess-abc', user: USER }),
-  );
+  localStorage.setItem('honcho-credentials', JSON.stringify({ sessionId: 'sess-abc', user: USER }));
   localStorage.setItem('honcho-active-profile', JSON.stringify(PROFILE.id));
 }
 
@@ -82,7 +72,12 @@ describe('MemoryInspector', () => {
         return jsonResponse({
           workspace: { id: 'default', created_at: '2024-01-01' },
           configuration: { reasoning: { enabled: true }, peer_card: { create: true } },
-          queue: { total_work_units: 5, completed_work_units: 1, in_progress_work_units: 2, pending_work_units: 2 },
+          queue: {
+            total_work_units: 5,
+            completed_work_units: 1,
+            in_progress_work_units: 2,
+            pending_work_units: 2,
+          },
         });
       }
       if (path === '/api/peers')
@@ -108,7 +103,9 @@ describe('MemoryInspector', () => {
   });
 
   it('should render the 5 tab buttons', () => {
-    const tabs = (fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="tab-button"]');
+    const tabs = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      '[data-testid="tab-button"]',
+    );
     expect(tabs.length).toBe(5);
   });
 
@@ -171,5 +168,66 @@ describe('MemoryInspector', () => {
     expect(component.workspaceId()).toBe('default');
     expect(component.honchoUserName()).toBe('alice');
     expect(component.userName()).toBe('alice');
+  });
+
+  it('should select a peer and fetch/map their sessions', async () => {
+    installFetch((path) => {
+      if (path.includes('/peers/alice/sessions')) {
+        return jsonResponse({
+          items: [{ id: 'sess-123', created_at: '2024-03-03T00:00:00Z' }],
+        });
+      }
+      if (path.endsWith('/card')) return jsonResponse(['fact about peer']);
+      if (path.endsWith('/representation')) return jsonResponse('rep about peer');
+      if (path.includes('/conclusions')) return jsonResponse({ items: [] });
+      return jsonResponse({});
+    });
+
+    await component.selectPeer('alice');
+    fixture.detectChanges();
+
+    expect(component.peerDetail()?.sessions).toEqual([
+      { id: 'sess-123', peerIds: [], createdAt: '2024-03-03T00:00:00Z' },
+    ]);
+  });
+
+  it('should navigate to sessions tab and select session when session button is clicked in peer details', async () => {
+    installFetch((path) => {
+      if (path.includes('/peers/alice/sessions')) {
+        return jsonResponse({
+          items: [{ id: 'sess-123', created_at: '2024-03-03T00:00:00Z' }],
+        });
+      }
+      if (path.endsWith('/card')) return jsonResponse(['fact about peer']);
+      if (path.endsWith('/representation')) return jsonResponse('rep about peer');
+      if (path.includes('/conclusions')) return jsonResponse({ items: [] });
+      if (path.includes('/sessions/sess-123/messages')) return jsonResponse({ items: [] });
+      if (path.includes('/sessions/sess-123/peers')) return jsonResponse(['alice']);
+      if (path.includes('/sessions/sess-123/summaries')) return jsonResponse({});
+      if (path === '/api/sessions/sess-123') return jsonResponse({ id: 'sess-123' });
+      return jsonResponse({});
+    });
+
+    await component.selectPeer('alice');
+    fixture.detectChanges();
+
+    // Now switch to peers tab in the UI
+    component.setTab('peers');
+    fixture.detectChanges();
+
+    // Find the session button in the html and click it
+    const button = (fixture.nativeElement as HTMLElement).querySelector(
+      'button[class*="font-mono"]',
+    ) as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    expect(button.textContent).toContain('sess-123');
+
+    button.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Verify it changed tabs to sessions and selected sess-123
+    expect(component.activeTab()).toBe('sessions');
+    expect(component.selectedSessionId()).toBe('sess-123');
   });
 });

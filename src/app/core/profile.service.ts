@@ -65,9 +65,7 @@ export class ProfileService {
       body: partial,
       profileId: null,
     });
-    this._profiles.update((current) =>
-      current.map((p) => (p.id === updated.id ? updated : p)),
-    );
+    this._profiles.update((current) => current.map((p) => (p.id === updated.id ? updated : p)));
     return updated;
   }
 
@@ -91,9 +89,7 @@ export class ProfileService {
     });
   }
 
-  async testConnection(
-    id: string,
-  ): Promise<{ ok: boolean; message: string }> {
+  async testConnection(id: string): Promise<{ ok: boolean; message: string }> {
     return this.api.request<{ ok: boolean; message: string }>({
       method: 'POST',
       path: `/profiles/${encodeURIComponent(id)}/test`,

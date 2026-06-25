@@ -4,6 +4,7 @@ import {
   computed,
   effect,
   inject,
+  output,
   signal,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
@@ -21,11 +22,7 @@ import {
   topNByCount,
 } from '../../core/stats';
 import type { ChartConfiguration } from 'chart.js';
-import type {
-  HonchoPeerSummary,
-  HonchoSessionSummary,
-  HonchoQueueStatus,
-} from '../../core/models';
+import type { HonchoPeerSummary, HonchoSessionSummary, HonchoQueueStatus } from '../../core/models';
 
 interface KpiCard {
   label: string;
@@ -72,6 +69,8 @@ export class WorkspaceOverview {
   private readonly honcho = inject(HonchoService);
   protected readonly metrics = inject(MetricsService);
 
+  readonly peerSelected = output<string>();
+
   readonly granularity = signal<Granularity>('1d');
   readonly now = signal<number>(Date.now());
 
@@ -89,7 +88,11 @@ export class WorkspaceOverview {
 
   // The composite inspect result. Re-derives whenever honcho.peers
   // or honcho.sessions change, and the now anchor rolls forward.
-  private readonly inspect = computed<{ peerCount: number; sessionCount: number; queue: HonchoQueueStatus } | null>(() => {
+  private readonly inspect = computed<{
+    peerCount: number;
+    sessionCount: number;
+    queue: HonchoQueueStatus;
+  } | null>(() => {
     const peers = this.honcho.peers();
     const sessions = this.honcho.sessions();
     const queue = this.honcho.queueStatus();
@@ -186,7 +189,8 @@ export class WorkspaceOverview {
     const sessions = [...this.honcho.sessions()].sort(
       (a, b) => Date.parse(b.createdAt ?? '') - Date.parse(a.createdAt ?? ''),
     );
-    const out: Array<{ kind: 'peer' | 'session'; id: string; createdAt: string; detail: string }> = [];
+    const out: Array<{ kind: 'peer' | 'session'; id: string; createdAt: string; detail: string }> =
+      [];
     for (const p of peers) {
       if (!p.createdAt) continue;
       out.push({ kind: 'peer', id: p.id, createdAt: p.createdAt, detail: 'peer created' });
@@ -241,8 +245,15 @@ export class WorkspaceOverview {
           legend: { labels: { color: '#fff0ff' } },
         },
         scales: {
-          x: { ticks: { color: '#c98bff', maxRotation: 0, autoSkip: true }, grid: { color: 'rgba(255,0,255,0.1)' } },
-          y: { ticks: { color: '#c98bff', precision: 0 }, grid: { color: 'rgba(255,0,255,0.1)' }, beginAtZero: true },
+          x: {
+            ticks: { color: '#c98bff', maxRotation: 0, autoSkip: true },
+            grid: { color: 'rgba(255,0,255,0.1)' },
+          },
+          y: {
+            ticks: { color: '#c98bff', precision: 0 },
+            grid: { color: 'rgba(255,0,255,0.1)' },
+            beginAtZero: true,
+          },
         },
       },
     };
@@ -302,7 +313,7 @@ export class WorkspaceOverview {
         value: String(ins?.sessionCount ?? 0),
         sublabel: `+${st.last1d} today · +${st.last1w} this week`,
         tone: 'accent-2',
-        info: 'Total number of sessions in this workspace. A session is a conversation thread between two or more peers. Sessions can span many messages and may be reactivated across days. Counts are derived from sessions\' createdAt timestamps.',
+        info: "Total number of sessions in this workspace. A session is a conversation thread between two or more peers. Sessions can span many messages and may be reactivated across days. Counts are derived from sessions' createdAt timestamps.",
       },
       {
         label: 'Searches',

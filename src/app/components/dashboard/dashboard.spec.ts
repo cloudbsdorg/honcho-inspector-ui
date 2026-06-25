@@ -17,18 +17,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function pathOf(input: RequestInfo | URL): string {
-  const s =
-    typeof input === 'string'
-      ? input
-      : input instanceof URL
-        ? input.toString()
-        : input.url;
+  const s = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
   return s.replace(/^https?:\/\/[^/]+/, '');
 }
 
-function installFetch(
-  handler: (path: string, init?: RequestInit) => Response | Promise<Response>,
-) {
+function installFetch(handler: (path: string, init?: RequestInit) => Response | Promise<Response>) {
   const fn = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
     return Promise.resolve(handler(pathOf(input), init));
   });
@@ -60,10 +53,7 @@ const PROFILE_B: Profile = {
 };
 
 async function bootstrapSession() {
-  localStorage.setItem(
-    'honcho-credentials',
-    JSON.stringify({ sessionId: 'sess-abc', user: USER }),
-  );
+  localStorage.setItem('honcho-credentials', JSON.stringify({ sessionId: 'sess-abc', user: USER }));
   localStorage.setItem('honcho-active-profile', JSON.stringify(PROFILE_A.id));
 }
 
@@ -154,9 +144,7 @@ describe('Dashboard', () => {
   });
 
   it('should render the workspace overview when peers are present and no peer is selected', () => {
-    const overview = (fixture.nativeElement as HTMLElement).querySelector(
-      'app-workspace-overview',
-    );
+    const overview = (fixture.nativeElement as HTMLElement).querySelector('app-workspace-overview');
     expect(overview).toBeTruthy();
   });
 
@@ -198,5 +186,34 @@ describe('Dashboard', () => {
     expect(component.lastRefreshLabel(Date.now() - 3_600_000)).toBe('1h ago');
     expect(component.lastRefreshLabel(Date.now() - 86_400_000)).toBe('1d ago');
     expect(component.lastRefreshLabel(Date.now())).toBe('just now');
+  });
+
+  it('should clear selectedPeerId when Workspace Overview button is clicked', async () => {
+    await component.selectPeer('alice');
+    fixture.detectChanges();
+    expect(component.selectedPeerId()).toBe('alice');
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="workspace-overview-button"]',
+    ) as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    button.click();
+    fixture.detectChanges();
+
+    expect(component.selectedPeerId()).toBeNull();
+  });
+
+  it('should select peer when WorkspaceOverview emits peerSelected', async () => {
+    expect(component.selectedPeerId()).toBeNull();
+    const overviewComp = fixture.debugElement.query(
+      (el) => el.name === 'app-workspace-overview',
+    )?.componentInstance;
+    expect(overviewComp).toBeTruthy();
+
+    overviewComp.peerSelected.emit('bob');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.selectedPeerId()).toBe('bob');
   });
 });

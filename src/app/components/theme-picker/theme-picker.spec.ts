@@ -118,9 +118,7 @@ describe('ThemePicker (dropdown)', () => {
     expect(trigger?.getAttribute('aria-expanded')).toBe('false');
     component.toggle();
     fixture.detectChanges();
-    const menu = (fixture.nativeElement as HTMLElement).querySelector(
-      '[role="menu"]',
-    );
+    const menu = (fixture.nativeElement as HTMLElement).querySelector('[role="menu"]');
     expect(menu).toBeTruthy();
     const options = (fixture.nativeElement as HTMLElement).querySelectorAll(
       '[role="menuitemradio"]',

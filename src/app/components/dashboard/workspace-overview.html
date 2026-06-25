@@ -2,7 +2,10 @@
   <!-- HEADER: granularity selector + metrics refresh -->
   <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
     <div class="flex items-center gap-2">
-      <h2 class="th-display text-sm font-bold uppercase tracking-widest" style="color: var(--accent);">
+      <h2
+        class="th-display text-sm font-bold uppercase tracking-widest"
+        style="color: var(--accent)"
+      >
         Workspace overview
       </h2>
       <span class="text-[10px] opacity-60" data-testid="overview-last-loaded">
@@ -23,7 +26,7 @@
           [style.background]="granularity() === g ? 'var(--accent)' : 'var(--surface)'"
           [style.color]="granularity() === g ? 'var(--bg)' : 'var(--text-dim)'"
           class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
-          style="border-radius: var(--radius);"
+          style="border-radius: var(--radius)"
         >
           {{ granularityLabels[g] }}
         </button>
@@ -34,7 +37,7 @@
         [disabled]="metrics.loading()"
         data-testid="overview-reload-metrics"
         class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
-        style="border-radius: var(--radius); background: var(--surface); color: var(--accent);"
+        style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
       >
         @if (metrics.loading()) {
           loading…
@@ -46,14 +49,20 @@
   </div>
 
   <!-- KPI CARDS -->
-  <div class="mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6" data-testid="overview-kpis">
+  <div
+    class="mb-3 grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6"
+    data-testid="overview-kpis"
+  >
     @for (k of kpis(); track k.label) {
       <div
         class="th-border relative border-2 p-2"
-        style="border-radius: var(--radius); background: var(--surface);"
+        style="border-radius: var(--radius); background: var(--surface)"
       >
         <div class="flex items-center justify-between gap-1">
-          <div class="text-[10px] font-bold uppercase tracking-widest opacity-70" [style.color]="'var(--' + k.tone + ')'">
+          <div
+            class="text-[10px] font-bold uppercase tracking-widest opacity-70"
+            [style.color]="'var(--' + k.tone + ')'"
+          >
             {{ k.label }}
           </div>
           <button
@@ -63,7 +72,7 @@
             [attr.aria-expanded]="openInfoLabel() === k.label"
             [attr.data-testid]="'overview-info-' + k.label.toLowerCase().replace(' ', '-')"
             class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
-            style="border-radius: var(--radius); color: var(--text-dim); background: transparent;"
+            style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
           >
             ?
           </button>
@@ -81,7 +90,12 @@
         @if (openInfoLabel() === k.label) {
           <div
             class="th-border absolute left-0 right-0 top-full z-10 mt-1 border-2 p-2 text-[11px] leading-relaxed"
-            style="border-radius: var(--radius); background: var(--bg); color: var(--text); box-shadow: var(--shadow);"
+            style="
+              border-radius: var(--radius);
+              background: var(--bg);
+              color: var(--text);
+              box-shadow: var(--shadow);
+            "
             [attr.data-testid]="'overview-info-popover-' + k.label.toLowerCase().replace(' ', '-')"
             role="dialog"
           >
@@ -96,9 +110,12 @@
   <div class="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
     <div
       class="th-border border-2 p-3 lg:col-span-2"
-      style="border-radius: var(--radius); background: var(--surface);"
+      style="border-radius: var(--radius); background: var(--surface)"
     >
-      <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent);">
+      <h3
+        class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+        style="color: var(--accent)"
+      >
         Additions over time — {{ granularityLabels[granularity()] }} buckets
       </h3>
       <div class="h-64">
@@ -107,9 +124,12 @@
     </div>
     <div
       class="th-border border-2 p-3"
-      style="border-radius: var(--radius); background: var(--surface);"
+      style="border-radius: var(--radius); background: var(--surface)"
     >
-      <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent);">
+      <h3
+        class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+        style="color: var(--accent)"
+      >
         Queue composition
       </h3>
       <div class="h-64">
@@ -122,9 +142,12 @@
   <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
     <div
       class="th-border border-2 p-3"
-      style="border-radius: var(--radius); background: var(--surface);"
+      style="border-radius: var(--radius); background: var(--surface)"
     >
-      <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent);">
+      <h3
+        class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+        style="color: var(--accent)"
+      >
         Top 10 peers by sessions
       </h3>
       @if (topPeers().length === 0) {
@@ -133,11 +156,15 @@
         <ol class="space-y-1 text-sm" data-testid="overview-top-peers">
           @for (t of topPeers(); track t.item.id) {
             <li class="flex items-center justify-between gap-2">
-              <span class="truncate font-mono">
-                <span style="color: var(--accent);">▸</span>
-                {{ t.item.id }}
-              </span>
-              <span class="text-xs opacity-70" style="white-space: nowrap;">
+              <button
+                type="button"
+                (click)="peerSelected.emit(t.item.id)"
+                class="truncate font-mono hover:underline cursor-pointer text-left"
+                style="color: var(--accent); background: transparent; border: none; padding: 0"
+              >
+                <span class="mr-1">▸</span>{{ t.item.id }}
+              </button>
+              <span class="text-xs opacity-70" style="white-space: nowrap">
                 {{ t.count }} session{{ t.count === 1 ? '' : 's' }}
               </span>
             </li>
@@ -147,9 +174,12 @@
     </div>
     <div
       class="th-border border-2 p-3"
-      style="border-radius: var(--radius); background: var(--surface);"
+      style="border-radius: var(--radius); background: var(--surface)"
     >
-      <h3 class="th-display mb-2 text-xs font-bold uppercase tracking-widest" style="color: var(--accent);">
+      <h3
+        class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+        style="color: var(--accent)"
+      >
         Recent activity
       </h3>
       @if (recentActivity().length === 0) {
@@ -160,13 +190,21 @@
             <li class="flex items-center justify-between gap-2">
               <span class="truncate font-mono">
                 @if (a.kind === 'peer') {
-                  <span style="color: var(--accent);">peer</span>
+                  <span style="color: var(--accent)">peer</span>
+                  <button
+                    type="button"
+                    (click)="peerSelected.emit(a.id)"
+                    class="hover:underline cursor-pointer text-left ml-1"
+                    style="color: var(--text); background: transparent; border: none; padding: 0"
+                  >
+                    {{ a.id }}
+                  </button>
                 } @else {
-                  <span style="color: var(--accent-2);">session</span>
+                  <span style="color: var(--accent-2)">session</span>
+                  <span class="ml-1" style="color: var(--text)">{{ a.id }}</span>
                 }
-                {{ a.id }}
               </span>
-              <span class="text-[10px] opacity-60" style="white-space: nowrap;">
+              <span class="text-[10px] opacity-60" style="white-space: nowrap">
                 {{ a.createdAt | date: 'short' }}
               </span>
             </li>

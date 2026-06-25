@@ -31,16 +31,10 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function installFetch(
-  handler: (path: string) => Response | Promise<Response>,
-) {
+function installFetch(handler: (path: string) => Response | Promise<Response>) {
   const fn = vi.fn().mockImplementation((input: RequestInfo | URL) => {
     const s =
-      typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : input.url;
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     return Promise.resolve(handler(s.replace(/^https?:\/\/[^/]+/, '')));
   });
   globalThis.fetch = fn as unknown as typeof fetch;
@@ -72,8 +66,7 @@ describe('authGuard', () => {
     auth = TestBed.inject(HonchoAuthService);
     profiles = TestBed.inject(ProfileService);
     router = TestBed.inject(Router);
-    executeGuard = (...params) =>
-      TestBed.runInInjectionContext(() => authGuard(...params));
+    executeGuard = (...params) => TestBed.runInInjectionContext(() => authGuard(...params));
   });
 
   afterEach(() => {

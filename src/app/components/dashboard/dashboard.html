@@ -1,263 +1,256 @@
-<div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden md:flex-row" data-testid="dashboard">
+<div
+  class="flex h-full min-h-0 flex-1 flex-col overflow-hidden md:flex-row"
+  data-testid="dashboard"
+>
   @if (honcho.isStale()) {
-      <div
-        class="th-border flex flex-shrink-0 items-center justify-between gap-2 border-b-2 px-3 py-2 text-xs"
-        style="background: var(--surface); color: var(--text-dim);"
-        data-testid="stale-banner"
-      >
-        <span>
-          <span style="color: var(--danger);">●</span>
-          {{ honcho.friendlyError() }}
-        </span>
-        <button
-          type="button"
-          (click)="refreshAll()"
-          [disabled]="honcho.loading()"
-          data-testid="refresh-button"
-          class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
-          style="border-radius: var(--radius); background: var(--bg); color: var(--accent);"
-        >
-          ↻ Retry
-        </button>
-      </div>
-    }
-    <!-- SIDEBAR -->
-    <aside
-      class="th-border flex w-full flex-shrink-0 flex-col border-b-2 md:w-72 md:border-b-0 md:border-r-2"
-      style="background: var(--surface);"
+    <div
+      class="th-border flex flex-shrink-0 items-center justify-between gap-2 border-b-2 px-3 py-2 text-xs"
+      style="background: var(--surface); color: var(--text-dim)"
+      data-testid="stale-banner"
     >
-      <div
-        class="flex items-center justify-between border-b-2 th-border px-3 py-2"
+      <span>
+        <span style="color: var(--danger)">●</span>
+        {{ honcho.friendlyError() }}
+      </span>
+      <button
+        type="button"
+        (click)="refreshAll()"
+        [disabled]="honcho.loading()"
+        data-testid="refresh-button"
+        class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+        style="border-radius: var(--radius); background: var(--bg); color: var(--accent)"
       >
-        <span
-          class="th-display text-xs font-bold uppercase tracking-widest"
-          style="color: var(--text-dim);"
-        >
-          Peers ({{ honcho.peers().length }})
-          @if (honcho.lastRefreshedAt(); as ts) {
-            <span
-              class="ml-1 text-[9px] opacity-60"
-              [title]="'Last refreshed at ' + (ts | date: 'medium')"
-            >· {{ lastRefreshLabel(ts) }}</span>
-          }
-        </span>
-        <button
-          type="button"
-          (click)="toggleNewPeer()"
-          data-testid="new-peer-button"
-          class="th-border border-2 px-2 py-0.5 text-xs font-bold"
-          style="border-radius: var(--radius); background: var(--bg); color: var(--accent);"
-        >
-          @if (showNewPeerInput()) {
-            ×
-          } @else {
-            +
-          }
-        </button>
-      </div>
-
-      @if (showNewPeerInput()) {
-        <form
-          (ngSubmit)="createPeer()"
-          class="flex gap-1 border-b-2 th-border p-2"
-          data-testid="new-peer-form"
-        >
-          <input
-            type="text"
-            [ngModel]="newPeerId()"
-            (ngModelChange)="newPeerId.set($event)"
-            name="newPeer"
-            placeholder="peer-id"
-            class="th-surface th-border flex-1 border-2 px-2 py-1 text-xs outline-none"
-            style="border-radius: var(--radius); color: var(--text);"
-            autofocus
-          />
-          <button
-            type="submit"
-            [disabled]="!newPeerId().trim()"
-            class="th-border border-2 px-2 py-1 text-xs font-bold uppercase"
-            style="border-radius: var(--radius); background: var(--accent); color: var(--bg);"
+        ↻ Retry
+      </button>
+    </div>
+  }
+  <!-- SIDEBAR -->
+  <aside
+    class="th-border flex w-full flex-shrink-0 flex-col border-b-2 md:w-72 md:border-b-0 md:border-r-2"
+    style="background: var(--surface)"
+  >
+    <div class="flex items-center justify-between border-b-2 th-border px-3 py-2">
+      <span
+        class="th-display text-xs font-bold uppercase tracking-widest"
+        style="color: var(--text-dim)"
+      >
+        Peers ({{ honcho.peers().length }})
+        @if (honcho.lastRefreshedAt(); as ts) {
+          <span
+            class="ml-1 text-[9px] opacity-60"
+            [title]="'Last refreshed at ' + (ts | date: 'medium')"
+            >· {{ lastRefreshLabel(ts) }}</span
           >
-            go
-          </button>
-        </form>
-      }
-
-      <div class="flex-1 overflow-y-auto p-2">
-        @if (honcho.loading() && honcho.peers().length === 0) {
-          <div class="p-2 text-xs opacity-60">loading...</div>
-        } @else if (honcho.peers().length === 0) {
-          <div class="p-2 text-xs opacity-60" style="color: var(--text-dim);">
-            no peers yet. tap + to add one.
-          </div>
-        } @else {
-          <ul class="space-y-1">
-            @for (peer of honcho.peers(); track peer.id) {
-              <li>
-                <button
-                  type="button"
-                  (click)="selectPeer(peer.id)"
-                  data-testid="peer-button"
-                  [attr.data-peer-id]="peer.id"
-                  [attr.data-active]="selectedPeerId() === peer.id"
-                  class="th-border w-full border-2 px-2 py-2 text-left text-sm transition-all"
-                  style="border-radius: var(--radius);"
-                  [style.background]="
-                    selectedPeerId() === peer.id
-                      ? 'var(--accent)'
-                      : 'var(--surface)'
-                  "
-                  [style.color]="
-                    selectedPeerId() === peer.id ? 'var(--bg)' : 'var(--text)'
-                  "
-                >
-                  <div class="font-bold">{{ peer.id }}</div>
-                  @if (peer.createdAt) {
-                    <div class="text-[10px] opacity-70">
-                      since {{ peer.createdAt | date: 'shortDate' }}
-                    </div>
-                  }
-                </button>
-              </li>
-            }
-          </ul>
         }
-      </div>
-    </aside>
+      </span>
+      <button
+        type="button"
+        (click)="toggleNewPeer()"
+        data-testid="new-peer-button"
+        class="th-border border-2 px-2 py-0.5 text-xs font-bold"
+        style="border-radius: var(--radius); background: var(--bg); color: var(--accent)"
+      >
+        @if (showNewPeerInput()) {
+          ×
+        } @else {
+          +
+        }
+      </button>
+    </div>
 
-    <!-- MAIN -->
-    <main class="flex-1 overflow-hidden">
-      @if (selectedPeerId(); as pid) {
-        <div
-          class="flex h-full flex-col gap-3 p-4"
-          data-testid="peer-detail"
+    @if (showNewPeerInput()) {
+      <form
+        (ngSubmit)="createPeer()"
+        class="flex gap-1 border-b-2 th-border p-2"
+        data-testid="new-peer-form"
+      >
+        <input
+          type="text"
+          [ngModel]="newPeerId()"
+          (ngModelChange)="newPeerId.set($event)"
+          name="newPeer"
+          placeholder="peer-id"
+          class="th-surface th-border flex-1 border-2 px-2 py-1 text-xs outline-none"
+          style="border-radius: var(--radius); color: var(--text)"
+          autofocus
+        />
+        <button
+          type="submit"
+          [disabled]="!newPeerId().trim()"
+          class="th-border border-2 px-2 py-1 text-xs font-bold uppercase"
+          style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
         >
-          <div
-            class="th-border flex flex-shrink-0 items-center justify-between border-2 px-3 py-2"
-            style="border-radius: var(--radius); background: var(--surface);"
-          >
-            <div>
-              <div
-                class="th-display text-2xl font-bold tracking-wider"
-                style="color: var(--accent);"
-              >
-                {{ pid }}
-              </div>
-              <div class="text-[10px] opacity-70">
-                Honcho peer · live memory + dialectic chat
-              </div>
-            </div>
-            @if (loadingPeer()) {
-              <span
-                class="th-display text-xs"
-                style="color: var(--accent);"
-              >loading...</span>
-            }
-          </div>
+          go
+        </button>
+      </form>
+    }
 
-          <div class="grid flex-shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
-            <section
-              class="th-border border-2 p-3"
-              style="border-radius: var(--radius); background: var(--surface);"
-            >
-              <h3
-                class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
-                style="color: var(--accent-2);"
-              >
-                Peer Card
-              </h3>
-              @if (peerCard().length === 0) {
-                <p class="text-xs opacity-60" style="color: var(--text-dim);">
-                  no card yet — feed {{ pid }} some messages.
-                </p>
-              } @else {
-                <ul class="space-y-1 text-sm">
-                  @for (fact of peerCard(); track fact) {
-                    <li class="flex gap-2">
-                      <span style="color: var(--accent);">▸</span>
-                      <span>{{ fact }}</span>
-                    </li>
-                  }
-                </ul>
-              }
-            </section>
-
-            <section
-              class="th-border border-2 p-3"
-              style="border-radius: var(--radius); background: var(--surface);"
-            >
-              <h3
-                class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
-                style="color: var(--accent-3);"
-              >
-                Representation
-              </h3>
-              @if (peerRepresentation()) {
-                <p
-                  class="text-sm leading-relaxed"
-                  style="color: var(--text); white-space: pre-wrap;"
-                >
-                  {{ peerRepresentation() }}
-                </p>
-              } @else {
-                <p class="text-xs opacity-60" style="color: var(--text-dim);">
-                  no representation yet.
-                </p>
-              }
-            </section>
-          </div>
-
-          <div class="min-h-0 flex-1">
-            <app-chat-panel [peerId]="pid" />
-          </div>
+    <div class="flex-1 overflow-y-auto p-2">
+      @if (honcho.loading() && honcho.peers().length === 0) {
+        <div class="p-2 text-xs opacity-60">loading...</div>
+      } @else if (honcho.peers().length === 0) {
+        <div class="p-2 text-xs opacity-60" style="color: var(--text-dim)">
+          no peers yet. tap + to add one.
         </div>
       } @else {
-        @if (honcho.peers().length > 0) {
-          <app-workspace-overview />
-        } @else {
-          <div
-            class="flex h-full flex-col items-center justify-center p-8 text-center"
-            data-testid="empty-state"
-          >
-            <div
-              class="th-gradient mb-6 h-20 w-20"
-              style="border-radius: var(--radius);"
-            ></div>
-            <h2
-              class="th-display text-3xl font-bold tracking-widest"
-              style="color: var(--accent);"
+        <ul class="space-y-1">
+          <li class="mb-2">
+            <button
+              type="button"
+              (click)="selectedPeerId.set(null)"
+              data-testid="workspace-overview-button"
+              [attr.data-active]="selectedPeerId() === null"
+              class="th-border w-full border-2 px-2 py-2 text-left text-xs font-bold uppercase tracking-widest transition-all"
+              style="border-radius: var(--radius)"
+              [style.background]="selectedPeerId() === null ? 'var(--accent)' : 'var(--surface)'"
+              [style.color]="selectedPeerId() === null ? 'var(--bg)' : 'var(--accent)'"
             >
-              WELCOME
-            </h2>
-            <p
-              class="mt-3 max-w-md text-sm"
-              style="color: var(--text-dim);"
-            >
-              You have no peers yet. Add one with the + button in the sidebar
-              to get started. Honcho will build a representation of every
-              peer from the messages they receive.
-            </p>
-            @if (honcho.error()) {
-              <p
-                class="mt-4 th-border border-2 px-3 py-2 text-xs"
-                style="border-radius: var(--radius); background: var(--surface); color: var(--danger);"
-                data-testid="error-message"
-              >
-                {{ honcho.friendlyError() }}
-              </p>
+              ✦ Workspace Overview
+            </button>
+          </li>
+          @for (peer of honcho.peers(); track peer.id) {
+            <li>
               <button
                 type="button"
-                (click)="refreshAll()"
-                [disabled]="honcho.loading()"
-                data-testid="retry-button"
-                class="th-border mt-2 border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
-                style="border-radius: var(--radius); background: var(--surface); color: var(--accent);"
+                (click)="selectPeer(peer.id)"
+                data-testid="peer-button"
+                [attr.data-peer-id]="peer.id"
+                [attr.data-active]="selectedPeerId() === peer.id"
+                class="th-border w-full border-2 px-2 py-2 text-left text-sm transition-all"
+                style="border-radius: var(--radius)"
+                [style.background]="
+                  selectedPeerId() === peer.id ? 'var(--accent)' : 'var(--surface)'
+                "
+                [style.color]="selectedPeerId() === peer.id ? 'var(--bg)' : 'var(--text)'"
               >
-                ↻ Retry
+                <div class="font-bold">{{ peer.id }}</div>
+                @if (peer.createdAt) {
+                  <div class="text-[10px] opacity-70">
+                    since {{ peer.createdAt | date: 'shortDate' }}
+                  </div>
+                }
               </button>
-            }
-          </div>
-        }
+            </li>
+          }
+        </ul>
       }
-    </main>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 overflow-hidden">
+    @if (selectedPeerId(); as pid) {
+      <div class="flex h-full flex-col gap-3 p-4" data-testid="peer-detail">
+        <div
+          class="th-border flex flex-shrink-0 items-center justify-between border-2 px-3 py-2"
+          style="border-radius: var(--radius); background: var(--surface)"
+        >
+          <div>
+            <div class="th-display text-2xl font-bold tracking-wider" style="color: var(--accent)">
+              {{ pid }}
+            </div>
+            <div class="text-[10px] opacity-70">Honcho peer · live memory + dialectic chat</div>
+          </div>
+          @if (loadingPeer()) {
+            <span class="th-display text-xs" style="color: var(--accent)">loading...</span>
+          }
+        </div>
+
+        <div class="grid flex-shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
+          <section
+            class="th-border border-2 p-3"
+            style="border-radius: var(--radius); background: var(--surface)"
+          >
+            <h3
+              class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+              style="color: var(--accent-2)"
+            >
+              Peer Card
+            </h3>
+            @if (peerCard().length === 0) {
+              <p class="text-xs opacity-60" style="color: var(--text-dim)">
+                no card yet — feed {{ pid }} some messages.
+              </p>
+            } @else {
+              <ul class="space-y-1 text-sm">
+                @for (fact of peerCard(); track fact) {
+                  <li class="flex gap-2">
+                    <span style="color: var(--accent)">▸</span>
+                    <span>{{ fact }}</span>
+                  </li>
+                }
+              </ul>
+            }
+          </section>
+
+          <section
+            class="th-border border-2 p-3"
+            style="border-radius: var(--radius); background: var(--surface)"
+          >
+            <h3
+              class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
+              style="color: var(--accent-3)"
+            >
+              Representation
+            </h3>
+            @if (peerRepresentation()) {
+              <p class="text-sm leading-relaxed" style="color: var(--text); white-space: pre-wrap">
+                {{ peerRepresentation() }}
+              </p>
+            } @else {
+              <p class="text-xs opacity-60" style="color: var(--text-dim)">
+                no representation yet.
+              </p>
+            }
+          </section>
+        </div>
+
+        <div class="min-h-0 flex-1">
+          <app-chat-panel [peerId]="pid" />
+        </div>
+      </div>
+    } @else {
+      @if (honcho.peers().length > 0) {
+        <app-workspace-overview (peerSelected)="selectPeer($event)" />
+      } @else {
+        <div
+          class="flex h-full flex-col items-center justify-center p-8 text-center"
+          data-testid="empty-state"
+        >
+          <img
+            src="honcho-logo.svg"
+            alt="Honcho Logo"
+            class="mb-6 h-20 w-20 object-cover"
+            style="border-radius: var(--radius)"
+          />
+          <h2 class="th-display text-3xl font-bold tracking-widest" style="color: var(--accent)">
+            WELCOME
+          </h2>
+          <p class="mt-3 max-w-md text-sm" style="color: var(--text-dim)">
+            You have no peers yet. Add one with the + button in the sidebar to get started. Honcho
+            will build a representation of every peer from the messages they receive.
+          </p>
+          @if (honcho.error()) {
+            <p
+              class="mt-4 th-border border-2 px-3 py-2 text-xs"
+              style="border-radius: var(--radius); background: var(--surface); color: var(--danger)"
+              data-testid="error-message"
+            >
+              {{ honcho.friendlyError() }}
+            </p>
+            <button
+              type="button"
+              (click)="refreshAll()"
+              [disabled]="honcho.loading()"
+              data-testid="retry-button"
+              class="th-border mt-2 border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
+              style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
+            >
+              ↻ Retry
+            </button>
+          }
+        </div>
+      }
+    }
+  </main>
 </div>
