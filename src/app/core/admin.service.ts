@@ -135,4 +135,28 @@ export class AdminService {
       path: '/admin/maintenance/sessions/purge-expired',
     });
   }
+
+  /**
+   * Seed the deterministic Honcho test fixture (5 peers, 3 sessions,
+   * 1 message per session, 3-fact card per peer). Used by the
+   * Playwright regression suite and the admin "Seed fixture" button
+   * so the inspector has stable data to render against.
+   */
+  seedTestFixture(): Promise<{ status: string; report: Record<string, unknown> }> {
+    return this.api.request<{ status: string; report: Record<string, unknown> }>({
+      method: 'POST',
+      path: '/admin/test/seed',
+    });
+  }
+
+  /**
+   * Best-effort cleanup of the deterministic Honcho test fixture
+   * (sessions only — Honcho v3 has no DELETE peer endpoint).
+   */
+  cleanupTestFixture(): Promise<{ status: string; report: Record<string, unknown> }> {
+    return this.api.request<{ status: string; report: Record<string, unknown> }>({
+      method: 'DELETE',
+      path: '/admin/test/seed',
+    });
+  }
 }
