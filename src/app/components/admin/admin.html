@@ -62,9 +62,16 @@
           <div class="h-72">
             @if (overviewCountsChart(); as cfg) {
               <app-chart type="bar" [data]="cfg.data" [options]="cfg.options"></app-chart>
+            } @else if (busy()) {
+              <div class="flex h-full items-center justify-center text-xs opacity-60">Loading...</div>
+            } @else if (error(); as e) {
+              <div class="flex h-full items-center justify-center px-4 text-center text-xs" style="color: var(--danger);">
+                {{ e }}
+              </div>
             } @else {
               <div class="flex h-full items-center justify-center text-xs opacity-60">
-                Loading...
+                No data yet.
+                <button type="button" class="ml-2 underline" (click)="loadOverview()">Retry</button>
               </div>
             }
           </div>
@@ -76,9 +83,16 @@
           <div class="h-72">
             @if (overviewGrowthChart(); as cfg) {
               <app-chart type="line" [data]="cfg.data" [options]="cfg.options"></app-chart>
+            } @else if (busy()) {
+              <div class="flex h-full items-center justify-center text-xs opacity-60">Loading...</div>
+            } @else if (error(); as e) {
+              <div class="flex h-full items-center justify-center px-4 text-center text-xs" style="color: var(--danger);">
+                {{ e }}
+              </div>
             } @else {
               <div class="flex h-full items-center justify-center text-xs opacity-60">
-                Loading...
+                No data yet.
+                <button type="button" class="ml-2 underline" (click)="loadOverview()">Retry</button>
               </div>
             }
           </div>
@@ -380,20 +394,27 @@
           @if (maintenance(); as m) {
             <dl class="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <dt class="opacity-60">Users</dt>
-                <dd class="text-xl font-bold">{{ m.userCount }}</dd>
-              </div>
-              <div>
-                <dt class="opacity-60">Sessions</dt>
-                <dd class="text-xl font-bold">{{ m.sessionCount }}</dd>
-              </div>
-              <div>
                 <dt class="opacity-60">Audit rows</dt>
-                <dd class="text-xl font-bold">{{ m.auditCount }}</dd>
+                <dd class="text-xl font-bold">{{ m.auditRows }}</dd>
+              </div>
+              <div>
+                <dt class="opacity-60">Retention (days)</dt>
+                <dd class="font-mono">{{ m.auditRetentionDays }}</dd>
+              </div>
+              <div>
+                <dt class="opacity-60">Max rows</dt>
+                <dd class="font-mono">{{ m.auditMaxRows }}</dd>
               </div>
             </dl>
-          } @else {
+          } @else if (busy()) {
             <p class="text-xs opacity-60">Loading...</p>
+          } @else if (error(); as e) {
+            <p class="text-xs" style="color: var(--danger);">{{ e }}</p>
+          } @else {
+            <p class="text-xs opacity-60">
+              No data.
+              <button type="button" class="ml-2 underline" (click)="loadMaintenance()">Retry</button>
+            </p>
           }
         </div>
         <div class="th-border border-2 p-4" style="border-radius: var(--radius);">
@@ -403,16 +424,12 @@
           @if (maintenance(); as m) {
             <dl class="grid grid-cols-3 gap-4 text-sm">
               <div>
-                <dt class="opacity-60">Days</dt>
-                <dd class="font-mono">{{ m.retentionDays }}</dd>
+                <dt class="opacity-60">Purge cron</dt>
+                <dd class="font-mono">{{ m.auditPurgeCron }}</dd>
               </div>
               <div>
-                <dt class="opacity-60">Max rows</dt>
-                <dd class="font-mono">{{ m.maxRows }}</dd>
-              </div>
-              <div>
-                <dt class="opacity-60">Cron</dt>
-                <dd class="font-mono">{{ m.purgeCron }}</dd>
+                <dt class="opacity-60">Generated at</dt>
+                <dd class="font-mono text-xs">{{ m.generatedAt | date: 'short' }}</dd>
               </div>
             </dl>
           }

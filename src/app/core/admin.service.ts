@@ -21,7 +21,9 @@ export class AdminService {
       method: 'GET',
       path: '/admin/users',
       query: {
-        page: opts.page ?? 1,
+        // Backend is zero-indexed; the UI shows 1-indexed page
+        // numbers so we subtract 1 here.
+        page: Math.max(0, (opts.page ?? 1) - 1),
         pageSize: opts.pageSize ?? 20,
       },
     });
@@ -96,7 +98,9 @@ export class AdminService {
         target: opts.target,
         action: opts.action,
         since: opts.since,
-        page: opts.page ?? 1,
+        // Backend is zero-indexed; subtract 1 from the UI's
+        // 1-indexed page number.
+        page: Math.max(0, (opts.page ?? 1) - 1),
         pageSize: opts.pageSize ?? 30,
       },
     });

@@ -58,6 +58,7 @@ export interface AdminUserPage {
   total: number;
   page: number;
   size: number;
+  pages?: number;
 }
 
 export interface AdminCreateUserInput {
@@ -98,6 +99,7 @@ export interface AdminAuditPage {
   total: number;
   page: number;
   size: number;
+  pages?: number;
 }
 
 /**
@@ -105,25 +107,21 @@ export interface AdminAuditPage {
  * 7-day / 30-day growth deltas. Powers the admin overview charts.
  */
 export interface AdminDashboardOverview {
-  userCount: number;
-  sessionCount: number;
-  profileCount: number;
-  auditCount: number;
+  usersTotal: number;
+  usersAdmins: number;
   usersLast7d: number;
   usersLast30d: number;
-  sessionsLast7d: number;
-  sessionsLast30d: number;
-  auditsLast7d: number;
-  auditsLast30d: number;
+  profilesTotal: number;
+  auditTotal: number;
+  auditLast30d: number;
 }
 
 export interface AdminMaintenanceStatus {
-  userCount: number;
-  sessionCount: number;
-  auditCount: number;
-  retentionDays: number;
-  maxRows: number;
-  purgeCron: string;
+  auditRows: number;
+  auditRetentionDays: number;
+  auditMaxRows: number;
+  auditPurgeCron: string;
+  generatedAt?: string;
 }
 
 export interface ProfileWithKey {

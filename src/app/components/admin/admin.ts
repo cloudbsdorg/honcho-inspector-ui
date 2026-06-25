@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  OnInit,
   signal,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
@@ -11,6 +12,7 @@ import { formatError } from '../../core/error-message';
 import {
   AdminAuditEntry,
   AdminDashboardOverview,
+  AdminMaintenanceStatus,
   AdminUser,
 } from '../../core/models';
 import { ChartComponent } from '../charts/chart.component';
@@ -31,10 +33,17 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
   templateUrl: './admin.html',
   styleUrl: './admin.css',
 })
-export class AdminPanel {
+export class AdminPanel implements OnInit {
   private readonly admin = inject(AdminService);
 
   readonly tab = signal<Tab>('overview');
+
+  ngOnInit(): void {
+    // The default tab is `overview` (set above) but setTab() is the
+    // only path that triggers the initial fetch. Mirror that here so
+    // landing on /admin renders the charts immediately.
+    this.setTab(this.tab());
+  }
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
@@ -45,11 +54,11 @@ export class AdminPanel {
     return {
       type: 'bar' as const,
       data: {
-        labels: ['Users', 'Sessions', 'Profiles', 'Audit rows'],
+        labels: ['Users', 'Admins', 'Profiles', 'Audit rows'],
         datasets: [
           {
             label: 'Total',
-            data: [o.userCount, o.sessionCount, o.profileCount, o.auditCount],
+            data: [o.usersTotal, o.usersAdmins, o.profilesTotal, o.auditTotal],
             backgroundColor: ['#7c3aed', '#06b6d4', '#10b981', '#f59e0b'],
           },
         ],
@@ -66,21 +75,13 @@ export class AdminPanel {
     return {
       type: 'line' as const,
       data: {
-        labels: ['Users', 'Sessions', 'Audit events'],
+        labels: ['Users 7d', 'Users 30d', 'Audit 30d'],
         datasets: [
           {
-            label: 'Last 7 days',
-            data: [o.usersLast7d, o.sessionsLast7d, o.auditsLast7d],
+            label: 'Growth',
+            data: [o.usersLast7d, o.usersLast30d, o.auditLast30d],
             borderColor: '#7c3aed',
             backgroundColor: 'rgba(124, 58, 237, 0.15)',
-            fill: true,
-            tension: 0.3,
-          },
-          {
-            label: 'Last 30 days',
-            data: [o.usersLast30d, o.sessionsLast30d, o.auditsLast30d],
-            borderColor: '#06b6d4',
-            backgroundColor: 'rgba(6, 182, 212, 0.15)',
             fill: true,
             tension: 0.3,
           },
@@ -139,14 +140,7 @@ export class AdminPanel {
   readonly auditAction = signal('');
   readonly auditSince = signal('');
 
-  readonly maintenance = signal<{
-    userCount: number;
-    sessionCount: number;
-    auditCount: number;
-    retentionDays: number;
-    maxRows: number;
-    purgeCron: string;
-  } | null>(null);
+  readonly maintenance = signal<AdminMaintenanceStatus | null>(null);
   readonly purgeResult = signal<number | null>(null);
 
   readonly newUsername = signal('');

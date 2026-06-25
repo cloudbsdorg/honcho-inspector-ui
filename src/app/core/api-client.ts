@@ -107,7 +107,7 @@ export class ApiClient {
       throw new ApiError(errBody.error ?? `Backend error ${res.status}`, res.status);
     }
     if (res.headers.get('content-length') === '0') return undefined as T;
-    return (await res.json()) as T;
+    return snakeToCamel(await res.json()) as T;
   }
 
   private buildPath(path: string, query?: RequestOptions['query'], pathPrefix?: string): string {
@@ -145,5 +145,28 @@ export class ApiClient {
     headers['Content-Type'] = 'application/json';
     return JSON.stringify(body);
   }
+}
+
+/**
+ * Convert snake_case keys to camelCase recursively so services and
+ * components read the TS-model names without each endpoint
+ * re-implementing the mapping. Arrays map element-wise.
+ */
+export function snakeToCamel(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(snakeToCamel);
+  }
+  if (value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[snakeKey(k)] = snakeToCamel(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+function snakeKey(k: string): string {
+  return k.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 }
 
