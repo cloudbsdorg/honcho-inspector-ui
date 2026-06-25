@@ -100,11 +100,14 @@ apk mkpkg \
     --allow-untrusted \
     --info "name:$PROJECT" \
     --info "version:$APK_VERSION" \
-    --info "arch:$ARCH" \
+    --info "arch:noarch" \
     --info "depends:nodejs" \
     --info "depends:npm" \
     --info "depends:openrc" \
     --info "depends:shadow" \
+    -s "post-install:$DATA_DIR/.post-install" \
+    -s "pre-deinstall:$DATA_DIR/.pre-deinstall" \
+    -s "post-deinstall:$DATA_DIR/.post-deinstall" \
     -F "$DATA_DIR" \
     -o "$ARTIFACT_PATH"
 

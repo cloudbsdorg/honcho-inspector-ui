@@ -258,6 +258,21 @@ chmod 0644 "$INSTALL_SCRIPT"
 # the staging dir at <staging>/INSTALL. Copy the generated
 # script into the stage before invoking xbps-create.
 cp "$INSTALL_SCRIPT" "$STAGE/INSTALL"
+
+# --- 4b. Move remaining source files under canonical prefix ------
+# Anything still at the $STAGE root after step 2 is the Angular
+# source tree (package.json, src/, etc/). xbps-create installs
+# $STAGE as the root filesystem, so those files would land at
+# /package.json, /src/, etc. instead of under
+# /usr/local/share/honcho-inspector-ui/. Move everything else into
+# the canonical prefix before xbps-create runs.
+mkdir -p "$STAGE/usr/local/share/honcho-inspector-ui"
+for item in $(ls -A "$STAGE" 2>/dev/null); do
+    case "$item" in
+        INSTALL|usr|etc) continue ;;
+    esac
+    mv "$STAGE/$item" "$STAGE/usr/local/share/honcho-inspector-ui/"
+done
 # xbps-create takes pkgver as a SINGLE -n arg of the form
 # name-version_revision (no spaces). We build it from NAME, XBPS_VERSION,
 # and a hardcoded _1 revision. No -o flag exists in xbps-create;

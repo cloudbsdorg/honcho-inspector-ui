@@ -98,7 +98,7 @@ SUSE_UI_START="$DEBIAN_UI_START"
 SUSE_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
 SUSE_UI_HEALTH="$DEBIAN_UI_HEALTH"
 
-ALPINE_RUNTIME="docker.io/library/alpine:3.22"
+ALPINE_RUNTIME="docker.io/library/alpine:3.23"
 # Alpine 3.22's main repo has only openjdk22; the build Containerfile
 # pulls openjdk25 from edge/community. The artifact's --depends
 # openjdk25-jre must come from edge/community too. Append the
@@ -107,7 +107,7 @@ ALPINE_RUNTIME="docker.io/library/alpine:3.22"
 # repo layout. nodejs22 satisfies the UI's nodejs>=20 dep. bash
 # is needed because the Alpine /bin/sh is BusyBox ash and the start
 # cmd's pipeline is bash-compatible.
-ALPINE_INSTALL='echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && apk update && apk add --allow-untrusted --no-cache /tmp/ARTIFACT nodejs npm openjdk25 shadow curl ca-certificates bash; NODE_INSTALL=/usr/local/node NODE_VERSION=24.15.0; ARCH=$(uname -m); case "$ARCH" in x86_64) NODE_ARCH=x64;; aarch64) NODE_ARCH=arm64;; *) NODE_ARCH=$ARCH;; esac; cd /tmp && curl -fsSL -o node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz" && mkdir -p $NODE_INSTALL && tar -xzf node.tar.gz -C $NODE_INSTALL --strip-components=1 && ln -sf $NODE_INSTALL/bin/node /usr/local/bin/node && ln -sf $NODE_INSTALL/bin/npm /usr/local/bin/npm && ln -sf $NODE_INSTALL/bin/npx /usr/local/bin/npx && rm -f node.tar.gz; export PATH=/usr/local/bin:$PATH; node --version'
+ALPINE_INSTALL='echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositories; echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && apk update && apk add --allow-untrusted --no-cache /tmp/ARTIFACT nodejs npm openjdk25 shadow curl ca-certificates bash; node --version'
 ALPINE_BACKEND_START="$DEBIAN_BACKEND_START"
 ALPINE_UI_START="$DEBIAN_UI_START"
 ALPINE_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"

@@ -35,14 +35,15 @@ install -d -m 0770 -o root -g www-data /var/log/honcho-inspector-ui
 install -d -m 0750 -o root -g www-data /etc/honcho-inspector-ui
 
 # Chown the shipped source tree to root:www-data and chmod
-# dirs to 0775 (group-writable) so www-data can land .angular/
-# cache and node_modules/ on first boot (npm ci in ExecStartPre).
-# We intentionally do NOT chmod the source files: the deb
-# ships source as-is, and npm ci will set the right perms on
-# everything it installs.
+# files to 0664 and dirs to 0775 so www-data can land .angular/
+# cache, node_modules/, and package-lock.json on first boot
+# (npm install / npm ci in ExecStartPre writes package-lock.json
+# even on a fresh install when --save defaults are flipped).
 chown -R root:www-data /usr/local/share/honcho-inspector-ui
 find /usr/local/share/honcho-inspector-ui -type d \
     -exec chmod 0775 {} +
+find /usr/local/share/honcho-inspector-ui -type f \
+    -exec chmod 0664 {} +
 
 # Seed the proxy config ONLY if missing; the package is
 # idempotent and respects operator edits.
