@@ -2,8 +2,11 @@
 set -e
 
 case "$1" in
-    install)
-        # Create the service user/group if missing.
+    install|configure)
+        # Create the service user/group if missing. configure is
+        # what dpkg invokes after `dpkg -i`; install is what some
+        # higher-level tools use. Both mean "first-time setup is
+        # safe to run".
         if ! getent group www-data >/dev/null; then
             addgroup --system www-data
         fi

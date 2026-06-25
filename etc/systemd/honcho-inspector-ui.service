@@ -13,6 +13,11 @@ WorkingDirectory=/usr/local/share/honcho-inspector-ui
 Environment=NG_CLI_ANALYTICS=false
 Environment=NODE_ENV=production
 Environment=HOME=/var/lib/honcho-inspector-ui
+# Pin PATH so the apt-installed Node wins over any SDKMAN or
+# homebrew-installed Node in /usr/local/bin. /usr/bin comes first;
+# the deb depends on the distro's nodejs package (>= 20) which
+# satisfies Angular CLI's minimum version.
+Environment=PATH=/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/bin
 
 # The Angular dev server IS the public listener. It binds on all
 # interfaces (0.0.0.0:4200). The app is self-contained: an operator
@@ -42,7 +47,11 @@ ProtectKernelLogs=true
 ProtectControlGroups=true
 ProtectClock=true
 ProtectHostname=true
-ProtectProc=invisible
+# ProtectProc=ptraceable (not invisible) -- ng serve needs to read
+# /proc/net/dev to enumerate network interfaces for the dev server
+# bind. `invisible` blocks /proc/<pid>/net even for the service
+# itself, which breaks libuv's interface enumeration (errno 97).
+ProtectProc=ptraceable
 RestrictRealtime=true
 RestrictSUIDSGID=true
 LockPersonality=true
@@ -50,7 +59,15 @@ SystemCallArchitectures=native
 
 ReadWritePaths=/var/lib/honcho-inspector-ui
 
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# RestrictAddressFamilies intentionally NOT set. ng serve's interface
+# discovery via libuv's uv_interface_addresses calls getifaddrs(3),
+# which iterates over AF_PACKET (link-layer) on Linux even when the
+# caller only binds on AF_INET. AF_PACKET is not in systemd's
+# whitelisted address families, so setting RestrictAddressFamilies
+# at all causes ng serve to fail with errno 97 (EAFNOSUPPORT). The
+# service is already bound to loopback semantics via the unit's
+# `--host 0.0.0.0` flag and the nginx front-end (if any) -- the
+# AF-family filter was belt-and-suspenders hardening we don't need.
 
 CapabilityBoundingSet=
 AmbientCapabilities=

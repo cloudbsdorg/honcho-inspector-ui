@@ -225,6 +225,7 @@ deb-stage: ## Populate debian/stage with the source + node_modules (called by de
 	@printf "staging debian/stage ...\n"
 	@rm -rf "$(DEB_STAGE)"
 	@install -d "$(DEB_STAGE)/DEBIAN"
+	@install -d "$(DEB_STAGE)/usr/local/bin"
 	@install -d "$(DEB_STAGE)/usr/local/share/honcho-inspector-ui"
 	@install -d "$(DEB_STAGE)/etc/systemd/system"
 	@install -d "$(DEB_STAGE)/etc/honcho-inspector-ui"
