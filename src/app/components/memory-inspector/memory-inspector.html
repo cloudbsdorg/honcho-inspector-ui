@@ -206,9 +206,27 @@
                 >
                   Metadata
                 </h3>
-                <pre class="overflow-x-auto text-xs" style="color: var(--text-dim)">{{
-                  ws.metadata | json
-                }}</pre>
+                @let entries = metadataEntries(ws.metadata);
+                @if (entries.length > 0) {
+                  <table class="th-border w-full border-2 text-xs" style="border-radius: var(--radius)">
+                    <thead>
+                      <tr style="background: var(--surface)">
+                        <th class="px-2 py-1 text-left font-bold uppercase tracking-wider opacity-80">Key</th>
+                        <th class="px-2 py-1 text-left font-bold uppercase tracking-wider opacity-80">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (e of entries; track e.key) {
+                        <tr class="border-t" style="border-color: var(--border)">
+                          <td class="px-2 py-1 font-mono" style="color: var(--accent)">{{ e.key }}</td>
+                          <td class="px-2 py-1 font-mono break-all" style="color: var(--text)">{{ e.value }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                } @else {
+                  <p class="text-xs opacity-60">No metadata set on this workspace.</p>
+                }
               </section>
             </div>
           } @else if (loading()) {
@@ -586,8 +604,16 @@
               class="th-surface th-border border-2 px-2 py-1 text-xs"
               style="border-radius: var(--radius); color: var(--text)"
             >
-              <option value="">— select peer —</option>
-              @for (p of honcho.peers(); track p.id) {
+              <option value="">
+                @if (loadingPeersWithConclusions()) {
+                  loading peers with conclusions…
+                } @else if (peersWithConclusions().length === 0) {
+                  — no peers with conclusions —
+                } @else {
+                  — select peer —
+                }
+              </option>
+              @for (p of peersWithConclusions(); track p.id) {
                 <option [value]="p.id">{{ p.id }}</option>
               }
             </select>

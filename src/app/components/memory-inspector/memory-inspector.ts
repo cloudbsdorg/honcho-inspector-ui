@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -30,7 +30,7 @@ interface Tab {
   templateUrl: './memory-inspector.html',
   styleUrl: './memory-inspector.css',
 })
-export class MemoryInspector {
+export class MemoryInspector implements OnInit {
   readonly honcho = inject(HonchoService);
   private readonly auth = inject(HonchoAuthService);
   private readonly profileService = inject(ProfileService);
@@ -41,6 +41,24 @@ export class MemoryInspector {
     () => this.profileService.activeProfile()?.honchoUserName ?? '',
   );
   readonly userName = computed(() => this.auth.user()?.username ?? '');
+
+  /**
+   * Flatten an arbitrary metadata record into a sortable key/value
+   * table. Nested objects and arrays are rendered as compact JSON
+   * strings so the table never wraps unexpectedly. Used by the
+   * "Metadata" section of the Workspace tab.
+   */
+  metadataEntries(obj: Record<string, unknown> | null | undefined): { key: string; value: string }[] {
+    if (!obj) return [];
+    return Object.entries(obj).map(([k, v]) => ({
+      key: k,
+      value: v === null || v === undefined
+        ? ''
+        : typeof v === 'object'
+          ? JSON.stringify(v)
+          : String(v),
+    }));
+  }
 
   readonly tabs = signal<readonly Tab[]>([
     { id: 'workspace', label: 'Workspace', icon: '◎' },
@@ -55,6 +73,16 @@ export class MemoryInspector {
   readonly peerDetail = signal<HonchoPeerInspect | null>(null);
   readonly sessionDetail = signal<HonchoSessionInspect | null>(null);
   readonly conclusions = signal<HonchoConclusion[]>([]);
+  /**
+   * Peers with at least one recorded conclusion. Populated lazily
+   * when the Conclusions tab is opened — fetches `inspectPeer` for
+   * every known peer in parallel and keeps the ones whose
+   * conclusionCount > 0. Result is memoized for the lifetime of
+   * the page so re-opening the tab doesn't re-probe.
+   */
+  readonly peersWithConclusions = signal<HonchoPeerSummary[]>([]);
+  readonly loadingPeersWithConclusions = signal(false);
+  private peersWithConclusionsLoaded = false;
   readonly searchResults = signal<HonchoMessage[]>([]);
   readonly searchInput = signal('');
   readonly loading = signal(false);
@@ -66,6 +94,15 @@ export class MemoryInspector {
   setTab(id: TabId): void {
     this.activeTab.set(id);
     this.error.set(null);
+    if (id === 'conclusions') {
+      void this.loadPeersWithConclusions();
+    }
+  }
+
+  ngOnInit(): void {
+    if (this.workspaceId()) {
+      void this.loadWorkspace();
+    }
   }
 
   async loadWorkspace(): Promise<void> {
@@ -125,6 +162,36 @@ export class MemoryInspector {
       this.error.set(this.honcho.friendlyErrorMessage(e));
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  /**
+   * Probe every known peer for its conclusion count and keep only
+   * the ones with > 0 conclusions. Runs as parallel fan-out so
+   * the latency is bounded by the slowest single peer (not the
+   * sum). Tolerates per-peer failures — a failing peer is skipped
+   * instead of failing the whole load.
+   */
+  async loadPeersWithConclusions(): Promise<void> {
+    if (this.peersWithConclusionsLoaded || this.loadingPeersWithConclusions()) return;
+    const peers = this.honcho.peers();
+    if (peers.length === 0) return;
+    this.loadingPeersWithConclusions.set(true);
+    try {
+      const results = await Promise.allSettled(
+        peers.map((p) => this.honcho.inspectPeer(p.id)),
+      );
+      const withConclusions: HonchoPeerSummary[] = [];
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        if (r.status === 'fulfilled' && r.value.conclusionCount > 0) {
+          withConclusions.push(peers[i]);
+        }
+      }
+      this.peersWithConclusions.set(withConclusions);
+      this.peersWithConclusionsLoaded = true;
+    } finally {
+      this.loadingPeersWithConclusions.set(false);
     }
   }
 
