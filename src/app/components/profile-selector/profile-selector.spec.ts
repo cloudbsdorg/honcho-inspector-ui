@@ -193,4 +193,15 @@ describe('ProfileSelector', () => {
     );
     expect(form).toBeTruthy();
   });
+
+  it('openCreate() pre-fills label + honchoUserName from the current user', () => {
+    // The operator's username is the natural starting point for the
+    // new profile (it maps onto their Honcho MCP peer identifier).
+    // Without this pre-fill, the form is unusable until the operator
+    // types the same value they already signed in with.
+    component.openCreate();
+    expect(component.form.controls['honchoUserName'].value).toBe('alice');
+    expect(component.form.controls['label'].value).toBe('alice-workspace');
+    expect(component.form.controls['apiKey'].value).toBe('');
+  });
 });

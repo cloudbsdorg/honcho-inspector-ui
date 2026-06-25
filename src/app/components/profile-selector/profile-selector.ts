@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ProfileService } from '../../core/profile.service';
+import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { Profile, ProfileWithKey } from '../../core/models';
 import { formatError } from '../../core/error-message';
 
@@ -25,6 +26,7 @@ interface EditState {
 })
 export class ProfileSelector {
   private readonly profiles = inject(ProfileService);
+  private readonly auth = inject(HonchoAuthService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
 
@@ -81,19 +83,35 @@ export class ProfileSelector {
     } finally {
       this.loading.set(false);
     }
+    // Clear the validate-result banner when the operator edits any
+    // field. Without this, the stale "Connection failed" message
+    // from a prior attempt lingers while the user is typing fixes,
+    // which is misleading (the new value hasn't been tested yet).
+    this.form.valueChanges.subscribe(() => {
+      if (this.validateResult() !== null) {
+        this.validateResult.set(null);
+      }
+    });
   }
 
   openCreate(): void {
     this.edit.set({ open: false, profile: null });
     this.showCreate.set(true);
     this.selectedId.set(null);
+    // Pre-fill fields from the operator's Honcho MCP identity so the
+    // form is usable the moment "+ New" is tapped. Only the API key
+    // remains blank (it's per-connection, never re-used). The label
+    // is derived from the Honcho user name (most operators have one
+    // workspace per identity); they can rename before saving.
+    const username = this.auth.user()?.username ?? '';
     this.form.reset({
-      label: '',
+      label: username ? `${username}-workspace` : '',
       apiKey: '',
       baseUrl: 'https://honcho.example',
       workspaceId: 'default',
-      honchoUserName: '',
+      honchoUserName: username,
     });
+    this.validateResult.set(null);
     this.error.set(null);
   }
 
