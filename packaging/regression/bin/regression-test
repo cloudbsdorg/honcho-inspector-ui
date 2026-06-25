@@ -145,7 +145,7 @@ VOID_RUNTIME="docker.io/voidlinux/voidlinux:latest"
 # sleeps + probes. -y assumes yes to all xbps prompts.
 # openjdk25-jre is only needed for the backend but installed
 # unconditionally per the debian pattern.
-VOID_INSTALL='echo "repository=https://repo-default.voidlinux.org/current" > /usr/share/xbps.d/00-repository-main.conf && xbps-install -Syu xbps >/dev/null 2>&1; xbps-install -y /tmp/ARTIFACT nodejs npm openjdk25-jre shadow curl ca-certificates runit && (setsid runsvdir -P /var/service </dev/null >/var/log/runsvdir.log 2>&1 &)'
+VOID_INSTALL='mkdir -p /etc/xbps.d && echo "repository=https://repo-default.voidlinux.org/current" > /etc/xbps.d/00-repository-main.conf && SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -y -f xbps xbps-rindex >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; mkdir -p /var/localrepo && cp /tmp/ARTIFACT /var/localrepo/ARTIFACT && cd /var/localrepo && xbps-rindex -f -a /var/localrepo/ARTIFACT && SSL_NO_VERIFY_HOSTNAME=1 xbps-install --repository=/var/localrepo --repository=https://repo-default.voidlinux.org/current -y honcho-inspector-ui nodejs openjdk25-jre shadow curl ca-certificates runit && (setsid runsvdir -P /var/service </dev/null >/var/log/runsvdir.log 2>&1 &)'
 VOID_BACKEND_START='sleep 5'
 VOID_UI_START='sleep 5'
 VOID_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
@@ -161,8 +161,8 @@ ARTIFACT_ui_debian="honcho-inspector-ui_0.1.0-SNAPSHOT_all.deb"
 ARTIFACT_ui_rocky="honcho-inspector-ui-0.1.0-SNAPSHOT-1.noarch.rpm"
 ARTIFACT_ui_suse="honcho-inspector-ui-0.1.0-SNAPSHOT-1.noarch.rpm"
 ARTIFACT_ui_alpine="honcho-inspector-ui-0.1.0-SNAPSHOT.apk"
-ARTIFACT_ui_arch="honcho-inspector-ui-0.1.0.SNAPSHOT-1-x86_64.pkg.tar.zst"
-ARTIFACT_ui_void="honcho-inspector-ui-0.1.0-SNAPSHOT_1.x86_64.xbps"
+ARTIFACT_ui_arch="honcho-inspector-ui-0.1.0_SNAPSHOT-1-x86_64.pkg.tar.zst"
+ARTIFACT_ui_void="honcho-inspector-ui-0.1.0~SNAPSHOT_1.x86_64.xbps"
 
 usage() {
     cat >&2 <<'USAGE'

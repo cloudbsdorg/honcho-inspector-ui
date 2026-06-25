@@ -5,7 +5,7 @@
  * screenshots + HTML snapshots, not actual rendered pixels — the GPU is
  * irrelevant.
  *
- * Configurable via env:
+ * Configurable via env (read by the spec, not the config itself):
  *   BASE_URL          default http://localhost:4200
  *   SCREENSHOTS_DIR   default ./screenshots   (relative to tests/e2e/)
  *
@@ -14,7 +14,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const BASE_URL = process.env['BASE_URL'] ?? 'http://localhost:4200';
-const SCREENSHOTS_DIR = process.env['SCREENSHOTS_DIR'] ?? './screenshots';
 
 export default defineConfig({
   testDir: '.',

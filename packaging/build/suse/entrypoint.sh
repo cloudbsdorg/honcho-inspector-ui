@@ -74,6 +74,7 @@ find "$STAGE" -type f -name '*.log' -delete
 # (SUSE's name for the shadow-utils package) so the postinst's
 # adduser/addgroup calls have the binaries they need.
 cd "$STAGE"
+mkdir -p var/lib/honcho-inspector-ui var/log/honcho-inspector-ui etc/honcho-inspector-ui
 fpm -s dir -t rpm \
     -p "$ARTIFACT_PATH" \
     -n "$PROJECT" \

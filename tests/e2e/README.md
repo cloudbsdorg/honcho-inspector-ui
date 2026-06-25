@@ -68,15 +68,16 @@ Both are read by both the spec and `playwright.config.ts`.
   full-page screenshots and HTML snapshots, not rendered pixels —
   the GPU is irrelevant.
 
-### Worker-scoped `page` fixture
+### Worker-scoped shared context
 
-The spec overrides Playwright's default `page` fixture with a
-`{ scope: 'worker' }` one. Without this override, every test
-gets a fresh `BrowserContext` and localStorage (and therefore the
-SPA session) would be wiped between tests. The override keeps a
-single context alive for the whole file, which is what makes the
-serial narrative behave like a real user clicking through the
-app in order.
+The spec extends `test` with a worker-scoped `sharedContext`
+fixture (`BrowserContext` kept alive for the whole file) and
+derives a fresh `page` from that context for each test. Without
+this, every test would get a fresh `BrowserContext` and
+localStorage (and therefore the SPA session) would be wiped
+between tests. The shared context is what makes the serial
+narrative behave like a real user clicking through the app in
+order.
 
 ## Test credentials
 

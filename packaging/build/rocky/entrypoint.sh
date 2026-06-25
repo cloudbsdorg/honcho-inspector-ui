@@ -86,6 +86,7 @@ find "$STAGE" -type f -name '*.log' -delete
 # because the upstream maintainers chose that contract -- operators
 # who need a Rocky-friendly postinst can override it after install.
 cd "$STAGE"
+mkdir -p var/lib/honcho-inspector-ui var/log/honcho-inspector-ui etc/honcho-inspector-ui
 fpm -s dir -t rpm \
     -p "$ARTIFACT_PATH" \
     -n "$PROJECT" \

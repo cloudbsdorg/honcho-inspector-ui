@@ -61,7 +61,22 @@ ARG HOST_GID=0
 # is `xbps` (the binary) plus `xbps-triggers` etc. We install the
 # toolchain + the helpers we'll need at install time on the host
 # (runit, shadow-utils, findutils).
+#
+# Void's default repo URL (alpha.de.repo.voidlinux.org) has an
+# SSL cert subject mismatch on some networks. Allow the operator
+# to pass VOID_REPO as a build-arg so they can point at a
+# working mirror (repo-default.voidlinux.org is the CDN-backed
+# default; some regions use alpha.us.repo.voidlinux.org etc.).
+ARG VOID_REPO=https://repo-default.voidlinux.org/current
+# Void's xbps-install -Syu fails on a fresh container because the
+# on-disk xbps binary is older than the repo requires; the
+# "self-update" pattern is to run `xbps-install -Sy xbps` first
+# to bootstrap a working xbps, then run a full -Syu, then install.
+# The default VOID_REPO=repo-default.voidlinux.org points at the
+# CDN-backed mirror; the operator can override via --build-arg.
 RUN set -eux \
+ && echo "repository=${VOID_REPO}" > /usr/share/xbps.d/00-repository-main.conf \
+ && xbps-install -Sy xbps \
  && xbps-install -Syu \
  && xbps-install -y \
         nodejs \
@@ -76,6 +91,7 @@ RUN set -eux \
         gcc \
         make \
         ca-certificates \
+        apache-maven \
  && xbps-remove -Ooy \
  && rm -rf /var/cache/xbps
 

@@ -246,6 +246,12 @@ chmod 0644 "$INSTALL_SCRIPT"
 # ExecStartPre / runit's first-boot `npm ci`), shadow (for
 # useradd/groupadd in post_install), runit (for chpst/svlogd in
 # the runscript).
+#
+# xbps-create in this Void release (0.60.x) does not accept
+# --install-script; the install-action script is embedded via
+# the staging dir at <staging>/INSTALL. Copy the generated
+# script into the stage before invoking xbps-create.
+cp "$INSTALL_SCRIPT" "$STAGE/INSTALL"
 xbps-create \
     -A "$ARCH" \
     -n "$PROJECT" \
@@ -258,7 +264,6 @@ xbps-create \
     --long-desc "Honcho Inspector UI (Angular 22 dashboard). Runs ng serve as a node app under runit (Void's default) or systemd, bound on 0.0.0.0:4200. node_modules is NOT shipped -- the runscript / systemd unit runs 'npm ci' as a first-boot step so the right native binaries (esbuild, rollup) for the host architecture get pulled automatically. This keeps the package architecture-independent." \
     --tags "angular dashboard honcho web ui" \
     --compression zstd \
-    --install-script "$INSTALL_SCRIPT" \
     -o "$ARTIFACT_PATH" \
     "$STAGE"
 

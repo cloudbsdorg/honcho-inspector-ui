@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Page, type BrowserContext } from '@playwright/test';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -15,17 +15,20 @@ const PROFILE = {
   honchoUserName: 'admin',
 } as const;
 
-const test = base.extend<{ page: Page }>({
-  page: [
+const test = base.extend<{}, { sharedContext: BrowserContext }>({
+  sharedContext: [
     async ({ browser }, use) => {
       const context = await browser.newContext();
-      const page = await context.newPage();
-      await use(page);
-      await page.close();
+      await use(context);
       await context.close();
     },
     { scope: 'worker' },
   ],
+  page: async ({ sharedContext }, use) => {
+    const page = await sharedContext.newPage();
+    await use(page);
+    await page.close();
+  },
 });
 
 async function shot(page: Page, name: string): Promise<void> {
