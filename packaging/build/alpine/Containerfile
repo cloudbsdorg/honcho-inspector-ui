@@ -1,30 +1,19 @@
 # Containerfile for the honcho-inspector-ui Alpine package builder.
 #
 # Source base image:
-#   docker.io/library/alpine:3.22 -- the current Alpine stable
-#   release. Alpine is musl-based (vs glibc for the other distros
-#   in this matrix), so fpm's gem dependencies and the Node 24
-#   binary built for musl must both be installed. Alpine is the
-#   smallest base image we use (~5 MB compressed), which keeps the
-#   build cache and CI pull bandwidth low.
+#   docker.io/library/alpine:3.23 -- Alpine ships Node 22 LTS in
+#   v3.23 main (Node 22.23.0); we use that as the base. Alpine is
+#   musl-based (vs glibc for the other distros in this matrix), so
+#   fpm's gem dependencies and the Node binary built for musl must
+#   both be installed. Alpine is the smallest base image we use
+#   (~5 MB compressed), which keeps the build cache and CI pull
+#   bandwidth low.
 #
-# Why a third-party repo (Alpine edge/community) is added on demand:
-#   Alpine 3.22's main + community repos ship Node 22. Angular 22 +
-#   the production tooling chain work best on Node 24, which is
-#   only in the rolling edge/community repo. We do NOT add
-#   edge/community to /etc/apk/repositories permanently -- that
-#   would leak edge packages into every later apk invocation in
-#   this image. Instead we install nodejs24 with the inline
-#   `--repository=http://dl-cdn.alpinelinux.org/alpine/edge/community`
-#   flag, which fetches the package index from that URL just for
-#   this one `apk add` call. The result: edge packages land in the
-#   image but the repo entry does not.
-#
-# Why `npm` is also pulled explicitly from edge/community:
-#   Alpine 3.22 main ships npm 10.x; edge/community has the npm
-#   release that ships alongside Node 24 (npm 11.x). Mixing Node 24
-#   with the older npm 10 from main produces lockfile-engine
-#   warnings on every `npm ci` later, so we keep them paired.
+# Why a third-party repo (Alpine v3.23/community) is added on demand:
+#   v3.23 main ships Node 22 LTS only; if a future Angular release
+#   needs Node 24, v3.23/community has nodejs-current tracking the
+#   latest. We keep the repo entry transient via the inline
+#   `--repository=` flag so it doesn't pollute /etc/apk/repositories.
 #
 # Artifact produced:
 #   honcho-inspector-ui-0.1.0-SNAPSHOT.apk (a fpm-built .apk via
@@ -40,10 +29,10 @@
 #   artifact back to the invoking user.
 
 # ====== build =====================================================
-FROM docker.io/library/alpine:3.22
+FROM docker.io/library/alpine:3.23
 
 LABEL org.opencontainers.image.title="honcho-inspector-ui:builder-alpine" \
-      org.opencontainers.image.description="Honcho Inspector UI APK package builder (Alpine 3.22 + Node 24 + fpm)" \
+      org.opencontainers.image.description="Honcho Inspector UI APK package builder (Alpine 3.23 + Node 22 + fpm)" \
       org.opencontainers.image.source="https://github.com/cloudbsdorg/honcho-inspector-ui" \
       org.opencontainers.image.licenses="BSD-3-Clause"
 

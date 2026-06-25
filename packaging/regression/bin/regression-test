@@ -64,38 +64,90 @@ DEBIAN_UI_START='su -s /bin/bash www-data -c "export HOME=/var/lib/honcho-inspec
 DEBIAN_BACKEND_HEALTH="http://127.0.0.1:8080/api/health"
 DEBIAN_UI_HEALTH="http://127.0.0.1:4200/"
 
-ROCKY_RUNTIME="docker.io/library/rockylinux:10-minimal"
-ROCKY_INSTALL='dnf install -y /tmp/ARTIFACT'
+# Rocky 10's official image lives in the `rockylinux/` org, not the
+# `library/` (Docker Hub Official Images) namespace. The library
+# namespace only has Rocky 9.x. RUNTIME here is the *smoke* container,
+# not the build base; phase1-build-one pulls the build base from
+# the per-distro Containerfile's FROM.
+ROCKY_RUNTIME="docker.io/rockylinux/rockylinux:10-minimal"
+# rocky:10-minimal only has microdnf; install dnf first to get the
+# richer solver that handles the local .rpm + remote dependencies
+# in one transaction. The artifact's --depends says nodejs + npm +
+# shadow-utils; install those explicitly. java-25-openjdk-headless
+# is only needed for the backend but installed unconditionally
+# per the debian pattern.
+ROCKY_INSTALL='microdnf install -y dnf 2>/dev/null; dnf install -y /tmp/ARTIFACT nodejs nodejs-npm java-25-openjdk-headless shadow-utils curl ca-certificates'
 ROCKY_BACKEND_START="$DEBIAN_BACKEND_START"
 ROCKY_UI_START="$DEBIAN_UI_START"
 ROCKY_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
 ROCKY_UI_HEALTH="$DEBIAN_UI_HEALTH"
 
-SUSE_RUNTIME="docker.io/library/opensuse/leap:16.0"
-SUSE_INSTALL='zypper --non-interactive install --no-confirm /tmp/ARTIFACT'
+# openSUSE Leap 16 lives in the `opensuse/` org, not the `library/`
+# namespace; the library/ namespace rejects the 16.0 tag with
+# "requested access to the resource is denied".
+SUSE_RUNTIME="docker.io/opensuse/leap:16.0"
+# Leap 16 ships nodejs24 + npm24 in the OSS repo. --no-gpg-checks
+# (plural) skips gpg check failures on first-refresh; the local
+# /tmp/ARTIFACT is unsigned so we cannot pass gpg verification
+# without the flag. The artifact's --depends says nodejs + npm +
+# shadow; install all three. java-25-openjdk is only needed for
+# the backend but installed unconditionally per the debian pattern.
+SUSE_INSTALL='zypper --non-interactive --no-gpg-checks install /tmp/ARTIFACT nodejs24 npm24 java-25-openjdk shadow curl ca-certificates'
 SUSE_BACKEND_START="$DEBIAN_BACKEND_START"
 SUSE_UI_START="$DEBIAN_UI_START"
 SUSE_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
 SUSE_UI_HEALTH="$DEBIAN_UI_HEALTH"
 
 ALPINE_RUNTIME="docker.io/library/alpine:3.22"
-ALPINE_INSTALL='apk add --allow-untrusted --no-cache /tmp/ARTIFACT'
+# Alpine 3.22's main repo has only openjdk22; the build Containerfile
+# pulls openjdk25 from edge/community. The artifact's --depends
+# openjdk25-jre must come from edge/community too. Append the
+# edge/community repo to /etc/apk/repositories (lower priority than
+# v3.22 main) before apk update, matching the build Containerfile's
+# repo layout. nodejs22 satisfies the UI's nodejs>=20 dep. bash
+# is needed because the Alpine /bin/sh is BusyBox ash and the start
+# cmd's pipeline is bash-compatible.
+ALPINE_INSTALL='echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && apk update && apk add --allow-untrusted --no-cache /tmp/ARTIFACT nodejs npm openjdk25 shadow curl ca-certificates bash'
 ALPINE_BACKEND_START="$DEBIAN_BACKEND_START"
 ALPINE_UI_START="$DEBIAN_UI_START"
 ALPINE_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
 ALPINE_UI_HEALTH="$DEBIAN_UI_HEALTH"
 
 ARCH_RUNTIME="docker.io/library/archlinux:latest"
-ARCH_INSTALL='pacman -U --noconfirm --overwrite "*" /tmp/ARTIFACT'
+# Arch's container is /usr/sbin/pacman with an empty sync db on
+# first run; `pacman -Sy` populates it. The artifact's
+# PKGBUILD depends=() declares nodejs + npm + shadow; install
+# them explicitly. `pacman -U` for the local .pkg.tar.zst. The
+# --overwrite "*" flag is needed because fakeroot in the build
+# container leaves files owned by the `build` user, which pacman
+# would otherwise refuse to overwrite. jre25-openjdk-headless is
+# only needed for the backend but installed unconditionally per
+# the debian pattern.
+ARCH_INSTALL='pacman -Sy --noconfirm >/dev/null 2>&1; pacman -U --noconfirm --overwrite "*" /tmp/ARTIFACT && pacman -S --noconfirm nodejs npm jre25-openjdk-headless shadow curl ca-certificates'
 ARCH_BACKEND_START="$DEBIAN_BACKEND_START"
 ARCH_UI_START="$DEBIAN_UI_START"
 ARCH_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
 ARCH_UI_HEALTH="$DEBIAN_UI_HEALTH"
 
-VOID_RUNTIME="docker.io/voidlinux/voidlinux:glibc"
-VOID_INSTALL='xbps-install -y /tmp/ARTIFACT'
+# voidlinux/voidlinux:glibc tag does not exist on Docker Hub --
+# the glibc variant is the `latest` tag. voidlinux/voidlinux:musl
+# is the musl-libc variant (not what we want; OpenJDK 25 has
+# musl-specific quirks).
+VOID_RUNTIME="docker.io/voidlinux/voidlinux:latest"
+# Void's default repo URL (alpha.de.repo.voidlinux.org) has an
+# SSL cert subject mismatch on this network. Override to
+# repo-default.voidlinux.org which serves the same content. The
+# artifact's INSTALL script (post_install) activates runit via
+# `sv up`, but that requires runsvdir to be running. Start
+# runsvdir in the background here so the post-install's `sv up`
+# (and any subsequent service supervision) actually works. The
+# post-install handles service start; the orchestrator just
+# sleeps + probes. -y assumes yes to all xbps prompts.
+# openjdk25-jre is only needed for the backend but installed
+# unconditionally per the debian pattern.
+VOID_INSTALL='echo "repository=https://repo-default.voidlinux.org/current" > /usr/share/xbps.d/00-repository-main.conf && xbps-install -Syu xbps >/dev/null 2>&1; xbps-install -y /tmp/ARTIFACT nodejs npm openjdk25-jre shadow curl ca-certificates runit && (setsid runsvdir -P /var/service </dev/null >/var/log/runsvdir.log 2>&1 &)'
 VOID_BACKEND_START='sleep 5'
-VOID_UI_START="$DEBIAN_UI_START"
+VOID_UI_START='sleep 5'
 VOID_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
 VOID_UI_HEALTH="$DEBIAN_UI_HEALTH"
 

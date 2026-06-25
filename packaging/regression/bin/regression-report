@@ -1,0 +1,410 @@
+#!/bin/sh
+# regression-report -- generate a single human-readable markdown report
+# for a regression matrix run, with explicit visual-inspection checklists
+# for every Playwright screenshot.
+#
+# Reads:
+#   - <repo>/packaging/regression/state.tsv
+#   - <repo>/packaging/regression/logs/<ts>/<pair>.log
+#   - <repo>/packaging/regression/playwright/<ts>/<pair>/screenshots/*.png
+#   - <repo>/packaging/regression/playwright/<ts>/<pair>/checks.json
+#   - <repo>/packaging/regression/artifacts/<artifact>
+#
+# Writes:
+#   - <repo>/packaging/regression/report-<ts>.md
+#   - (with --json) report-<ts>.json
+#
+# Usage:
+#   bin/regression-report                          # use the most recent logs/<ts> dir
+#   bin/regression-report logs/20260625-021813      # specific timestamp
+#   bin/regression-report --json                   # also write a JSON sibling
+#   bin/regression-report --help
+
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+REG_DIR="$REPO_ROOT/packaging/regression"
+LOG_BASE="$REG_DIR/logs"
+PW_BASE="$REG_DIR/playwright"
+ARTIFACTS_DIR="$REG_DIR/artifacts"
+STATE_FILE="$REG_DIR/state.tsv"
+WRITE_JSON=0
+LOG_DIR_OVERRIDE=""
+
+usage() {
+    cat >&2 <<'USAGE'
+Usage: bin/regression-report [logs/<ts>|--latest] [options]
+
+Options:
+  --latest           use the most recent logs/ subdir (default if none given)
+  --json             also write a JSON sibling report
+  --help             show this help
+
+Output:  <repo>/packaging/regression/report-<ts>.md (and report-<ts>.json with --json)
+USAGE
+    exit 1
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --latest) LOG_DIR_OVERRIDE="latest"; shift ;;
+        --json) WRITE_JSON=1; shift ;;
+        --help|-h) usage ;;
+        logs/*) LOG_DIR_OVERRIDE="$1"; shift ;;
+        *) echo "regression-report: unknown arg: $1" >&2; usage ;;
+    esac
+done
+
+# Resolve target logs/<ts> directory
+if [ -z "$LOG_DIR_OVERRIDE" ] || [ "$LOG_DIR_OVERRIDE" = "latest" ]; then
+    LOG_DIR=$(ls -td "$LOG_BASE"/*/ 2>/dev/null | head -1)
+    if [ -z "$LOG_DIR" ]; then
+        echo "regression-report: no logs/ subdirs found" >&2
+        exit 1
+    fi
+elif [ -d "$REPO_ROOT/$LOG_DIR_OVERRIDE" ]; then
+    LOG_DIR="$REPO_ROOT/$LOG_DIR_OVERRIDE"
+else
+    echo "regression-report: logs dir not found: $LOG_DIR_OVERRIDE" >&2
+    exit 1
+fi
+
+LOG_DIR_REL=$(echo "$LOG_DIR" | sed "s|^$REPO_ROOT/||")
+TS=$(basename "$LOG_DIR")
+REPORT_MD="$REG_DIR/report-${TS}.md"
+REPORT_JSON="$REG_DIR/report-${TS}.json"
+
+# Host info
+HOST_KERNEL=$(uname -srmo 2>/dev/null || uname -a)
+HOST_CPUS=$(nproc 2>/dev/null || echo "?")
+HOST_MEM=$(free -h 2>/dev/null | awk 'NR==2 {print $2}')
+HOST_DISK=$(df -h / 2>/dev/null | awk 'NR==2 {print $4}')
+
+# === visual-inspection checklists =================================
+# Per-screenshot checklist of "what you should see when inspecting".
+# The Playwright spec is responsible for recording PRESENT/ABSENT
+# for each id into <pair>/checks.json; this report just renders them.
+
+SETUP_WELCOME_CHECKS='welcome-heading|HONCHO INSPECTOR heading visible
+welcome-subheading|First-run setup -- create the first admin subheading visible
+setup-steps|3 numbered step indicators visible (1 Welcome, 2 Account, 3 Confirm)
+welcome-body|No users exist paragraph visible
+next-button|Step 1 Next button enabled'
+
+SETUP_ACCOUNT_CHECKS='username-input|Username textbox rendered with label
+password-input|Password textbox rendered with 8+ placeholder
+confirm-input|Confirm password textbox rendered
+password-match|Passwords match validation passes'
+
+SETUP_CONFIRM_CHECKS='review-heading|Review and confirm heading visible
+username-display|Submitted username shown as readonly field
+role-display|Role shown as admin'
+
+PROFILES_EMPTY_CHECKS='new-profile-button|+ New profile button visible
+empty-state|No profiles yet empty-state message rendered'
+
+PROFILE_FORM_CHECKS='label-input|Label textbox rendered
+apikey-input|API Key textbox rendered
+baseurl-input|Base URL textbox with default placeholder
+workspaceid-input|Workspace ID textbox with default value
+honchousername-input|Honcho User Name textbox'
+
+PROFILE_CREATED_CHECKS='active-badge|Active badge shown next to new profile name
+test-button|Test button enabled
+reveal-key-button|Reveal Key button enabled
+edit-button|Edit button enabled
+delete-button|Delete button enabled'
+
+DASHBOARD_CHECKS='app-header|Header with logo + nav visible
+peers-sidebar|Peers sidebar with 0-count placeholder
+welcome-pane|Welcome message visible in main pane'
+
+INSPECTOR_WORKSPACE_CHECKS='inspector-heading|MEMORY INSPECTOR heading
+workspace-tab|Workspace tab active
+workspace-pane|Workspace pane with Load Workspace button'
+INSPECTOR_PEERS_CHECKS='peers-tab|Peers tab clickable
+peers-pane|Peers pane rendered'
+INSPECTOR_SESSIONS_CHECKS='sessions-tab|Sessions tab clickable
+sessions-pane|Sessions pane rendered'
+INSPECTOR_CONCLUSIONS_CHECKS='conclusions-tab|Conclusions tab clickable
+conclusions-pane|Conclusions pane rendered'
+INSPECTOR_SEARCH_CHECKS='search-tab|Search tab clickable
+search-pane|Search textbox + Search button (button disabled until input)'
+
+ADMIN_OVERVIEW_CHECKS='admin-heading|ADMIN heading
+counts-card|Counts card with Loading state
+growth-card|Growth card with Loading state
+audit-card|Recent audit activity card'
+ADMIN_USERS_CHECKS='users-tab|Users tab active
+create-user-form|Create user form (username, password, admin checkbox)
+search-box|Search username/firstname/lastname/email textbox'
+ADMIN_AUDIT_CHECKS='audit-tab|Audit tab active
+audit-filters|All actions dropdown + search + page-size selector
+audit-table|Empty audit table with No audit entries yet row'
+ADMIN_MAINTENANCE_CHECKS='maintenance-tab|Maintenance tab active
+row-counts|Row counts card (Users/Sessions/Audit rows)
+retention|Retention card (Days/Max rows/Cron)
+sweeps|Manual sweeps with Purge audit + Purge expired sessions buttons'
+
+LOGIN_CHECKS='login-overlay|Login overlay visible
+username-input|Username textbox rendered
+password-input|Password textbox rendered
+signin-button|Sign in button enabled
+cancel-button|Cancel button enabled'
+
+LOGIN_SUCCESS_CHECKS='profile-selector|Profile selector rendered post-login
+app-header|Header with admin user visible
+admin-link|Admin nav link visible (user is admin)'
+
+# Helper: read a single field value from checks.json without jq
+# (POSIX sh + grep). Returns the raw value as printed.
+get_check() {
+    _id="$1"
+    _file="$2"
+    [ -f "$_file" ] || { echo ""; return; }
+    grep "\"$_id\"" "$_file" 2>/dev/null \
+        | head -1 \
+        | sed 's/.*"'"$_id"'"[[:space:]]*:[[:space:]]*//' \
+        | sed 's/[,"}]//g' \
+        | tr -d ' '
+}
+
+# Render one screenshot block + its checklist
+render_screenshot() {
+    _shot="$1"
+    _name=$(basename "$_shot")
+    _step=$(echo "$_name" | sed 's/.png$//' | sed 's/-[0-9a-f]*$//')
+    _title=$(echo "$_step" | sed 's/[0-9]*[a-z]*-//' | sed 's/-/ /g')
+    _pw_dir="$2"
+    _checks_file="$_pw_dir/checks.json"
+
+    printf '##### %s\n\n' "$_title"
+    printf '![%s](%s/screenshots/%s)\n\n' "$_title" "$_pw_dir" "$_name"
+
+    # Pick the checklist for this step
+    case "$_step" in
+        01a-setup-step1-welcome) checks="$SETUP_WELCOME_CHECKS" ;;
+        01b-setup-step2-filled) checks="$SETUP_ACCOUNT_CHECKS" ;;
+        01c-setup-step3-confirm) checks="$SETUP_CONFIRM_CHECKS" ;;
+        01d-setup-complete-profiles) checks="$PROFILES_EMPTY_CHECKS" ;;
+        02a-profiles-empty) checks="$PROFILES_EMPTY_CHECKS" ;;
+        02b-profile-form-filled) checks="$PROFILE_FORM_CHECKS" ;;
+        02c-profile-active) checks="$PROFILE_CREATED_CHECKS" ;;
+        03-dashboard) checks="$DASHBOARD_CHECKS" ;;
+        04-inspector-workspace) checks="$INSPECTOR_WORKSPACE_CHECKS" ;;
+        04-inspector-peers) checks="$INSPECTOR_PEERS_CHECKS" ;;
+        04-inspector-sessions) checks="$INSPECTOR_SESSIONS_CHECKS" ;;
+        04-inspector-conclusions) checks="$INSPECTOR_CONCLUSIONS_CHECKS" ;;
+        04-inspector-search) checks="$INSPECTOR_SEARCH_CHECKS" ;;
+        05-admin-overview) checks="$ADMIN_OVERVIEW_CHECKS" ;;
+        05-admin-users) checks="$ADMIN_USERS_CHECKS" ;;
+        05-admin-audit) checks="$ADMIN_AUDIT_CHECKS" ;;
+        05-admin-maintenance) checks="$ADMIN_MAINTENANCE_CHECKS" ;;
+        06a-before-logout) checks="$DASHBOARD_CHECKS" ;;
+        06b-after-logout) checks="$LOGIN_CHECKS" ;;
+        07a-login-form-filled) checks="$LOGIN_CHECKS" ;;
+        07b-login-success-profiles) checks="$LOGIN_SUCCESS_CHECKS" ;;
+        *) checks="" ;;
+    esac
+
+    if [ -z "$checks" ]; then
+        return
+    fi
+
+    printf '**Visual inspection checklist:**\n\n'
+    printf '| Check | Expected | Observed |\n'
+    printf '|-------|----------|----------|\n'
+    echo "$checks" | while IFS='|' read -r cid cdesc; do
+        [ -z "$cid" ] && continue
+        val=$(get_check "$cid" "$_checks_file")
+        case "$val" in
+            true|TRUE|1|yes|YES) obs=":white_check_mark: PRESENT" ;;
+            false|FALSE|0|no|NO) obs=":x: ABSENT" ;;
+            *) obs="${val:-(not checked)}" ;;
+        esac
+        printf '| `%s` | %s | %s |\n' "$cid" "$cdesc" "$obs"
+    done
+    printf '\n'
+}
+
+# Start the markdown
+{
+    printf '# Honcho Inspector Regression Report\n\n'
+    printf '**Run timestamp:** `%s`  \n' "$TS"
+    printf '**Host:** `%s`  \n' "$HOST_KERNEL"
+    printf '**Resources:** %s CPUs, %s RAM, %s disk free  \n' "$HOST_CPUS" "$HOST_MEM" "$HOST_DISK"
+    printf '**Logs:** `%s`  \n' "$LOG_DIR_REL"
+    printf '\n'
+
+    # === summary matrix ============================================
+    printf '## Summary\n\n'
+    printf '| Pair | Build | Smoke | Playwright | Notes |\n'
+    printf '|------|-------|-------|------------|-------|\n'
+
+    for repo in backend ui; do
+        for distro in alpine arch debian rocky suse void; do
+            pair="${repo}-${distro}"
+            log="$LOG_DIR/${pair}.log"
+            [ -f "$log" ] || continue
+            state="-"
+            [ -f "$STATE_FILE" ] && state=$(awk -F'\t' -v p="$pair" '$1"-"$2==p {print $3; exit}' "$STATE_FILE")
+            b="—"
+            grep -qF "ARTIFACT OK" "$log" 2>/dev/null && b="PASS"
+            s="—"
+            grep -qF "SMOKE PASS" "$log" 2>/dev/null && s="PASS"
+            p_state="—"
+            if [ "$repo" = "ui" ]; then
+                grep -qF "PW PASS" "$log" 2>/dev/null && p_state="deferred"
+                [ "$p_state" = "—" ] && p_state="(see screenshots below)"
+            fi
+            notes=""
+            if [ "$b" = "—" ]; then
+                err=$(grep -E 'BUILD FAILED|BUILD RUN FAILED|ARTIFACT MISSING' "$log" | head -1)
+                [ -n "$err" ] && notes=$(echo "$err" | sed 's/`/'"'"'/g' | cut -c1-60)
+            elif [ "$s" = "—" ]; then
+                err=$(grep -E 'SMOKE FAILED|HEALTH FAILED' "$log" | head -1)
+                [ -n "$err" ] && notes=$(echo "$err" | sed 's/`/'"'"'/g' | cut -c1-60)
+            fi
+            printf '| %s | %s | %s | %s | %s |\n' "$pair" "$b" "$s" "$p_state" "$notes"
+        done
+    done
+
+    # === aggregate counts ==========================================
+    total=0; b_pass=0; s_pass=0; pw_count=0
+    for repo in backend ui; do
+        for distro in alpine arch debian rocky suse void; do
+            log="$LOG_DIR/${repo}-${distro}.log"
+            [ -f "$log" ] || continue
+            total=$((total+1))
+            grep -qF "ARTIFACT OK" "$log" 2>/dev/null && b_pass=$((b_pass+1))
+            grep -qF "SMOKE PASS" "$log" 2>/dev/null && s_pass=$((s_pass+1))
+            [ "$repo" = "ui" ] && grep -qF "PW PASS" "$log" 2>/dev/null && pw_count=$((pw_count+1))
+        done
+    done
+    printf '\n**Totals:** %d pairs · %d build PASS · %d smoke PASS · %d playwright PASS\n\n' \
+        "$total" "$b_pass" "$s_pass" "$pw_count"
+
+    # === per-pair sections ==========================================
+    printf '## Per-pair details\n\n'
+    for repo in backend ui; do
+        for distro in alpine arch debian rocky suse void; do
+            pair="${repo}-${distro}"
+            log="$LOG_DIR/${pair}.log"
+            [ -f "$log" ] || continue
+
+            # Status badge from markers
+            badge=":x: FAIL"
+            grep -qF "ARTIFACT OK" "$log" 2>/dev/null && badge=":white_check_mark: BUILD OK"
+            grep -qF "SMOKE PASS" "$log" 2>/dev/null && badge=":white_check_mark: SMOKE PASS"
+            grep -qF "PW PASS" "$log" 2>/dev/null && badge=":white_check_mark: PW PASS"
+
+            printf '### %s — %s\n\n' "$pair" "$badge"
+
+            # Artifact size (inline table -- the orchestrator's vars
+            # aren't exported, so we look them up here)
+            artifact_name=""
+            case "${repo}-${distro}" in
+                backend-debian) artifact_name="honcho-inspector-backend_0.1.0-SNAPSHOT_all.deb" ;;
+                backend-rocky)  artifact_name="honcho-inspector-backend-0.1.0-SNAPSHOT-1.noarch.rpm" ;;
+                backend-suse)   artifact_name="honcho-inspector-backend-0.1.0-SNAPSHOT-1.noarch.rpm" ;;
+                backend-alpine) artifact_name="honcho-inspector-backend-0.1.0-SNAPSHOT.apk" ;;
+                backend-arch)   artifact_name="honcho-inspector-backend-0.1.0.SNAPSHOT-1-x86_64.pkg.tar.zst" ;;
+                backend-void)   artifact_name="honcho-inspector-backend-0.1.0-SNAPSHOT_1.x86_64.xbps" ;;
+                ui-debian)      artifact_name="honcho-inspector-ui_0.1.0-SNAPSHOT_all.deb" ;;
+                ui-rocky)       artifact_name="honcho-inspector-ui-0.1.0-SNAPSHOT-1.noarch.rpm" ;;
+                ui-suse)        artifact_name="honcho-inspector-ui-0.1.0-SNAPSHOT-1.noarch.rpm" ;;
+                ui-alpine)      artifact_name="honcho-inspector-ui-0.1.0-SNAPSHOT.apk" ;;
+                ui-arch)        artifact_name="honcho-inspector-ui-0.1.0.SNAPSHOT-1-x86_64.pkg.tar.zst" ;;
+                ui-void)        artifact_name="honcho-inspector-ui-0.1.0-SNAPSHOT_1.x86_64.xbps" ;;
+            esac
+            artifact="$ARTIFACTS_DIR/$artifact_name"
+            if [ -f "$artifact" ]; then
+                size=$(stat -c%s "$artifact" 2>/dev/null || wc -c <"$artifact")
+                printf '**Artifact:** `%s` (%d bytes)\n\n' "$artifact_name" "$size"
+            else
+                printf '**Artifact:** MISSING (build did not complete)\n\n'
+            fi
+
+            # Log tail
+            printf '<details><summary>last 15 log lines</summary>\n\n'
+            printf '```\n'
+            tail -15 "$log" | sed 's/`/'"'"'/g'
+            printf '```\n\n'
+            printf '</details>\n\n'
+
+            # Skip Playwright section for backend pairs
+            [ "$repo" != "ui" ] && continue
+
+            pw_dir="$PW_BASE/$TS/$pair"
+            [ -d "$pw_dir" ] || continue
+
+            screenshots=$(ls "$pw_dir/screenshots"/*.png 2>/dev/null | sort)
+            [ -n "$screenshots" ] || continue
+
+            printf '#### Screenshots\n\n'
+            for shot in $screenshots; do
+                render_screenshot "$shot" "$pw_dir"
+            done
+
+            # Console errors
+            checks_file="$pw_dir/checks.json"
+            if [ -f "$checks_file" ]; then
+                console_errors=$(grep -oE '"console_errors"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$checks_file" 2>/dev/null \
+                    | sed 's/"console_errors"[[:space:]]*:[[:space:]]*\[//; s/\]//' \
+                    | tr ',' '\n' \
+                    | sed 's/^[[:space:]]*"//; s/"[[:space:]]*$//' \
+                    | grep -v '^$' | head -20)
+                if [ -n "$console_errors" ]; then
+                    printf '**Console errors observed:**\n\n'
+                    echo "$console_errors" | while read -r err; do
+                        printf '- `%s`\n' "$(echo "$err" | sed 's/`/'"'"'/g' | cut -c1-150)"
+                    done
+                    printf '\n'
+                fi
+            fi
+        done
+    done
+
+    # === footer ====================================================
+    printf '## Run metadata\n\n'
+    printf '```\n'
+    printf 'Generated: %s\n' "$(date +%Y-%m-%dT%H:%M:%S%z)"
+    printf 'Logs dir:  %s\n' "$LOG_DIR_REL"
+    printf 'Artifacts: %s\n' "$ARTIFACTS_DIR"
+    printf 'PW output: %s\n' "$PW_BASE/$TS"
+    printf 'State:     %s\n' "$STATE_FILE"
+    printf '```\n'
+} >"$REPORT_MD"
+
+# Optional JSON sibling
+if [ "$WRITE_JSON" = "1" ]; then
+    {
+        printf '{\n'
+        printf '  "timestamp": "%s",\n' "$TS"
+        printf '  "logs_dir": "%s",\n' "$LOG_DIR_REL"
+        printf '  "host": "%s",\n' "$HOST_KERNEL"
+        printf '  "pairs": [\n'
+        first=1
+        for repo in backend ui; do
+            for distro in alpine arch debian rocky suse void; do
+                pair="${repo}-${distro}"
+                log="$LOG_DIR/${pair}.log"
+                [ -f "$log" ] || continue
+                [ "$first" = "1" ] || printf ',\n'
+                first=0
+                printf '    {"pair":"%s","build":%s,"smoke":%s,"pw":%s}' \
+                    "$pair" \
+                    "$(grep -qF 'ARTIFACT OK' "$log" && echo true || echo false)" \
+                    "$(grep -qF 'SMOKE PASS' "$log" && echo true || echo false)" \
+                    "$(grep -qF 'PW PASS' "$log" && echo true || echo false)"
+            done
+        done
+        printf '\n  ]\n}\n'
+    } >"$REPORT_JSON"
+fi
+
+echo "regression-report: wrote $REPORT_MD"
+[ "$WRITE_JSON" = "1" ] && echo "regression-report: wrote $REPORT_JSON"
+echo "regression-report: view with:  less $REPORT_MD"
+echo "regression-report: or pipe to glow/mdcat for a richer render"
