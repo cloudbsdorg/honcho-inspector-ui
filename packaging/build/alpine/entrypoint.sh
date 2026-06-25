@@ -87,7 +87,6 @@ fpm -s dir -t apk \
     --depends "nodejs>=20" \
     --depends "npm" \
     --depends "shadow" \
-    --apk-autodep off \
     --after-install  .pkg-scripts/postinst \
     --before-remove  .pkg-scripts/prerm \
     --after-remove   .pkg-scripts/postrm \

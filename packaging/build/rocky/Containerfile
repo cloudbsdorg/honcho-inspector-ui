@@ -67,8 +67,10 @@ RUN set -eux \
  && dnf install -y --setopt=install_weak_deps=False \
         dnf-plugins-core \
         nodejs24 \
+        npm \
         ruby \
         ruby-devel \
+        rubygem-json \
         gcc \
         gcc-c++ \
         make \

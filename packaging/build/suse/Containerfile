@@ -61,7 +61,7 @@ RUN set -eux \
  && zypper --non-interactive modifyrepo --enable PackageHub || true \
  && zypper --non-interactive install --no-recommends \
         nodejs24 \
-        nodejs24-npm \
+        npm24 \
         ruby \
         ruby-devel \
         gcc \
@@ -69,7 +69,7 @@ RUN set -eux \
         make \
         rpm-build \
         rpm-devel \
-        openssl-devel \
+        libopenssl-devel \
         libffi-devel \
         shadow \
  && gem install --no-document --no-format-executable --bindir /usr/bin fpm \

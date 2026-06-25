@@ -33,12 +33,18 @@ PROJECT="honcho-inspector-ui"
 # 0.1.0-SNAPSHOT_1 keeps the upstream Debian-style version (with
 # `-`) and adds xbps's mandatory `_1` revision suffix.
 VERSION="0.1.0-SNAPSHOT_1"
+# xbps-create's pkgver parser only allows [a-z0-9_.~] in the
+# version component. Our Maven version has `-SNAPSHOT` which is
+# rejected. Replace `-` with `~` (Debian's pre-release convention,
+# also valid in xbps pkgvers) so the generated pkgver is well-formed.
+# Done with tr (not bash parameter expansion) because Void's
+# /bin/sh is dash, not bash.
+XBPS_VERSION="$(printf '%s' "${VERSION}" | tr '-' '~')"
 ARCH="x86_64"
+ARTIFACT_NAME="${PROJECT}-${XBPS_VERSION}_1.${ARCH}.xbps"
+ARTIFACT_PATH="/out/${ARTIFACT_NAME}"
 MAINTAINER="cloudBSD <admin@cloudbsd.org>"
 MAINTAINER_EMAIL="admin@cloudbsd.org"
-
-ARTIFACT_NAME="${PROJECT}-${VERSION}.${ARCH}.xbps"
-ARTIFACT_PATH="/out/${ARTIFACT_NAME}"
 
 # --- 0. Sanity-check the bind mounts ----------------------------
 if [ ! -d /src ]; then
@@ -252,10 +258,20 @@ chmod 0644 "$INSTALL_SCRIPT"
 # the staging dir at <staging>/INSTALL. Copy the generated
 # script into the stage before invoking xbps-create.
 cp "$INSTALL_SCRIPT" "$STAGE/INSTALL"
+# xbps-create takes pkgver as a SINGLE -n arg of the form
+# name-version_revision (no spaces). We build it from NAME, XBPS_VERSION,
+# and a hardcoded _1 revision. No -o flag exists in xbps-create;
+# the artifact lands in $PWD with the pkgver-driven filename, then
+# we move it to ARTIFACT_PATH. No --config-files: xbps <= 0.60.x has
+# a bug where it stores the conf file's BUILD-TIME path in
+# props.plist's conf_files key, breaking local-repo install. The
+# `/etc/default/honcho-inspector-ui` env file is therefore a
+# regular file (operator must back up edits before upgrade; the
+# install script seeds a fresh one if missing).
+cd "$(dirname "$ARTIFACT_PATH")"
 xbps-create \
     -A "$ARCH" \
-    -n "$PROJECT" \
-    -v "$VERSION" \
+    -n "${PROJECT}-${XBPS_VERSION}_1" \
     -s "Honcho Inspector UI (Angular 22 dashboard) for Void Linux" \
     -l "BSD-3-Clause" \
     -m "$MAINTAINER <$MAINTAINER_EMAIL>" \
@@ -263,9 +279,17 @@ xbps-create \
     --homepage "https://github.com/cloudbsdorg/honcho-inspector-ui" \
     --long-desc "Honcho Inspector UI (Angular 22 dashboard). Runs ng serve as a node app under runit (Void's default) or systemd, bound on 0.0.0.0:4200. node_modules is NOT shipped -- the runscript / systemd unit runs 'npm ci' as a first-boot step so the right native binaries (esbuild, rollup) for the host architecture get pulled automatically. This keeps the package architecture-independent." \
     --tags "angular dashboard honcho web ui" \
-    --compression zstd \
-    -o "$ARTIFACT_PATH" \
     "$STAGE"
+
+XBPS_FILE="${PROJECT}-${XBPS_VERSION}_1.${ARCH}.xbps"
+if [ ! -f "${XBPS_FILE}" ]; then
+    echo "FATAL: xbps-create did not produce ${XBPS_FILE}" >&2
+    exit 1
+fi
+if [ "${XBPS_FILE}" != "$(basename "${ARTIFACT_PATH}")" ]; then
+    mv -f "${XBPS_FILE}" "$(basename "${ARTIFACT_PATH}")"
+fi
+cd /
 
 # --- 6. Hand the artifact to the host ---------------------------
 chown -R "${HOST_UID:-0}:${HOST_GID:-0}" /out

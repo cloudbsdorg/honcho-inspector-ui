@@ -83,7 +83,6 @@ RUN set -eux \
         ruby \
         ruby-devel \
         xbps \
-        xbps-install \
         bash \
         git \
         openssl-devel \
@@ -91,7 +90,6 @@ RUN set -eux \
         gcc \
         make \
         ca-certificates \
-        apache-maven \
  && xbps-remove -Ooy \
  && rm -rf /var/cache/xbps
 

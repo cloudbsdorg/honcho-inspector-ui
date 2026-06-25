@@ -234,21 +234,29 @@ chmod 0644 "$PKGBUILD_FILE"
 chmod 0644 "$INSTALL_FILE"
 
 # --- 3. Drop privileges and run makepkg --------------------------
-# makepkg refuses to run as root. Create a build user (idempotent),
-# chown the stage, and run as that user with fakeroot. The fakeroot
-# wrapper intercepts the chown/chmod/install -o calls in
-# package() so the resulting .pkg.tar.zst records root ownership
-# despite the real uid being non-zero.
-if ! id build >/dev/null 2>&1; then
-    useradd -m -d /build -s /bin/bash build
+# makepkg refuses to run as root. The orchestrator runs this
+# container WITHOUT --userns=keep-id for arch specifically, so
+# we ARE real root here. We chown the entire tree to `nobody`
+# (the canonical non-root UID 65534 on Arch), then drop to it
+# via setpriv --reuid=nobody --regid=nogroup. We use setpriv
+# instead of runuser because runuser in some minimal containers
+# refuses to switch to a nologin user. fakeroot wraps makepkg
+# so the .pkg.tar.zst records root ownership.
+if ! id nobody >/dev/null 2>&1; then
+    useradd -M -d /nonexistent -s /usr/sbin/nologin nobody 2>/dev/null || true
 fi
-chown -R build:build "$STAGE"
-# /out may already exist with host-side ownership; allow build to
-# write the artifact there. We chown /out at the very end to
-# HOST_UID/HOST_GID anyway, so this is safe.
-chown build:build /out 2>/dev/null || true
+NOBODY_UID="$(id -u nobody)"
+NOBODY_GID="$(id -g nobody)"
+chmod 0755 "$STAGE"
+chmod -R u+rwX,g+rX,o+rX "$STAGE"
+chown -R "${NOBODY_UID}:${NOBODY_GID}" "$STAGE" 2>/dev/null || true
 
-runuser -u build -- bash -c "cd '$STAGE' && fakeroot makepkg --nocheck --skippgpcheck --nocolor"
+setpriv --reuid="${NOBODY_UID}" --regid="${NOBODY_GID}" --clear-groups -- \
+    env MAKEPKG_PACKAGER="${MAINTAINER}" \
+        PKGDEST="${STAGE}" \
+        BUILDDIR="${STAGE}" \
+        SRCDEST="${STAGE}" \
+    bash -c "cd '${STAGE}' && fakeroot -- makepkg -s -f --noconfirm --skippgpcheck --nocolor"
 
 # --- 4. Move the artifact to /out --------------------------------
 # makepkg writes honcho-inspector-ui-0.1.0.SNAPSHOT-1-x86_64.pkg.tar.zst

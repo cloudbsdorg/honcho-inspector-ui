@@ -145,7 +145,7 @@ VOID_RUNTIME="docker.io/voidlinux/voidlinux:latest"
 # sleeps + probes. -y assumes yes to all xbps prompts.
 # openjdk25-jre is only needed for the backend but installed
 # unconditionally per the debian pattern.
-VOID_INSTALL='mkdir -p /etc/xbps.d && echo "repository=https://repo-default.voidlinux.org/current" > /etc/xbps.d/00-repository-main.conf && SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -y -f xbps xbps-rindex >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; mkdir -p /var/localrepo && cp /tmp/ARTIFACT /var/localrepo/ARTIFACT && cd /var/localrepo && xbps-rindex -f -a /var/localrepo/ARTIFACT && SSL_NO_VERIFY_HOSTNAME=1 xbps-install --repository=/var/localrepo --repository=https://repo-default.voidlinux.org/current -y honcho-inspector-ui nodejs openjdk25-jre shadow curl ca-certificates runit && (setsid runsvdir -P /var/service </dev/null >/var/log/runsvdir.log 2>&1 &)'
+VOID_INSTALL='mkdir -p /etc/xbps.d && echo "repository=https://repo-default.voidlinux.org/current" > /etc/xbps.d/00-repository-main.conf && SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -y -f xbps >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -y bash nodejs openjdk25-jre shadow curl ca-certificates runit zstd >/dev/null 2>&1; cd / && tar --use-compress-program=unzstd -xf /tmp/ARTIFACT && /bin/sh -c ". /INSTALL && post_install" >/dev/null 2>&1; (setsid runsvdir -P /var/service </dev/null >/var/log/runsvdir.log 2>&1 &)'
 VOID_BACKEND_START='sleep 5'
 VOID_UI_START='sleep 5'
 VOID_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
