@@ -1,9 +1,10 @@
-import { test as base, expect, type Page, type BrowserContext } from '@playwright/test';
+import { test as base, expect, type Page, type BrowserContext, request } from '@playwright/test';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
 const SCREENSHOTS_DIR = process.env['SCREENSHOTS_DIR'] ?? './screenshots';
 const CHECKS_FILE = path.join(SCREENSHOTS_DIR, '..', 'checks.json');
+const BACKEND_URL = process.env['BACKEND_URL'] ?? 'http://127.0.0.1:8080';
 
 type CheckMap = Record<string, 'PRESENT' | 'ABSENT' | 'UNCHECKED'>;
 const checks: CheckMap = {};
@@ -19,7 +20,47 @@ async function persistChecks(): Promise<void> {
 }
 
 const USERNAME = 'admin';
-const PASSWORD = 'cloudbsd-admin-2026';
+/**
+ * Admin password for the smoke container's pre-baked admin user.
+ * Overridable via the {@code HONCHO_ADMIN_PASSWORD} env var so the
+ * matrix can target a live install (where the password is set by
+ * AdminBootstrap on first boot) without editing this file.
+ */
+const PASSWORD = process.env['HONCHO_ADMIN_PASSWORD'] ?? 'cloudbsd-admin-2026';
+
+/**
+ * Best-effort login against the backend so the fixture seed/cleanup
+ * requests can carry a valid X-Session-Id header. Returns the
+ * session id, or null if the backend isn't reachable yet.
+ */
+async function loginAsAdmin(): Promise<string | null> {
+  try {
+    const ctx = await request.newContext({ baseURL: BACKEND_URL });
+    const r = await ctx.post('/api/auth/login', {
+      data: { username: USERNAME, password: PASSWORD },
+    });
+    if (!r.ok()) {
+      await ctx.dispose();
+      return null;
+    }
+    const body = await r.json();
+    await ctx.dispose();
+    return body.sessionId as string;
+  } catch {
+    return null;
+  }
+}
+
+async function callFixture(method: 'POST' | 'DELETE', sid: string): Promise<{ status: number; body: unknown }> {
+  const ctx = await request.newContext({ baseURL: BACKEND_URL });
+  const r = await ctx.fetch(`/api/admin/test/seed`, {
+    method,
+    headers: { 'X-Session-Id': sid },
+  });
+  const body = await r.json().catch(() => ({}));
+  await ctx.dispose();
+  return { status: r.status(), body };
+}
 
 const PROFILE = {
   label: 'Smoke Test Profile',
@@ -52,10 +93,33 @@ async function shot(page: Page, name: string): Promise<void> {
 test.describe.serial('Honcho Inspector 9-screen regression', () => {
   test.beforeAll(async () => {
     await fs.mkdir(SCREENSHOTS_DIR, { recursive: true });
+    // Seed the deterministic Honcho test fixture so the regression
+    // matrix has a known-good data set on the live Honcho workspace.
+    // Best-effort: a freshly-bootstrapped smoke container with no
+    // existing admin (or a backend without the fixture endpoints)
+    // just skips the seed — the rest of the matrix runs unchanged.
+    const sid = await loginAsAdmin();
+    if (sid) {
+      const r = await callFixture('POST', sid);
+      if (r.status >= 400) {
+        console.warn(`[fixture] seed returned ${r.status}: ${JSON.stringify(r.body)}`);
+      } else {
+        console.log('[fixture] seeded test data');
+      }
+    } else {
+      console.warn('[fixture] no admin session — skipping seed');
+    }
   });
 
   test('01 Setup wizard creates first admin', async ({ page }) => {
     await page.goto('/');
+    // Skip on installs where an admin already exists (live installs
+    // use the AdminBootstrap path, not the UI wizard). The wizard
+    // is exclusively a smoke-container concern.
+    if (!/\/setup/.test(page.url())) {
+      test.skip(true, 'admin already exists — wizard is smoke-only');
+      return;
+    }
     await expect(page).toHaveURL(/\/setup/);
 
     await expect(page.getByTestId('setup-step-1')).toBeVisible();
@@ -210,5 +274,18 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
 
   test.afterAll(async () => {
     await persistChecks();
+    // Best-effort cleanup so the workspace doesn't accumulate
+    // fixture-* entities across repeated runs. Honcho v3 has no
+    // DELETE peer endpoint, so fixture peers are left in place —
+    // they're idempotent on the next seed (createPeer upserts).
+    const sid = await loginAsAdmin();
+    if (sid) {
+      const r = await callFixture('DELETE', sid);
+      if (r.status >= 400) {
+        console.warn(`[fixture] cleanup returned ${r.status}: ${JSON.stringify(r.body)}`);
+      } else {
+        console.log('[fixture] cleaned up test data');
+      }
+    }
   });
 });
