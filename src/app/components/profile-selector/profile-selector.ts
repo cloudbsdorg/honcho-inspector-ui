@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ProfileService } from '../../core/profile.service';
@@ -17,7 +18,7 @@ interface EditState {
 
 @Component({
   selector: 'app-profile-selector',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, DatePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-selector.html',
   styleUrl: './profile-selector.css',
@@ -43,6 +44,22 @@ export class ProfileSelector {
   readonly validateResult = signal<{ ok: boolean; message?: string; error?: string } | null>(null);
   readonly validating = signal(false);
   readonly edit = signal<EditState>({ open: false, profile: null });
+  // Currently-inspected connection in the right-hand details pane.
+  // Independent of activeProfileId (which is the one used by the
+  // rest of the app); selected is purely a UI focus state.
+  readonly selectedId = signal<string | null>(null);
+
+  readonly selectedProfile = computed<Profile | null>(() => {
+    const id = this.selectedId();
+    if (!id) return null;
+    return this.list().find((p) => p.id === id) ?? null;
+  });
+
+  readonly selectedTestResult = computed<TestResult | null>(() => {
+    const id = this.selectedId();
+    if (!id) return null;
+    return this.testResults()[id] ?? null;
+  });
 
   readonly form: FormGroup = this.fb.group({
     label: ['', [Validators.required, Validators.minLength(1)]],
@@ -69,6 +86,7 @@ export class ProfileSelector {
   openCreate(): void {
     this.edit.set({ open: false, profile: null });
     this.showCreate.set(true);
+    this.selectedId.set(null);
     this.form.reset({
       label: '',
       apiKey: '',
@@ -82,6 +100,7 @@ export class ProfileSelector {
   openEdit(profile: Profile): void {
     this.showCreate.set(false);
     this.edit.set({ open: true, profile });
+    this.selectedId.set(profile.id);
     this.form.reset({
       label: profile.label,
       apiKey: '',
@@ -96,6 +115,10 @@ export class ProfileSelector {
     this.showCreate.set(false);
     this.edit.set({ open: false, profile: null });
     this.error.set(null);
+  }
+
+  select(profile: Profile): void {
+    this.selectedId.set(profile.id);
   }
 
   async validate(): Promise<void> {

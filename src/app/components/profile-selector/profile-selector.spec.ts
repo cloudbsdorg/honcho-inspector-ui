@@ -162,4 +162,35 @@ describe('ProfileSelector', () => {
     expect(component.testResults()['p-a']?.ok).toBe(true);
     expect(component.testResults()['p-a']?.message).toBe('reachable');
   });
+
+  it('select() updates the selectedId signal so the details pane shows', async () => {
+    await profiles.list();
+    fixture.detectChanges();
+    expect(component.selectedId()).toBeNull();
+    component.select(PROFILE_B);
+    fixture.detectChanges();
+    expect(component.selectedId()).toBe('p-b');
+    expect(component.selectedProfile()?.label).toBe('Work');
+    fixture.detectChanges();
+    const detail = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="profile-details"]',
+    );
+    expect(detail).toBeTruthy();
+    const empty = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="profile-empty-detail"]',
+    );
+    expect(empty).toBeNull();
+  });
+
+  it('openEdit() selects the profile being edited so the details pane shows form context', async () => {
+    await profiles.list();
+    fixture.detectChanges();
+    component.openEdit(PROFILE_A);
+    fixture.detectChanges();
+    expect(component.selectedId()).toBe('p-a');
+    const form = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="profile-form"]',
+    );
+    expect(form).toBeTruthy();
+  });
 });

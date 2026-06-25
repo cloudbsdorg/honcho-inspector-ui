@@ -206,6 +206,7 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
       await page.getByTestId('login-password').fill(PASSWORD);
       await page.getByTestId('login-submit').click();
       await page.waitForURL(/\/profiles/, { timeout: 15_000 });
+      await page.getByTestId("profile-row").first().click();
       await page.getByTestId("set-active").first().click();
 
       await page.goto('/inspector');
@@ -223,6 +224,7 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
       await page.getByTestId('login-password').fill(PASSWORD);
       await page.getByTestId('login-submit').click();
       await page.waitForURL(/\/profiles/, { timeout: 15_000 });
+      await page.getByTestId("profile-row").first().click();
       await page.getByTestId("set-active").first().click();
 
       await page.goto('/admin');
@@ -239,6 +241,7 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId('login-password').fill(PASSWORD);
     await page.getByTestId('login-submit').click();
     await page.waitForURL(/\/profiles/, { timeout: 15_000 });
+    await page.getByTestId('profile-row').first().click().catch(() => undefined);
     await page.getByTestId('set-active').first().click().catch(() => undefined);
 
     await page.goto('/admin');
@@ -314,6 +317,7 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId('login-password').fill(PASSWORD);
     await page.getByTestId('login-submit').click();
     await page.waitForURL(/\/profiles/, { timeout: 15_000 });
+    await page.getByTestId("profile-row").first().click();
     await page.getByTestId("set-active").first().click();
 
     await page.goto('/dashboard');

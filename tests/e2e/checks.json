@@ -1,4 +1,13 @@
 {
+  "inspector-workspace-tab": "PRESENT",
+  "inspector-peers-tab": "PRESENT",
+  "inspector-sessions-tab": "PRESENT",
+  "inspector-conclusions-tab": "PRESENT",
+  "inspector-search-tab": "PRESENT",
+  "admin-overview-tab": "PRESENT",
+  "admin-users-tab": "PRESENT",
+  "admin-audit-tab": "PRESENT",
+  "admin-maintenance-tab": "PRESENT",
   "admin-open-user-create": "PRESENT",
   "user-create-welcome": "PRESENT",
   "user-create-password-match": "PRESENT",
