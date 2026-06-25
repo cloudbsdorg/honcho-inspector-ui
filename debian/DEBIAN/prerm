@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+if [ -d /run/systemd/system ]; then
+    systemctl --quiet is-enabled honcho-inspector-ui.service && \
+        systemctl stop honcho-inspector-ui.service || true
+fi
+
+#DEBHELPER#
+
+exit 0

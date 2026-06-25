@@ -1,0 +1,402 @@
+#!/bin/sh
+#
+# install-honcho-inspector-ui - install the Honcho Inspector UI as a
+# system service running as an unprivileged user.
+#
+# Idempotent: re-running this script after an upgrade re-installs the
+# service file, the runtime tree, and the proxy config. It does NOT
+# overwrite the operator-customized /etc/honcho-inspector-ui/proxy.conf.json
+# (operators may have local backend URLs).
+#
+# Usage:
+#   sudo bin/install-honcho-inspector-ui
+#   sudo bin/install-honcho-inspector-ui --uninstall
+#   sudo bin/install-honcho-inspector-ui --prefix DIR
+#   sudo bin/install-honcho-inspector-ui --skip-build
+#
+# What it does:
+#   1. Detects the OS (Linux / FreeBSD / Darwin) and the package
+#      manager (apt / dnf / pkg / brew / none).
+#   2. Creates the runtime user (www-data / www / _www) if missing.
+#   3. Copies the source tree + package.json + package-lock.json to
+#      /usr/local/share/honcho-inspector-ui (or $HONCHO_INSTALL_PREFIX).
+#   4. Runs `npm ci --omit=dev --no-audit --no-fund` to install the
+#      production node_modules tree.
+#   5. Installs the service file:
+#        - Linux:   /etc/systemd/system/honcho-inspector-ui.service
+#        - FreeBSD: /usr/local/etc/rc.d/honcho_inspector_ui
+#        - macOS:   /Library/LaunchDaemons/com.honcho.inspector.ui.plist
+#   6. Installs the default /etc/honcho-inspector-ui/proxy.conf.json
+#      ONLY if one isn't already present.
+#   7. Enables and starts the service.
+#
+# The frontend IS a node app — the user told us to keep the dev server
+# as the runtime. We ship the source tree + node_modules; `ng serve`
+# runs under the service manager and binds on all interfaces on :4200.
+
+set -eu
+
+INSTALL_PREFIX="${HONCHO_INSTALL_PREFIX:-/usr/local}"
+APP_NAME="honcho-inspector-ui"
+SERVICE_NAME="honcho-inspector-ui"
+SERVICE_USER=""
+SERVICE_GROUP=""
+SKIP_BUILD=0
+UNINSTALL=0
+
+usage() {
+    cat >&2 <<EOF
+Usage: $0 [--uninstall] [--prefix DIR] [--skip-build]
+EOF
+    exit 2
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --uninstall)    UNINSTALL=1; shift ;;
+        --prefix)       INSTALL_PREFIX="$2"; shift 2 ;;
+        --skip-build)   SKIP_BUILD=1; shift ;;
+        -h|--help)      usage ;;
+        *)              echo "unknown flag: $1" >&2; usage ;;
+    esac
+done
+
+require_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "FATAL: $0 must be run as root (or with sudo)" >&2
+        echo "  the install script writes to /etc, /usr/local, and /var" >&2
+        exit 1
+    fi
+}
+
+detect_os() {
+    uname_s="$(uname -s)"
+    case "$uname_s" in
+        Linux)   OS=linux ;;
+        FreeBSD) OS=freebsd ;;
+        Darwin)  OS=macos ;;
+        *)
+            echo "FATAL: unsupported OS: $uname_s" >&2
+            echo "  supported: Linux, FreeBSD, macOS" >&2
+            exit 1
+            ;;
+    esac
+}
+
+detect_user() {
+    case "$OS" in
+        linux)   SERVICE_USER=www-data; SERVICE_GROUP=www-data ;;
+        freebsd) SERVICE_USER=www;     SERVICE_GROUP=www ;;
+        macos)   SERVICE_USER=_www;    SERVICE_GROUP=_www ;;
+    esac
+}
+
+# Returns 0 if the user exists in this OS's user database.
+user_exists() {
+    case "$OS" in
+        linux)   id -u "$1" >/dev/null 2>&1 ;;
+        freebsd) pw usershow "$1" >/dev/null 2>&1 ;;
+        macos)   dscl . -read "/Users/$1" UniqueID >/dev/null 2>&1 ;;
+    esac
+}
+
+# Create the service user as a system account. Idempotent.
+create_user() {
+    if user_exists "$SERVICE_USER"; then
+        return 0
+    fi
+    echo "creating system user $SERVICE_USER ($SERVICE_GROUP)"
+    case "$OS" in
+        linux)
+            if ! getent group "$SERVICE_GROUP" >/dev/null; then
+                groupadd --system "$SERVICE_GROUP"
+            fi
+            useradd --system \
+                --home-dir "/var/lib/$SERVICE_NAME" \
+                --no-create-home \
+                --shell /usr/sbin/nologin \
+                --gid "$SERVICE_GROUP" \
+                --comment "Honcho Inspector UI service account" \
+                "$SERVICE_USER"
+            ;;
+        freebsd)
+            if ! pw groupshow "$SERVICE_GROUP" >/dev/null 2>&1; then
+                pw groupadd "$SERVICE_GROUP"
+            fi
+            pw useradd -n "$SERVICE_USER" -g "$SERVICE_GROUP" \
+                -d "/var/db/$SERVICE_NAME" -s /usr/sbin/nologin \
+                -c "Honcho Inspector UI service account" -h -
+            ;;
+        macos)
+            if ! dscl . -read "/Users/$SERVICE_USER" UniqueID >/dev/null 2>&1; then
+                echo "FATAL: macOS system user $SERVICE_USER does not exist" >&2
+                echo "  run 'sudo dscl . -create /Users/_www UniqueID 70' to create it" >&2
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+# Per-OS runtime paths. Kept in sync with the systemd unit, rc.d script,
+# and launchd plist.
+setup_dirs() {
+    case "$OS" in
+        linux)
+            APP_DIR="$INSTALL_PREFIX/share/$APP_NAME"
+            CFG_DIR="/etc/$SERVICE_NAME"
+            STATE_DIR="/var/lib/$SERVICE_NAME"
+            LOG_DIR="/var/log/$SERVICE_NAME"
+            ;;
+        freebsd)
+            APP_DIR="$INSTALL_PREFIX/share/$APP_NAME"
+            CFG_DIR="/usr/local/etc/$SERVICE_NAME"
+            STATE_DIR="/var/db/$SERVICE_NAME"
+            LOG_DIR="/var/log/$SERVICE_NAME"
+            ;;
+        macos)
+            APP_DIR="$INSTALL_PREFIX/share/$APP_NAME"
+            CFG_DIR="/usr/local/etc/$SERVICE_NAME"
+            STATE_DIR="/var/lib/$SERVICE_NAME"
+            LOG_DIR="/var/log/$SERVICE_NAME"
+            ;;
+    esac
+}
+
+create_dirs() {
+    setup_dirs
+    install -d -m 0750 -o root -g "$SERVICE_GROUP" "$STATE_DIR"
+    install -d -m 0750 -o root -g "$SERVICE_GROUP" "$LOG_DIR"
+    if [ ! -d "$CFG_DIR" ]; then
+        install -d -m 0750 -o root -g "$SERVICE_GROUP" "$CFG_DIR"
+    fi
+    if [ ! -d "$APP_DIR" ]; then
+        install -d -m 0755 -o root -g "$SERVICE_GROUP" "$APP_DIR"
+    fi
+}
+
+# Find a source-tree file by relative path. Probes:
+#   1. $SCRIPT_DIR/..   (script run from a source-tree bin/ dir)
+#   2. $SCRIPT_DIR      (script + source files co-located)
+#   3. /tmp             (test/copy scenario)
+#   4. $PWD             (operator cd'd to the source root)
+find_source_file() {
+    local relpath="$1"
+    for DIR in "$SCRIPT_DIR/.." "$SCRIPT_DIR" "/tmp" "$PWD"; do
+        [ -z "$DIR" ] && continue
+        if [ -f "$DIR/$relpath" ]; then
+            echo "$DIR/$relpath"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Copy the application source tree to the install prefix. Excludes
+# build artifacts (.angular, dist, node_modules) since the install
+# script will run `npm ci` to populate node_modules reproducibly.
+install_app_tree() {
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+    echo "installing app tree: $PROJECT_DIR -> $APP_DIR"
+    # Use rsync if available for exclusion handling; otherwise tar.
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -a \
+            --exclude='.angular' \
+            --exclude='dist' \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='*.log' \
+            "$PROJECT_DIR/" "$APP_DIR/"
+    else
+        # tar fallback: build a tarball excluding the same paths, extract
+        # at the destination. -s and --exclude=... are GNU tar; the BSD
+        # tar on macOS uses the same --exclude flag, so this works on
+        # both. The --no-recursion excludes would have been cleaner but
+        # BSD tar's --exclude doesn't combine with --no-recursion.
+        tar -cf - \
+            --exclude='.angular' \
+            --exclude='dist' \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='*.log' \
+            -C "$PROJECT_DIR" . | tar -xf - -C "$APP_DIR"
+    fi
+    # Make the tree readable by the service user.
+    chown -R root:"$SERVICE_GROUP" "$APP_DIR"
+    find "$APP_DIR" -type d -exec chmod 0755 {} +
+    find "$APP_DIR" -type f -exec chmod 0644 {} +
+}
+
+# Run `npm ci --omit=dev` to install the production node_modules tree.
+# `npm ci` requires package-lock.json to be present and exact; this is
+# what we want for a packaged install — no floating versions.
+install_node_modules() {
+    if [ "$SKIP_BUILD" -eq 1 ]; then
+        echo "skip-build: leaving existing node_modules in place"
+        return 0
+    fi
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "FATAL: npm not found in PATH" >&2
+        echo "  install Node 20+ before running this script" >&2
+        exit 1
+    fi
+    if [ ! -f "$APP_DIR/package.json" ]; then
+        echo "FATAL: package.json missing in $APP_DIR" >&2
+        exit 1
+    fi
+    if [ ! -f "$APP_DIR/package-lock.json" ]; then
+        echo "FATAL: package-lock.json missing in $APP_DIR" >&2
+        echo "  the install tree must be reproducible; do not strip package-lock.json" >&2
+        exit 1
+    fi
+    echo "running npm ci --omit=dev in $APP_DIR (this may take a minute)"
+    # npm drops setuid bits and may complain about running as root; the
+    # --unsafe-perm flag is the documented workaround. We then chown
+    # node_modules to the service user.
+    ( cd "$APP_DIR" && npm ci --omit=dev --no-audit --no-fund --unsafe-perm )
+    # The service user needs read+execute on node_modules/.bin/* and
+    # read on the tree. We chown to SERVICE_GROUP; the service runs as
+    # SERVICE_USER (a member of SERVICE_GROUP).
+    chown -R root:"$SERVICE_GROUP" "$APP_DIR/node_modules"
+    find "$APP_DIR/node_modules" -type d -exec chmod 0755 {} +
+    find "$APP_DIR/node_modules" -type f -exec chmod 0644 {} +
+    # .bin entries need to be executable
+    if [ -d "$APP_DIR/node_modules/.bin" ]; then
+        find "$APP_DIR/node_modules/.bin" -type f -exec chmod 0755 {} +
+    fi
+}
+
+# Install the per-OS service file.
+install_service_file() {
+    case "$OS" in
+        linux)
+            install -d -m 0755 /etc/systemd/system
+            SRC="$(find_source_file "etc/systemd/$SERVICE_NAME.service")" || {
+                echo "FATAL: etc/systemd/$SERVICE_NAME.service not found" >&2
+                exit 1
+            }
+            install -m 0644 "$SRC" /etc/systemd/system/$SERVICE_NAME.service
+            systemctl daemon-reload
+            ;;
+        freebsd)
+            install -d -m 0755 /usr/local/etc/rc.d
+            SRC="$(find_source_file "etc/rc.d/${SERVICE_NAME//-/_}")" || {
+                echo "FATAL: etc/rc.d/${SERVICE_NAME//-/_} not found" >&2
+                exit 1
+            }
+            install -m 0755 "$SRC" "/usr/local/etc/rc.d/${SERVICE_NAME//-/_}"
+            ;;
+        macos)
+            install -d -m 0755 /Library/LaunchDaemons
+            SRC="$(find_source_file "etc/launchd/com.honcho.inspector.ui.plist")" || {
+                echo "FATAL: etc/launchd/com.honcho.inspector.ui.plist not found" >&2
+                exit 1
+            }
+            install -m 0644 "$SRC" /Library/LaunchDaemons/com.honcho.inspector.ui.plist
+            ;;
+    esac
+}
+
+# Install the default proxy.conf.json to the OS config dir if missing.
+# Operators may have a custom proxy config (different backend URL,
+# extra proxied paths); we don't clobber it.
+install_proxy_config() {
+    SRC="$(find_source_file "proxy.conf.json")" || {
+        echo "warning: proxy.conf.json not found; skipping config install" >&2
+        return 0
+    }
+    DEST="$CFG_DIR/proxy.conf.json"
+    if [ -f "$DEST" ]; then
+        echo "keeping existing $DEST"
+        return 0
+    fi
+    install -d -m 0750 -o root -g "$SERVICE_GROUP" "$CFG_DIR"
+    install -m 0644 -o root -g "$SERVICE_GROUP" "$SRC" "$DEST"
+    echo "installed proxy config: $DEST"
+}
+
+enable_and_start() {
+    case "$OS" in
+        linux)
+            systemctl enable "$SERVICE_NAME"
+            systemctl restart "$SERVICE_NAME"
+            ;;
+        freebsd)
+            sysrc "${SERVICE_NAME//-/_}_enable=YES" >/dev/null
+            service "${SERVICE_NAME//-/_}" restart
+            ;;
+        macos)
+            launchctl load -w "/Library/LaunchDaemons/com.honcho.inspector.ui.plist"
+            ;;
+    esac
+}
+
+disable_and_stop() {
+    case "$OS" in
+        linux)
+            systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+            systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+            ;;
+        freebsd)
+            service "${SERVICE_NAME//-/_}" stop 2>/dev/null || true
+            sysrc -x "${SERVICE_NAME//-/_}_enable" 2>/dev/null || true
+            ;;
+        macos)
+            launchctl unload "/Library/LaunchDaemons/com.honcho.inspector.ui.plist" 2>/dev/null || true
+            ;;
+    esac
+}
+
+do_install() {
+    require_root
+    detect_os
+    detect_user
+    setup_dirs
+    create_user
+    create_dirs
+    install_app_tree
+    install_node_modules
+    install_service_file
+    install_proxy_config
+    enable_and_start
+    echo
+    echo "installed $SERVICE_NAME on $OS"
+    echo "  app tree:    $APP_DIR"
+    echo "  config:      $CFG_DIR"
+    echo "  state:       $STATE_DIR"
+    echo "  log:         $LOG_DIR (journald on systemd; $LOG_DIR/launchd.*.log on macOS)"
+    echo "  listening:   0.0.0.0:4200"
+}
+
+do_uninstall() {
+    require_root
+    detect_os
+    detect_user
+    setup_dirs
+    disable_and_stop
+    case "$OS" in
+        linux)
+            rm -f "/etc/systemd/system/$SERVICE_NAME.service"
+            systemctl daemon-reload
+            ;;
+        freebsd)
+            rm -f "/usr/local/etc/rc.d/${SERVICE_NAME//-/_}"
+            ;;
+        macos)
+            rm -f "/Library/LaunchDaemons/com.honcho.inspector.ui.plist"
+            ;;
+    esac
+    rm -rf "$APP_DIR" "$STATE_DIR"
+    # Keep CFG_DIR (operator-customized) and LOG_DIR (history)
+    echo
+    echo "uninstalled $SERVICE_NAME"
+    echo "  removed:     $APP_DIR, $STATE_DIR, and the service file"
+    echo "  preserved:   $CFG_DIR (operator config) and $LOG_DIR (history)"
+}
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ "$UNINSTALL" -eq 1 ]; then
+    do_uninstall
+else
+    do_install
+fi

@@ -149,23 +149,35 @@ npm run build
 # output: dist/honcho-inspector-ui/browser/*
 ```
 
-Nginx example:
+The shipped systemd service binds the dev server on `0.0.0.0:4200`
+and exposes the UI directly — no reverse proxy is required. If you
+want to add TLS yourself, the canonical recipe is to front :4200
+with a reverse proxy of your choice and use certbot (or your CA)
+for the certificate. The Vite dev server's `proxy.conf.json` already
+forwards `/api/*` and `/actuator/*` to the backend on
+`http://localhost:8080`, so a TLS-terminating proxy can be a thin
+`proxy_pass` shell around that.
+
+Full reference `proxy_pass` block (nginx example, NOT shipped or
+required by the package):
 
 ```nginx
 server {
   listen 443 ssl http2;
   server_name inspector.example.com;
-  root /var/www/honcho-inspector-ui/browser;
-  index index.html;
 
+  # /api/* and /actuator/* are proxied to the backend on :8080 by
+  # the Angular dev server itself via proxy.conf.json; the TLS
+  # proxy below just relays 4200 -> 4200.
   location / {
-    try_files $uri $uri/ /index.html;   # SPA fallback
-  }
-
-  location /api/ {
-    proxy_pass http://127.0.0.1:8080;
+    proxy_pass http://127.0.0.1:4200;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
   }
 }
 ```

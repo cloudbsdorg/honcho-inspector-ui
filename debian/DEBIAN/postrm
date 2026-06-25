@@ -1,0 +1,27 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    purge)
+        rm -rf /var/lib/honcho-inspector-ui
+        rm -rf /var/log/honcho-inspector-ui
+        rm -rf /etc/honcho-inspector-ui
+        if getent passwd www-data >/dev/null; then
+            deluser --quiet --system www-data || true
+        fi
+        ;;
+    remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+    *)
+        echo "postrm called with unknown argument \`$1'" >&2
+        exit 1
+        ;;
+esac
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+fi
+
+#DEBHELPER#
+
+exit 0

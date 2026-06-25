@@ -1,0 +1,110 @@
+# Containerfile for honcho-inspector-ui.
+#
+# Two stages:
+#   1. builder -- runs `npm ci` to populate a reproducible
+#      node_modules tree.
+#   2. runtime -- Alpine + Node 22 + the source tree + node_modules.
+#      Tini is PID 1 so signal forwarding to the Angular dev server
+#      works correctly.
+#
+# Build:
+#   podman build -t honcho-inspector-ui:dev -f packaging/container/Containerfile .
+#
+# Run (the compose file brings this up alongside the backend):
+#   podman run --rm --name=honcho-inspector-ui \
+#       -p 4200:4200 \
+#       -v honcho-inspector-ui-cfg:/etc/honcho-inspector-ui \
+#       honcho-inspector-ui:dev
+#
+# The `-p 4200:4200` exposes the dev server on the host's interface.
+# The app is self-contained -- no reverse proxy is shipped or
+# required. Front it with your own TLS proxy if you want HTTPS.
+
+# ====== builder ==================================================
+FROM docker.io/library/node:22-alpine AS builder
+
+WORKDIR /build
+
+# Copy the project metadata first so Docker can cache the npm install
+# layer when only source files change.
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY . .
+
+# ====== runtime ===================================================
+# Same Alpine + Node 22 base as the builder, but only the production
+# assets + node_modules. Tini is PID 1.
+FROM docker.io/library/node:22-alpine AS runtime
+
+LABEL org.opencontainers.image.title="honcho-inspector-ui" \
+      org.opencontainers.image.description="Angular 22 dashboard for Honcho Inspector" \
+      org.opencontainers.image.source="https://github.com/cloudbsdorg/honcho-inspector-ui" \
+      org.opencontainers.image.licenses="BSD-3-Clause"
+
+# tini (PID 1) + curl (for HEALTHCHECK) + shadow utilities (for
+# addgroup/adduser).
+RUN apk add --no-cache \
+        tini \
+        curl \
+        shadow \
+    && rm -rf /var/cache/apk/*
+
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Bake the source tree + node_modules into the image.
+COPY --from=builder /build /usr/local/share/honcho-inspector-ui
+
+# Drop dev-only artefacts that would otherwise bloat the image.
+# node_modules itself stays -- the runtime needs it.
+RUN rm -rf /usr/local/share/honcho-inspector-ui/.angular \
+           /usr/local/share/honcho-inspector-ui/dist \
+ && find /usr/local/share/honcho-inspector-ui -name '*.log' -delete
+
+# Create the runtime directories. Alpine may already have www-data
+# at gid 82 from busybox; addgroup returns nonzero in that case which
+# would short-circuit &&, so we explicitly tolerate it.
+#
+# Both /var/lib/honcho-inspector-ui and /etc/honcho-inspector-ui are
+# mode 0770 (group-writable) so www-data can write the rendered
+# proxy.conf.json at startup. The template is installed read-only;
+# the rendered config is the only thing the runtime writes.
+RUN ( addgroup -S www-data 2>/dev/null || true ) \
+ && ( adduser -S -G www-data -h /var/lib/honcho-inspector-ui \
+        -s /sbin/nologin -H -D www-data 2>/dev/null || true ) \
+ && install -d -m 0770 -o root -g www-data /var/lib/honcho-inspector-ui \
+ && install -d -m 0770 -o root -g www-data /var/log/honcho-inspector-ui \
+ && install -d -m 0770 -o root -g www-data /etc/honcho-inspector-ui
+
+# Install the proxy config template into the source tree. The entrypoint
+# reads it from there, substitutes env vars, and writes the rendered
+# config to /var/lib/honcho-inspector-ui/proxy.conf.json (which is
+# www-data-writable; /etc/honcho-inspector-ui is often a host-mounted
+# volume owned by root:root and not writable).
+COPY proxy.conf.json.template /usr/local/share/honcho-inspector-ui/proxy.conf.json.template
+RUN chmod -R a+rX /usr/local/share/honcho-inspector-ui \
+ && if [ -d /usr/local/share/honcho-inspector-ui/node_modules/.bin ]; then \
+        chmod -R a+rx /usr/local/share/honcho-inspector-ui/node_modules/.bin; \
+    fi
+
+# HEALTHCHECK -- probe the dev server's HTTP listener. `ng serve`
+# doesn't expose a dedicated /health endpoint, so we hit any path
+# and expect a non-empty response.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:4200/ >/dev/null || exit 1
+
+# Container entrypoint. Reads $BACKEND_HOST (default "localhost") and
+# $BACKEND_PORT (default 8080) at startup, substitutes them into the
+# proxy.conf.json template, then execs ng serve with the rendered
+# config. This lets operators point the UI at any backend host
+# without rebuilding the image (e.g. BACKEND_HOST=backend for compose
+# DNS, BACKEND_HOST=10.0.0.5 for a remote host, BACKEND_HOST=localhost
+# for host-mode with the backend on loopback).
+ENV BACKEND_HOST=localhost \
+    BACKEND_PORT=8080
+COPY packaging/container/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod 0755 /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+EXPOSE 4200

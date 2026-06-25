@@ -1,0 +1,63 @@
+[Unit]
+Description=Honcho Inspector UI (Angular dev server)
+Documentation=https://github.com/cloudbsdorg/honcho-inspector-ui
+After=network-online.target honcho-inspector.service
+Wants=network-online.target honcho-inspector.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/usr/local/share/honcho-inspector-ui
+
+Environment=NG_CLI_ANALYTICS=false
+Environment=NODE_ENV=production
+Environment=HOME=/var/lib/honcho-inspector-ui
+
+# The Angular dev server IS the public listener. It binds on all
+# interfaces (0.0.0.0:4200). The app is self-contained: an operator
+# can hit it directly from a browser without any fronting reverse
+# proxy. The package does not ship, configure, or depend on one.
+#
+# The backend (honcho-inspector.service) is bound to loopback only;
+# browser->/api/* requests go through the Vite proxy in proxy.conf.json
+# to the backend's loopback listener.
+ExecStart=/usr/bin/env npx --no-install ng serve \
+    --host 0.0.0.0 \
+    --port 4200 \
+    --proxy-config proxy.conf.json \
+    --watch=false
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+
+ReadWritePaths=/var/lib/honcho-inspector-ui
+
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=honcho-inspector-ui
+
+[Install]
+WantedBy=multi-user.target

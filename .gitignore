@@ -6,6 +6,12 @@
 /out-tsc
 /bazel-out
 
+# Debian package build artifacts
+/debian/stage/
+
+# Container build artifacts
+/packaging/container/stage/
+
 # Node
 /node_modules
 npm-debug.log

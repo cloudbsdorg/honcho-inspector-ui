@@ -1,0 +1,5 @@
+honcho-inspector-ui (0.1.0-SNAPSHOT) unstable; urgency=medium
+
+  * Initial Debian package.
+
+ -- cloudBSD <admin@cloudbsd.org>  Wed, 24 Jun 2026 18:00:00 +0000
