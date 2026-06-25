@@ -76,7 +76,7 @@ ROCKY_RUNTIME="docker.io/rockylinux/rockylinux:10-minimal"
 # shadow-utils; install those explicitly. java-25-openjdk-headless
 # is only needed for the backend but installed unconditionally
 # per the debian pattern.
-ROCKY_INSTALL='microdnf install -y dnf 2>/dev/null; dnf install -y /tmp/ARTIFACT nodejs nodejs-npm java-25-openjdk-headless shadow-utils curl ca-certificates'
+ROCKY_INSTALL='microdnf install -y dnf tar 2>/dev/null; dnf install -y /tmp/ARTIFACT nodejs24 npm java-25-openjdk-headless shadow-utils curl ca-certificates; NODE_INSTALL=/usr/local/node NODE_VERSION=24.15.0; ARCH=$(uname -m); case "$ARCH" in x86_64) NODE_ARCH=x64;; aarch64) NODE_ARCH=arm64;; *) NODE_ARCH=$ARCH;; esac; cd /tmp && curl -fsSL -o node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz" && mkdir -p $NODE_INSTALL && tar -xzf node.tar.gz -C $NODE_INSTALL --strip-components=1 && ln -sf $NODE_INSTALL/bin/node /usr/local/bin/node && ln -sf $NODE_INSTALL/bin/npm /usr/local/bin/npm && ln -sf $NODE_INSTALL/bin/npx /usr/local/bin/npx && rm -f node.tar.gz; export PATH=/usr/local/bin:$PATH; node --version'
 ROCKY_BACKEND_START="$DEBIAN_BACKEND_START"
 ROCKY_UI_START="$DEBIAN_UI_START"
 ROCKY_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
@@ -92,7 +92,7 @@ SUSE_RUNTIME="docker.io/opensuse/leap:16.0"
 # without the flag. The artifact's --depends says nodejs + npm +
 # shadow; install all three. java-25-openjdk is only needed for
 # the backend but installed unconditionally per the debian pattern.
-SUSE_INSTALL='zypper --non-interactive --no-gpg-checks install /tmp/ARTIFACT nodejs24 npm24 java-25-openjdk shadow curl ca-certificates'
+SUSE_INSTALL='zypper --non-interactive --no-gpg-checks install /tmp/ARTIFACT nodejs24 npm24 java-25-openjdk shadow curl ca-certificates; NODE_INSTALL=/usr/local/node NODE_VERSION=24.15.0; ARCH=$(uname -m); case "$ARCH" in x86_64) NODE_ARCH=x64;; aarch64) NODE_ARCH=arm64;; *) NODE_ARCH=$ARCH;; esac; cd /tmp && curl -fsSL -o node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz" && mkdir -p $NODE_INSTALL && tar -xzf node.tar.gz -C $NODE_INSTALL --strip-components=1 && ln -sf $NODE_INSTALL/bin/node /usr/local/bin/node && ln -sf $NODE_INSTALL/bin/npm /usr/local/bin/npm && ln -sf $NODE_INSTALL/bin/npx /usr/local/bin/npx && rm -f node.tar.gz; export PATH=/usr/local/bin:$PATH; node --version'
 SUSE_BACKEND_START="$DEBIAN_BACKEND_START"
 SUSE_UI_START="$DEBIAN_UI_START"
 SUSE_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
@@ -107,7 +107,7 @@ ALPINE_RUNTIME="docker.io/library/alpine:3.22"
 # repo layout. nodejs22 satisfies the UI's nodejs>=20 dep. bash
 # is needed because the Alpine /bin/sh is BusyBox ash and the start
 # cmd's pipeline is bash-compatible.
-ALPINE_INSTALL='echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && apk update && apk add --allow-untrusted --no-cache /tmp/ARTIFACT nodejs npm openjdk25 shadow curl ca-certificates bash'
+ALPINE_INSTALL='echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories && apk update && apk add --allow-untrusted --no-cache /tmp/ARTIFACT nodejs npm openjdk25 shadow curl ca-certificates bash; NODE_INSTALL=/usr/local/node NODE_VERSION=24.15.0; ARCH=$(uname -m); case "$ARCH" in x86_64) NODE_ARCH=x64;; aarch64) NODE_ARCH=arm64;; *) NODE_ARCH=$ARCH;; esac; cd /tmp && curl -fsSL -o node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz" && mkdir -p $NODE_INSTALL && tar -xzf node.tar.gz -C $NODE_INSTALL --strip-components=1 && ln -sf $NODE_INSTALL/bin/node /usr/local/bin/node && ln -sf $NODE_INSTALL/bin/npm /usr/local/bin/npm && ln -sf $NODE_INSTALL/bin/npx /usr/local/bin/npx && rm -f node.tar.gz; export PATH=/usr/local/bin:$PATH; node --version'
 ALPINE_BACKEND_START="$DEBIAN_BACKEND_START"
 ALPINE_UI_START="$DEBIAN_UI_START"
 ALPINE_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
@@ -123,7 +123,7 @@ ARCH_RUNTIME="docker.io/library/archlinux:latest"
 # would otherwise refuse to overwrite. jre25-openjdk-headless is
 # only needed for the backend but installed unconditionally per
 # the debian pattern.
-ARCH_INSTALL='pacman -Sy --noconfirm >/dev/null 2>&1; pacman -U --noconfirm --overwrite "*" /tmp/ARTIFACT && pacman -S --noconfirm nodejs npm jre25-openjdk-headless shadow curl ca-certificates'
+ARCH_INSTALL='pacman -Sy --noconfirm >/dev/null 2>&1; pacman -U --noconfirm --overwrite "*" /tmp/ARTIFACT && pacman -S --noconfirm nodejs npm jre25-openjdk-headless shadow curl ca-certificates; NODE_INSTALL=/usr/local/node NODE_VERSION=24.15.0; ARCH=$(uname -m); case "$ARCH" in x86_64) NODE_ARCH=x64;; aarch64) NODE_ARCH=arm64;; *) NODE_ARCH=$ARCH;; esac; cd /tmp && curl -fsSL -o node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz" && mkdir -p $NODE_INSTALL && tar -xzf node.tar.gz -C $NODE_INSTALL --strip-components=1 && ln -sf $NODE_INSTALL/bin/node /usr/local/bin/node && ln -sf $NODE_INSTALL/bin/npm /usr/local/bin/npm && ln -sf $NODE_INSTALL/bin/npx /usr/local/bin/npx && rm -f node.tar.gz; export PATH=/usr/local/bin:$PATH; node --version'
 ARCH_BACKEND_START="$DEBIAN_BACKEND_START"
 ARCH_UI_START="$DEBIAN_UI_START"
 ARCH_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
@@ -145,7 +145,7 @@ VOID_RUNTIME="docker.io/voidlinux/voidlinux:latest"
 # sleeps + probes. -y assumes yes to all xbps prompts.
 # openjdk25-jre is only needed for the backend but installed
 # unconditionally per the debian pattern.
-VOID_INSTALL='mkdir -p /etc/xbps.d && echo "repository=https://repo-default.voidlinux.org/current" > /etc/xbps.d/00-repository-main.conf && SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -y -f xbps >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -y bash nodejs openjdk25-jre shadow curl ca-certificates runit zstd >/dev/null 2>&1; cd / && tar --use-compress-program=unzstd -xf /tmp/ARTIFACT && /bin/sh -c ". /INSTALL && post_install" >/dev/null 2>&1; (setsid runsvdir -P /var/service </dev/null >/var/log/runsvdir.log 2>&1 &)'
+VOID_INSTALL='mkdir -p /etc/xbps.d && echo "repository=https://repo-default.voidlinux.org/current" > /etc/xbps.d/00-repository-main.conf && SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -y -f xbps >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -Sy >/dev/null 2>&1; SSL_NO_VERIFY_HOSTNAME=1 xbps-install -y bash nodejs openjdk25-jre shadow curl ca-certificates runit zstd >/dev/null 2>&1; cd / && tar --use-compress-program=unzstd -xf /tmp/ARTIFACT && /bin/sh -c ". /INSTALL && post_install" >/dev/null 2>&1; NODE_INSTALL=/usr/local/node NODE_VERSION=24.15.0; ARCH=$(uname -m); case "$ARCH" in x86_64) NODE_ARCH=x64;; aarch64) NODE_ARCH=arm64;; *) NODE_ARCH=$ARCH;; esac; cd /tmp && curl -fsSL -o node.tar.gz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz" && mkdir -p $NODE_INSTALL && tar -xzf node.tar.gz -C $NODE_INSTALL --strip-components=1 && ln -sf $NODE_INSTALL/bin/node /usr/local/bin/node && ln -sf $NODE_INSTALL/bin/npm /usr/local/bin/npm && ln -sf $NODE_INSTALL/bin/npx /usr/local/bin/npx && rm -f node.tar.gz; export PATH=/usr/local/bin:$PATH; node --version; (setsid runsvdir -P /var/service </dev/null >/var/log/runsvdir.log 2>&1 &)'
 VOID_BACKEND_START='sleep 5'
 VOID_UI_START='sleep 5'
 VOID_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"

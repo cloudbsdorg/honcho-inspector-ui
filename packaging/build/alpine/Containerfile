@@ -56,6 +56,7 @@ RUN set -eux \
         libffi-dev \
         openssl-dev \
         shadow \
+        python3 \
  && apk add --no-cache \
         --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
         nodejs \
@@ -66,12 +67,13 @@ RUN set -eux \
 # Patch fpm 1.17's apk.rb to fix the cut_tar_record EOF-raise bug.
 # Newer Ruby's stdlib tar generator omits the 1KB end-of-archive
 # marker; fpm's apk.rb raises "Invalid tar stream, eof before
-# end-of-tar record" when scanning for it. We patch the raise
-# into a no-op so the cut stops at the actual end of file.
-# (Fixed in fpm upstream; revisit when a release lands.)
+# end-of-tar record" when scanning for it. Replace the buggy scan
+# loop with a simple file copy so the cut stops at the actual end
+# of file. (Fixed in fpm upstream; revisit when a release lands.)
+COPY packaging/build/alpine/patch-fpm-apk.py /usr/local/bin/patch-fpm-apk.py
 RUN APK_RB="$(find /usr/lib/ruby /usr/local/lib/ruby -name apk.rb -path '*/fpm-1.17.0/*' 2>/dev/null | head -1)"; \
     if [ -n "$APK_RB" ]; then \
-        sed -i 's|raise StandardError.new("Invalid tar stream, eof before end-of-tar record")|next|; s|if(file.eof?())|if(false)|' "$APK_RB"; \
+        python3 /usr/local/bin/patch-fpm-apk.py "$APK_RB"; \
     fi
 
 # Bake the build entrypoint.
