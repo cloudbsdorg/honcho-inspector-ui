@@ -79,11 +79,11 @@ pm() {
     # Capture only the container ID. podman sometimes writes progress
     # to stdout during pull; --quiet suppresses it. We capture stdout
     # only.
-    cid=$(pm podman run --rm -d --quiet \
+    cid=$(pm podman run --detach --quiet \
         --init \
         -v "$artifact_path:/tmp/${artifact_basename}:ro" \
         "$runtime" \
-        sleep 600 2>/dev/null) || cid=""
+        sleep 3600 2>/dev/null) || cid=""
     if [ -z "$cid" ]; then
         printf 'SMOKE FAILED -- could not boot %s\n' "$runtime"
         exit 1
