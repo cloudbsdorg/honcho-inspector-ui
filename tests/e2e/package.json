@@ -1,0 +1,17 @@
+{
+  "name": "honcho-inspector-ui-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Playwright 9-screen regression harness for honcho-inspector-ui against the live UI smoke stack.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install-browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

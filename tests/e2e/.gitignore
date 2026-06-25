@@ -1,0 +1,5 @@
+# Test artifacts (created at run time)
+node_modules/
+screenshots/
+playwright-report/
+test-results/
