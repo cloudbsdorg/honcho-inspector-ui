@@ -128,12 +128,27 @@ source=()
 sha256sums=()
 
 package() {
-    local src="$srcdir"
+    # makepkg's $srcdir is $BUILDDIR/$pkgbase/src and is EMPTY when
+    # source=() is empty (no upstream tarball to extract). The actual
+    # staged source tree lives at $startdir (the directory containing
+    # this PKGBUILD) -- in our case $STAGE. Use $startdir directly.
+    local src="$startdir"
 
     # The full source tree (minus build artefacts we'll remove
     # below) lands at the canonical /usr/local/share/... path.
+    # tar --exclude avoids recursing into .build (makepkg's
+    # own BUILDDIR tree) and skips the PKGBUILD/.INSTALL/.pkg-scripts
+    # scratch files. cpio -pdm silently produced "0 blocks" on
+    # GNU cpio 2.15 here -- tar just works.
     install -d "$pkgdir/usr/local/share/honcho-inspector-ui"
-    cp -ra "$src/." "$pkgdir/usr/local/share/honcho-inspector-ui/"
+    (cd "$src" && tar -cf - \
+        --exclude=./.build \
+        --exclude=./pkg \
+        --exclude=./PKGBUILD \
+        --exclude=./.INSTALL \
+        --exclude=./.pkg-scripts \
+        --exclude=./honcho-inspector-ui-*.pkg.tar.zst \
+        . | tar -xf - -C "$pkgdir/usr/local/share/honcho-inspector-ui/")
 
     # Strip build artefacts that should not ship in the package.
     rm -f "$pkgdir/usr/local/share/honcho-inspector-ui/PKGBUILD"
@@ -251,10 +266,13 @@ chmod 0755 "$STAGE"
 chmod -R u+rwX,g+rX,o+rX "$STAGE"
 chown -R "${NOBODY_UID}:${NOBODY_GID}" "$STAGE" 2>/dev/null || true
 
+# BUILDDIR is intentionally NOT set -- makepkg then uses $STAGE as
+# its startdir (the PKGBUILD's directory). package() refers to $startdir
+# directly for the source tree because with source=() empty, makepkg's
+# $srcdir is created but never populated.
 setpriv --reuid="${NOBODY_UID}" --regid="${NOBODY_GID}" --clear-groups -- \
     env MAKEPKG_PACKAGER="${MAINTAINER}" \
         PKGDEST="${STAGE}" \
-        BUILDDIR="${STAGE}" \
         SRCDEST="${STAGE}" \
     bash -c "cd '${STAGE}' && makepkg -s -f --noconfirm --skippgpcheck --nocolor"
 
