@@ -13,6 +13,8 @@ import { HonchoService } from '../../core/honcho.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { ProfileService } from '../../core/profile.service';
 import { ThemeService } from '../../core/theme.service';
+import { TimezoneService } from '../../core/timezone.service';
+import { formatRelative, formatWallClock, formatWallClockTooltip } from '../../core/datetime';
 import { ChatPanel } from '../chat-panel/chat-panel';
 import { WorkspaceOverview } from './workspace-overview';
 import { MetricsService } from '../../core/metrics.service';
@@ -31,6 +33,11 @@ export class Dashboard implements OnInit {
   readonly theme = inject(ThemeService);
   readonly profileService = inject(ProfileService);
   private readonly metrics = inject(MetricsService);
+  readonly tz = inject(TimezoneService);
+
+  readonly formatRelative = formatRelative;
+  readonly formatWallClock = formatWallClock;
+  readonly formatWallClockTooltip = formatWallClockTooltip;
 
   private readonly SELECTED_PEER_KEY = 'honcho-dashboard-selected-peer';
 
@@ -87,15 +94,7 @@ export class Dashboard implements OnInit {
   }
 
   lastRefreshLabel(ts: number): string {
-    const seconds = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-    if (seconds < 5) return 'just now';
-    if (seconds < 60) return `${seconds}s ago`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    return formatRelative(ts);
   }
 
   private restoreSelectedPeer(): string | null {

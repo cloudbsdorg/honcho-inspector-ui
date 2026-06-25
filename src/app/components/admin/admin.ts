@@ -6,7 +6,7 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { DatePipe, JsonPipe } from '@angular/common';
+import { JsonPipe } from '@angular/common';
 import { AdminService, type PageSize } from '../../core/admin.service';
 import { formatError } from '../../core/error-message';
 import {
@@ -18,6 +18,8 @@ import {
 import { ChartComponent } from '../charts/chart.component';
 import { UserCreateWizard } from './user-create-wizard';
 import { describeCron } from '../../core/cron';
+import { TimezoneService } from '../../core/timezone.service';
+import { formatWallClock, formatWallClockTooltip } from '../../core/datetime';
 
 type Tab = 'overview' | 'users' | 'audit' | 'maintenance';
 type PageSizeUi = 10 | 20 | 30;
@@ -30,7 +32,7 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
 
 @Component({
   selector: 'app-admin',
-  imports: [ChartComponent, DatePipe, JsonPipe, UserCreateWizard],
+  imports: [ChartComponent, JsonPipe, UserCreateWizard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin.html',
   styleUrl: './admin.css',
@@ -38,6 +40,9 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
 export class AdminPanel implements OnInit {
   private readonly admin = inject(AdminService);
   protected readonly describeCron = describeCron;
+  readonly tz = inject(TimezoneService);
+  readonly formatWallClock = formatWallClock;
+  readonly formatWallClockTooltip = formatWallClockTooltip;
 
   readonly tab = signal<Tab>('overview');
 

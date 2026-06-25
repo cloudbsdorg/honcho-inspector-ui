@@ -229,7 +229,12 @@
                         {{ u.isAdmin ? 'admin' : 'user' }}
                       </span>
                     </td>
-                    <td class="py-2 text-xs opacity-70">{{ u.createdAt | date: 'short' }}</td>
+                    <td
+                      class="py-2 text-xs opacity-70"
+                      [title]="formatWallClockTooltip(u.createdAt, { timeZone: tz.effectiveTimezone() })"
+                    >
+                      {{ formatWallClock(u.createdAt, 'short', { timeZone: tz.effectiveTimezone() }) }}
+                    </td>
                     <td class="py-2 text-right">
                       <div class="flex justify-end gap-1">
                         <button
@@ -353,7 +358,12 @@
               <tbody>
                 @for (e of audit(); track e.id) {
                   <tr class="border-b" style="border-color: var(--accent)">
-                    <td class="py-2 text-xs opacity-70">{{ e.createdAt | date: 'short' }}</td>
+                    <td
+                      class="py-2 text-xs opacity-70"
+                      [title]="formatWallClockTooltip(e.createdAt, { timeZone: tz.effectiveTimezone() })"
+                    >
+                      {{ formatWallClock(e.createdAt, 'short', { timeZone: tz.effectiveTimezone() }) }}
+                    </td>
                     <td class="py-2">
                       <code class="font-mono text-xs" style="color: var(--accent)">{{
                         e.action
@@ -381,7 +391,13 @@
                 · action: {{ auditAction() }}
               }
               @if (auditSince()) {
-                · since: {{ auditSince() }}
+                · since:
+                <span
+                  class="font-mono"
+                  [title]="formatWallClockTooltip(auditSince(), { timeZone: tz.effectiveTimezone() })"
+                >
+                  {{ formatWallClock(auditSince(), 'short', { timeZone: tz.effectiveTimezone() }) }}
+                </span>
               }
             </p>
           </div>
@@ -435,7 +451,12 @@
                 </div>
                 <div>
                   <dt class="opacity-60">Generated at</dt>
-                  <dd class="font-mono text-xs">{{ m.generatedAt | date: 'short' }}</dd>
+                  <dd
+                    class="font-mono text-xs"
+                    [title]="formatWallClockTooltip(m.generatedAt, { timeZone: tz.effectiveTimezone() })"
+                  >
+                    {{ formatWallClock(m.generatedAt, 'short', { timeZone: tz.effectiveTimezone() }) }}
+                  </dd>
                 </div>
               </dl>
             }

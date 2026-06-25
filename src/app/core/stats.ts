@@ -215,26 +215,34 @@ export function topNByCount<T>(
  * {@link Intl.DateTimeFormat}; in non-browser contexts (e.g. SSR
  * or tests) falls back to `en-US`.
  */
-export function bucketLabel(startMs: number, granularity: Granularity): string {
+export function bucketLabel(
+  startMs: number,
+  granularity: Granularity,
+  timeZone?: string,
+): string {
   const locale =
     (typeof navigator !== 'undefined' && navigator.language) || 'en-US';
+  const tz = timeZone;
   const minuteFmt = new Intl.DateTimeFormat(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
+    ...(tz ? { timeZone: tz } : {}),
   });
   const hourFmt = new Intl.DateTimeFormat(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     hour12: false,
+    ...(tz ? { timeZone: tz } : {}),
   });
   const dayFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    ...(tz ? { timeZone: tz } : {}),
   });
   if (
     granularity === '1m' ||

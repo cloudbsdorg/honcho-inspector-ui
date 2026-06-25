@@ -7,7 +7,6 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { ChartComponent } from '../charts/chart.component';
 import { HonchoService } from '../../core/honcho.service';
 import { MetricsService } from '../../core/metrics.service';
@@ -23,6 +22,8 @@ import {
 } from '../../core/stats';
 import type { ChartConfiguration } from 'chart.js';
 import type { HonchoPeerSummary, HonchoSessionSummary, HonchoQueueStatus } from '../../core/models';
+import { TimezoneService } from '../../core/timezone.service';
+import { formatWallClock, formatWallClockTooltip } from '../../core/datetime';
 
 interface KpiCard {
   label: string;
@@ -60,7 +61,7 @@ interface KpiCard {
  */
 @Component({
   selector: 'app-workspace-overview',
-  imports: [ChartComponent, DatePipe],
+  imports: [ChartComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './workspace-overview.html',
   styleUrl: './workspace-overview.css',
@@ -68,6 +69,9 @@ interface KpiCard {
 export class WorkspaceOverview {
   private readonly honcho = inject(HonchoService);
   protected readonly metrics = inject(MetricsService);
+  readonly tz = inject(TimezoneService);
+  readonly formatWallClock = formatWallClock;
+  readonly formatWallClockTooltip = formatWallClockTooltip;
 
   readonly peerSelected = output<string>();
 
@@ -212,7 +216,9 @@ export class WorkspaceOverview {
   // Chart data: line chart of (peer additions, session creations)
   // bucketed at the user-chosen granularity.
   readonly additionsChart = computed<ChartConfiguration>(() => {
-    const labels = this.peerBuckets().map((b) => bucketLabel(b.startMs, this.granularity()));
+    const labels = this.peerBuckets().map((b) =>
+      bucketLabel(b.startMs, this.granularity(), this.tz.effectiveTimezone()),
+    );
     const peerData = this.peerBuckets().map((b) => b.count);
     const sessionData = this.sessionBuckets().map((b) => b.count);
     return {

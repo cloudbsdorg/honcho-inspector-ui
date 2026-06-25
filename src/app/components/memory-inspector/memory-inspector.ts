@@ -14,6 +14,8 @@ import {
   HonchoSessionSummary,
   HonchoWorkspaceInspect,
 } from '../../core/models';
+import { TimezoneService } from '../../core/timezone.service';
+import { formatRelative, formatWallClock, formatWallClockTooltip } from '../../core/datetime';
 
 type TabId = 'workspace' | 'peers' | 'sessions' | 'conclusions' | 'search';
 
@@ -35,6 +37,11 @@ export class MemoryInspector implements OnInit {
   private readonly auth = inject(HonchoAuthService);
   private readonly profileService = inject(ProfileService);
   private readonly router = inject(Router);
+  readonly tz = inject(TimezoneService);
+
+  readonly formatRelative = formatRelative;
+  readonly formatWallClock = formatWallClock;
+  readonly formatWallClockTooltip = formatWallClockTooltip;
 
   readonly workspaceId = computed(() => this.profileService.activeProfile()?.workspaceId ?? '');
   readonly honchoUserName = computed(

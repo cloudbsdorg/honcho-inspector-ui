@@ -253,27 +253,30 @@
             >
               Peers ({{ honcho.peers().length }})
             </h2>
-            <ul class="space-y-1">
+            <select
+              [ngModel]="selectedPeerId() ?? ''"
+              (ngModelChange)="selectPeer($event)"
+              data-testid="inspect-peer-select"
+              class="th-surface th-border w-full border-2 px-2 py-1 text-xs"
+              style="border-radius: var(--radius); color: var(--text)"
+            >
+              <option value="">
+                @if (honcho.peers().length === 0) {
+                  — no peers —
+                } @else {
+                  — select peer —
+                }
+              </option>
               @for (p of honcho.peers(); track p.id) {
-                <li>
-                  <button
-                    type="button"
-                    (click)="selectPeer(p.id)"
-                    data-testid="inspect-peer-button"
-                    [attr.data-peer-id]="p.id"
-                    [attr.data-active]="selectedPeerId() === p.id"
-                    class="th-border w-full border-2 px-2 py-2 text-left text-sm"
-                    style="border-radius: var(--radius)"
-                    [style.background]="
-                      selectedPeerId() === p.id ? 'var(--accent)' : 'var(--surface)'
-                    "
-                    [style.color]="selectedPeerId() === p.id ? 'var(--bg)' : 'var(--text)'"
-                  >
-                    {{ p.id }}
-                  </button>
-                </li>
+                <option
+                  [value]="p.id"
+                  [attr.data-peer-id]="p.id"
+                  [attr.data-active]="selectedPeerId() === p.id"
+                >
+                  {{ p.id }}
+                </option>
               }
-            </ul>
+            </select>
           </aside>
 
           <section class="md:col-span-2">
@@ -406,8 +409,12 @@
                             <span class="mr-1">▸</span>{{ s.id }}
                           </button>
                           @if (s.createdAt) {
-                            <span class="text-[10px] opacity-60" style="color: var(--text-dim)">
-                              {{ s.createdAt | date: 'shortDate' }}
+                            <span
+                              class="text-[10px] opacity-60"
+                              style="color: var(--text-dim)"
+                              [title]="formatWallClockTooltip(s.createdAt, { timeZone: tz.effectiveTimezone() })"
+                            >
+                              {{ formatWallClock(s.createdAt, 'shortDate', { timeZone: tz.effectiveTimezone() }) }}
                             </span>
                           }
                         </li>
@@ -435,8 +442,12 @@
                       <li class="flex gap-2">
                         <span style="color: var(--accent)">▸</span>
                         <span class="flex-1">{{ c.content }}</span>
-                        <span class="opacity-50" style="color: var(--text-dim)">
-                          {{ c.createdAt | date: 'short' }}
+                        <span
+                          class="opacity-50"
+                          style="color: var(--text-dim)"
+                          [title]="formatWallClockTooltip(c.createdAt, { timeZone: tz.effectiveTimezone() })"
+                        >
+                          {{ formatWallClock(c.createdAt, 'short', { timeZone: tz.effectiveTimezone() }) }}
                         </span>
                       </li>
                     }
@@ -463,27 +474,30 @@
             >
               Sessions ({{ honcho.sessions().length }})
             </h2>
-            <ul class="space-y-1">
+            <select
+              [ngModel]="selectedSessionId() ?? ''"
+              (ngModelChange)="selectSession($event)"
+              data-testid="inspect-session-select"
+              class="th-surface th-border w-full border-2 px-2 py-1 text-xs"
+              style="border-radius: var(--radius); color: var(--text)"
+            >
+              <option value="">
+                @if (honcho.sessions().length === 0) {
+                  — no sessions —
+                } @else {
+                  — select session —
+                }
+              </option>
               @for (s of honcho.sessions(); track s.id) {
-                <li>
-                  <button
-                    type="button"
-                    (click)="selectSession(s.id)"
-                    data-testid="inspect-session-button"
-                    [attr.data-session-id]="s.id"
-                    [attr.data-active]="selectedSessionId() === s.id"
-                    class="th-border w-full border-2 px-2 py-2 text-left text-sm"
-                    style="border-radius: var(--radius)"
-                    [style.background]="
-                      selectedSessionId() === s.id ? 'var(--accent)' : 'var(--surface)'
-                    "
-                    [style.color]="selectedSessionId() === s.id ? 'var(--bg)' : 'var(--text)'"
-                  >
-                    {{ s.id }}
-                  </button>
-                </li>
+                <option
+                  [value]="s.id"
+                  [attr.data-session-id]="s.id"
+                  [attr.data-active]="selectedSessionId() === s.id"
+                >
+                  {{ s.id }}
+                </option>
               }
-            </ul>
+            </select>
           </aside>
 
           <section class="md:col-span-2">
@@ -639,7 +653,12 @@
                     } @else {
                       · <em>global</em>
                     }
-                    · {{ c.createdAt | date: 'short' }}
+                    ·
+                    <span
+                      [title]="formatWallClockTooltip(c.createdAt, { timeZone: tz.effectiveTimezone() })"
+                    >
+                      {{ formatWallClock(c.createdAt, 'short', { timeZone: tz.effectiveTimezone() }) }}
+                    </span>
                   </div>
                 </li>
               }
@@ -703,7 +722,12 @@
                     >
                       {{ m.sessionId }}
                     </button>
-                    · {{ m.createdAt | date: 'short' }}
+                    ·
+                    <span
+                      [title]="formatWallClockTooltip(m.createdAt, { timeZone: tz.effectiveTimezone() })"
+                    >
+                      {{ formatWallClock(m.createdAt, 'short', { timeZone: tz.effectiveTimezone() }) }}
+                    </span>
                   </div>
                 </li>
               }

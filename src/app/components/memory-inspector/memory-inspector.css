@@ -1,6 +1,24 @@
 :host {
-  display: block;
-  min-height: 100dvh;
+  /*
+   * Bounded flex item. App.ts wraps the route in
+   *   <main class="min-h-0 flex-1 overflow-hidden">
+   * (a flex column with no scrollbar of its own). For the
+   * inspector's inner <main class="flex-1 overflow-y-auto">
+   * to actually scroll, THIS host must be a bounded flex
+   * column itself: `display: flex; flex-direction: column;
+   * height: 100%`. The previous `min-height: 100dvh; display: block`
+   * let the host grow with content, so the inner overflow-y-auto
+   * had no bounded parent to clip against and the page locked
+   * whenever content exceeded the viewport.
+   *
+   * The old min-height behaviour (at least 100dvh tall even when
+   * empty) is no longer needed because the outer flex-1 main
+   * already sizes this host to the remaining viewport space.
+   */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: var(--bg);
   color: var(--text);
+  min-height: 0;
 }

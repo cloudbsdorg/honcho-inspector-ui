@@ -38,7 +38,7 @@
         @if (honcho.lastRefreshedAt(); as ts) {
           <span
             class="ml-1 text-[9px] opacity-60"
-            [title]="'Last refreshed at ' + (ts | date: 'medium')"
+            [title]="formatWallClockTooltip(ts, { timeZone: tz.effectiveTimezone() })"
             >· {{ lastRefreshLabel(ts) }}</span
           >
         }
@@ -125,8 +125,11 @@
               >
                 <div class="font-bold">{{ peer.id }}</div>
                 @if (peer.createdAt) {
-                  <div class="text-[10px] opacity-70">
-                    since {{ peer.createdAt | date: 'shortDate' }}
+                  <div
+                    class="text-[10px] opacity-70"
+                    [title]="formatWallClockTooltip(peer.createdAt, { timeZone: tz.effectiveTimezone() })"
+                  >
+                    since {{ formatWallClock(peer.createdAt, 'shortDate', { timeZone: tz.effectiveTimezone() }) }}
                   </div>
                 }
               </button>

@@ -8,9 +8,13 @@
       >
         Workspace overview
       </h2>
-      <span class="text-[10px] opacity-60" data-testid="overview-last-loaded">
+      <span
+        class="text-[10px] opacity-60"
+        data-testid="overview-last-loaded"
+        [title]="metrics.lastLoadedAt() ? formatWallClockTooltip(metrics.lastLoadedAt()!, { timeZone: tz.effectiveTimezone() }) : ''"
+      >
         @if (metrics.lastLoadedAt(); as t) {
-          metrics loaded {{ t / 1000 | date: 'mediumTime' }}
+          metrics loaded {{ formatWallClock(t, 'shortTime', { timeZone: tz.effectiveTimezone() }) }}
         } @else {
           metrics not loaded
         }
@@ -204,8 +208,12 @@
                   <span class="ml-1" style="color: var(--text)">{{ a.id }}</span>
                 }
               </span>
-              <span class="text-[10px] opacity-60" style="white-space: nowrap">
-                {{ a.createdAt | date: 'short' }}
+              <span
+                class="text-[10px] opacity-60"
+                style="white-space: nowrap"
+                [title]="formatWallClockTooltip(a.createdAt, { timeZone: tz.effectiveTimezone() })"
+              >
+                {{ formatWallClock(a.createdAt, 'short', { timeZone: tz.effectiveTimezone() }) }}
               </span>
             </li>
           }

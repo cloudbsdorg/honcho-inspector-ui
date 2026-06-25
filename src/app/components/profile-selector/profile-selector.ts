@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ProfileService } from '../../core/profile.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { Profile, ProfileWithKey } from '../../core/models';
 import { formatError } from '../../core/error-message';
+import { TimezoneService } from '../../core/timezone.service';
+import { formatWallClock, formatWallClockTooltip } from '../../core/datetime';
 
 interface TestResult {
   ok: boolean;
@@ -19,7 +20,7 @@ interface EditState {
 
 @Component({
   selector: 'app-profile-selector',
-  imports: [ReactiveFormsModule, DatePipe],
+  imports: [ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './profile-selector.html',
   styleUrl: './profile-selector.css',
@@ -29,6 +30,9 @@ export class ProfileSelector {
   private readonly auth = inject(HonchoAuthService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  readonly tz = inject(TimezoneService);
+  readonly formatWallClock = formatWallClock;
+  readonly formatWallClockTooltip = formatWallClockTooltip;
 
   readonly list = this.profiles.profiles;
   readonly activeId = this.profiles.activeProfileId;
@@ -247,6 +251,14 @@ export class ProfileSelector {
     } catch (e) {
       this.error.set(formatError(e));
     }
+  }
+
+  onTimezoneChange(value: string): void {
+    if (!value || value === '') {
+      this.tz.clearOverride();
+      return;
+    }
+    this.tz.setOverride(value);
   }
 
   async test(profile: Profile): Promise<void> {
