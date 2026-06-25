@@ -16,6 +16,7 @@ import {
   AdminUser,
 } from '../../core/models';
 import { ChartComponent } from '../charts/chart.component';
+import { UserCreateWizard } from './user-create-wizard';
 import { describeCron } from '../../core/cron';
 
 type Tab = 'overview' | 'users' | 'audit' | 'maintenance';
@@ -29,7 +30,7 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
 
 @Component({
   selector: 'app-admin',
-  imports: [ChartComponent, DatePipe, JsonPipe],
+  imports: [ChartComponent, DatePipe, JsonPipe, UserCreateWizard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin.html',
   styleUrl: './admin.css',
@@ -148,6 +149,24 @@ export class AdminPanel implements OnInit {
   readonly newUsername = signal('');
   readonly newPassword = signal('');
   readonly newIsAdmin = signal(false);
+
+  readonly userCreateWizardOpen = signal(false);
+
+  openUserCreateWizard(): void {
+    this.userCreateWizardOpen.set(true);
+  }
+
+  async onUserCreateCompleted(payload: {
+    username: string;
+    isAdmin: boolean;
+  }): Promise<void> {
+    this.userCreateWizardOpen.set(false);
+    await this.loadUsers();
+  }
+
+  onUserCreateDismissed(): void {
+    this.userCreateWizardOpen.set(false);
+  }
 
   readonly pageSizeOptions: PageSizeUi[] = [10, 20, 30];
   readonly pageSizeLabel = (s: PageSizeUi): string => PAGE_SIZE_LABELS[s];

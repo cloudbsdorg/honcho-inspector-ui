@@ -1,0 +1,528 @@
+@if (open) {
+  <div
+    data-testid="user-create-overlay"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+    [style.background]="'color-mix(in srgb, var(--bg) 70%, transparent)'"
+    (click)="dismiss()"
+  >
+    <div
+      class="th-surface th-shadow w-full max-w-2xl th-border border-2 p-6 sm:p-8"
+      style="border-radius: var(--radius)"
+      (click)="$event.stopPropagation()"
+      data-testid="user-create-card"
+    >
+      <div class="mb-4 flex items-center gap-3">
+        <img
+          src="honcho-logo.svg"
+          alt="Honcho Logo"
+          class="h-10 w-10 object-cover"
+          style="border-radius: var(--radius)"
+        />
+        <div>
+          <h1 class="th-display text-2xl font-bold tracking-wider" style="color: var(--accent)">
+            NEW USER
+          </h1>
+          <p class="text-xs opacity-70">Create a Honcho Inspector account for another operator</p>
+        </div>
+      </div>
+
+      <ol class="mb-6 flex items-center gap-2" aria-label="user create steps">
+        @for (n of [1, 2, 3, 4]; track n) {
+          <li class="flex flex-1 items-center gap-2">
+            <span
+              class="flex h-7 w-7 items-center justify-center text-xs font-bold uppercase"
+              style="border-radius: var(--radius)"
+              [style.background]="step() >= n ? 'var(--accent)' : 'transparent'"
+              [style.color]="step() >= n ? 'var(--bg)' : 'var(--text-dim)'"
+              [style.border]="'2px solid var(--accent)'"
+            >
+              {{ n }}
+            </span>
+            <span class="text-[10px] font-bold uppercase tracking-widest opacity-70">
+              @switch (n) {
+                @case (1) {
+                  Welcome
+                }
+                @case (2) {
+                  Account
+                }
+                @case (3) {
+                  Identity
+                }
+                @case (4) {
+                  Role
+                }
+              }
+            </span>
+            @if (n < 4) {
+              <span class="mx-1 h-px flex-1" style="background: var(--accent); opacity: 0.3"></span>
+            }
+          </li>
+        }
+      </ol>
+
+      @switch (step()) {
+        @case (1) {
+          <div class="space-y-4" data-testid="user-create-step-1">
+            <p class="text-sm">
+              This wizard creates another Honcho Inspector user. Two role choices are
+              available:
+            </p>
+            <ul
+              class="space-y-2 border-2 p-4 text-sm"
+              style="
+                border-radius: var(--radius);
+                border-color: var(--accent);
+                background: color-mix(in srgb, var(--accent) 5%, transparent);
+              "
+            >
+              <li>
+                <strong>Standard user</strong> &mdash; can sign in, view peers / sessions /
+                representations / conclusions, and run their own Honcho queries through
+                profiles they own. No access to /admin.
+              </li>
+              <li>
+                <strong>Admin</strong> &mdash; everything above, plus
+                <code class="font-mono">/admin</code>: user management, audit log, dashboard
+                overview, and Honcho reachability probes. At least one admin must always
+                exist; the last admin cannot be demoted or deleted.
+              </li>
+            </ul>
+
+            <div
+              class="border-2 p-4 text-xs"
+              style="
+                border-radius: var(--radius);
+                border-color: var(--accent);
+                color: var(--accent);
+                background: color-mix(in srgb, var(--accent) 10%, transparent);
+              "
+              data-testid="user-create-mcp-block"
+            >
+              <div class="mb-2 font-bold uppercase tracking-widest opacity-80">
+                Honcho MCP service
+              </div>
+              <p class="mb-2 opacity-90">
+                The new user will sign in with the Honcho MCP service configured for this
+                deployment. The MCP block is the same one
+                <code class="font-mono">~/.config/opencode/opencode.json</code> advertises:
+              </p>
+              <dl
+                class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 font-mono"
+                style="font-size: 11px"
+              >
+                <dt class="opacity-70">URL</dt>
+                <dd>https://mcp.honcho.cloudbsd.org/</dd>
+                <dt class="opacity-70">Header</dt>
+                <dd>Authorization: Bearer &lt;JWT&gt;</dd>
+                <dt class="opacity-70">Header</dt>
+                <dd>X-Honcho-User-Name: mlapointe</dd>
+              </dl>
+              <p class="mt-2 opacity-90">
+                The new Inspector username becomes the Honcho peer identifier the new user
+                uses on the workspace &mdash; match the X-Honcho-User-Name above for an
+                existing identity, or pick any new one if Honcho will create it on first
+                contact.
+              </p>
+            </div>
+          </div>
+        }
+
+        @case (2) {
+          <form [formGroup]="form" class="space-y-4" data-testid="user-create-step-2">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label class="block sm:col-span-2">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Username <span style="color: var(--danger)">*</span>
+                </span>
+                <input
+                  formControlName="username"
+                  type="text"
+                  autocomplete="off"
+                  data-testid="user-create-username"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text)"
+                  placeholder="alice"
+                />
+                <span class="mt-1 block text-[10px] opacity-70">
+                  2+ characters. Becomes the Honcho peer identifier for this user.
+                </span>
+              </label>
+
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Password <span style="color: var(--danger)">*</span>
+                </span>
+                <div class="relative">
+                  <input
+                    formControlName="password"
+                    [type]="showPassword() ? 'text' : 'password'"
+                    autocomplete="new-password"
+                    data-testid="user-create-password"
+                    class="w-full th-surface th-border border-2 px-3 py-2 pr-10 outline-none focus:th-glow"
+                    style="border-radius: var(--radius); color: var(--text)"
+                    placeholder="8+ characters"
+                  />
+                  <button
+                    type="button"
+                    (click)="showPassword.set(!showPassword())"
+                    [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+                    [attr.aria-pressed]="showPassword()"
+                    data-testid="user-create-password-toggle"
+                    class="absolute inset-y-0 right-0 flex items-center px-3 opacity-70 hover:opacity-100 focus:outline-none focus:opacity-100"
+                    style="color: var(--text-dim)"
+                  >
+                    @if (showPassword()) {
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                        />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    } @else {
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    }
+                  </button>
+                </div>
+              </label>
+
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Confirm password <span style="color: var(--danger)">*</span>
+                </span>
+                <div class="relative">
+                  <input
+                    formControlName="confirm"
+                    [type]="showConfirm() ? 'text' : 'password'"
+                    autocomplete="new-password"
+                    data-testid="user-create-confirm"
+                    class="w-full th-surface th-border border-2 px-3 py-2 pr-10 outline-none focus:th-glow"
+                    style="border-radius: var(--radius); color: var(--text)"
+                  />
+                  <button
+                    type="button"
+                    (click)="showConfirm.set(!showConfirm())"
+                    [attr.aria-label]="
+                      showConfirm() ? 'Hide confirm password' : 'Show confirm password'
+                    "
+                    [attr.aria-pressed]="showConfirm()"
+                    data-testid="user-create-confirm-toggle"
+                    class="absolute inset-y-0 right-0 flex items-center px-3 opacity-70 hover:opacity-100 focus:outline-none focus:opacity-100"
+                    style="color: var(--text-dim)"
+                  >
+                    @if (showConfirm()) {
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                        />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    } @else {
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    }
+                  </button>
+                </div>
+                @if (confirmTouched() && !passwordsMatch()) {
+                  <span
+                    class="mt-1 flex items-center gap-1 text-[10px]"
+                    style="color: var(--danger)"
+                    data-testid="user-create-password-mismatch"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    Passwords do not match
+                  </span>
+                } @else if (confirmTouched() && passwordsMatch()) {
+                  <span
+                    class="mt-1 flex items-center gap-1 text-[10px]"
+                    style="color: var(--success)"
+                    data-testid="user-create-password-match"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Passwords match
+                  </span>
+                }
+              </label>
+            </div>
+          </form>
+        }
+
+        @case (3) {
+          <form [formGroup]="form" class="space-y-4" data-testid="user-create-step-3">
+            <p class="text-sm">
+              Identity fields are <strong>optional</strong>. They are stored on the
+              Honcho Inspector user record and surfaced in the admin user list. They do
+              <strong>not</strong> map to Honcho peer identifiers (the username from
+              step 2 is the peer identifier).
+            </p>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  First name
+                </span>
+                <input
+                  formControlName="firstname"
+                  type="text"
+                  autocomplete="given-name"
+                  data-testid="user-create-firstname"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text)"
+                />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Last name
+                </span>
+                <input
+                  formControlName="lastname"
+                  type="text"
+                  autocomplete="family-name"
+                  data-testid="user-create-lastname"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text)"
+                />
+              </label>
+              <label class="block sm:col-span-2">
+                <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">
+                  Email
+                </span>
+                <input
+                  formControlName="email"
+                  type="email"
+                  autocomplete="email"
+                  data-testid="user-create-email"
+                  class="w-full th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
+                  style="border-radius: var(--radius); color: var(--text)"
+                  placeholder="alice@example.com"
+                />
+              </label>
+            </div>
+          </form>
+        }
+
+        @case (4) {
+          <div class="space-y-4" data-testid="user-create-step-4">
+            <div
+              class="border-2 p-4"
+              style="
+                border-radius: var(--radius);
+                border-color: var(--accent);
+                background: color-mix(in srgb, var(--accent) 5%, transparent);
+              "
+            >
+              <div class="mb-3 text-xs font-bold uppercase tracking-widest opacity-80">
+                Role
+              </div>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  (click)="isAdmin.set(false)"
+                  [attr.aria-pressed]="!isAdmin()"
+                  data-testid="user-create-role-user"
+                  class="flex-1 border-2 px-3 py-3 text-left"
+                  [style.borderColor]="!isAdmin() ? 'var(--accent)' : 'var(--border)'"
+                  [style.background]="!isAdmin() ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'transparent'"
+                  style="border-radius: var(--radius)"
+                >
+                  <div class="text-xs font-bold uppercase tracking-widest opacity-80">
+                    Standard user
+                  </div>
+                  <div class="mt-1 text-[10px] opacity-70">
+                    Sign in + read Honcho data through their own profiles. No /admin.
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  (click)="isAdmin.set(true)"
+                  [attr.aria-pressed]="isAdmin()"
+                  data-testid="user-create-role-admin"
+                  class="flex-1 border-2 px-3 py-3 text-left"
+                  [style.borderColor]="isAdmin() ? 'var(--accent)' : 'var(--border)'"
+                  [style.background]="isAdmin() ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'transparent'"
+                  style="border-radius: var(--radius)"
+                >
+                  <div class="text-xs font-bold uppercase tracking-widest opacity-80">
+                    Admin
+                  </div>
+                  <div class="mt-1 text-[10px] opacity-70">
+                    Full read + admin user / audit / dashboard / maintenance. The last
+                    admin cannot be demoted.
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <p class="text-sm">Review and confirm:</p>
+            <dl
+              class="grid grid-cols-2 gap-3 border-2 p-4 text-sm"
+              style="
+                border-radius: var(--radius);
+                border-color: var(--accent);
+                background: color-mix(in srgb, var(--accent) 5%, transparent);
+              "
+            >
+              <dt class="opacity-60">Username (Honcho peer id)</dt>
+              <dd class="font-mono">{{ username() || '—' }}</dd>
+              <dt class="opacity-60">First name</dt>
+              <dd class="font-mono">{{ firstname() || '—' }}</dd>
+              <dt class="opacity-60">Last name</dt>
+              <dd class="font-mono">{{ lastname() || '—' }}</dd>
+              <dt class="opacity-60">Email</dt>
+              <dd class="font-mono">{{ email() || '—' }}</dd>
+              <dt class="opacity-60">Role</dt>
+              <dd class="font-mono" style="color: var(--accent)">
+                {{ isAdmin() ? 'admin' : 'standard user' }}
+              </dd>
+            </dl>
+          </div>
+        }
+      }
+
+      @if (error(); as e) {
+        <div
+          class="mt-4 border-2 px-3 py-2 text-sm th-pulse"
+          data-testid="user-create-error"
+          [style.borderColor]="'var(--danger)'"
+          [style.color]="'var(--danger)'"
+          style="
+            border-radius: var(--radius);
+            background: color-mix(in srgb, var(--danger) 10%, transparent);
+          "
+        >
+          {{ e }}
+        </div>
+      }
+
+      <div class="mt-6 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          (click)="dismiss()"
+          [disabled]="submitting()"
+          data-testid="user-create-cancel"
+          class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+          style="border-radius: var(--radius)"
+        >
+          Cancel
+        </button>
+        <div class="flex gap-2">
+          @if (step() > 1) {
+            <button
+              type="button"
+              (click)="back()"
+              [disabled]="submitting()"
+              data-testid="user-create-back"
+              class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
+              style="border-radius: var(--radius)"
+            >
+              Back
+            </button>
+          }
+          @if (step() < 4) {
+            <button
+              type="button"
+              (click)="next()"
+              [disabled]="!canAdvance()"
+              data-testid="user-create-next"
+              class="px-6 py-2 th-border border-2 th-gradient font-bold uppercase tracking-widest disabled:opacity-50"
+              style="border-radius: var(--radius); color: var(--bg)"
+            >
+              Next
+            </button>
+          } @else {
+            <button
+              type="button"
+              (click)="submit()"
+              [disabled]="submitting()"
+              data-testid="user-create-submit"
+              class="px-6 py-2 th-border border-2 th-gradient font-bold uppercase tracking-widest disabled:opacity-50"
+              style="border-radius: var(--radius); color: var(--bg)"
+            >
+              @if (submitting()) {
+                Creating...
+              } @else {
+                Create user
+              }
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}

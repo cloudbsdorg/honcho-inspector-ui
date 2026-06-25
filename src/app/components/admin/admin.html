@@ -134,48 +134,25 @@
       @case ('users') {
         <div class="space-y-4" data-testid="admin-users">
           <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
-            <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">Create user</h2>
-            <form
-              class="grid grid-cols-1 gap-3 sm:grid-cols-4"
-              (submit)="$event.preventDefault(); createUser()"
-            >
-              <input
-                [value]="newUsername()"
-                (input)="newUsername.set($any($event.target).value)"
-                placeholder="username"
-                autocomplete="off"
-                data-testid="admin-new-username"
-                class="th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
-                style="border-radius: var(--radius); color: var(--text)"
-              />
-              <input
-                [value]="newPassword()"
-                (input)="newPassword.set($any($event.target).value)"
-                placeholder="password (8+)"
-                type="password"
-                autocomplete="new-password"
-                data-testid="admin-new-password"
-                class="th-surface th-border border-2 px-3 py-2 outline-none focus:th-glow"
-                style="border-radius: var(--radius); color: var(--text)"
-              />
-              <label class="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  [checked]="newIsAdmin()"
-                  (change)="newIsAdmin.set($any($event.target).checked)"
-                />
-                Admin
-              </label>
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <h2 class="text-xs font-bold uppercase tracking-widest opacity-80">Create user</h2>
               <button
-                type="submit"
+                type="button"
+                (click)="openUserCreateWizard()"
                 [disabled]="busy()"
-                data-testid="admin-create"
+                data-testid="admin-open-user-create"
                 class="px-3 py-2 th-border border-2 th-gradient font-bold uppercase tracking-widest disabled:opacity-50"
                 style="border-radius: var(--radius); color: var(--bg)"
               >
-                Create
+                + New user
               </button>
-            </form>
+            </div>
+            <p class="text-xs opacity-70">
+              A multi-step wizard collects username, password, optional identity, and
+              role. The Honcho MCP service block on the first step shows the X-Honcho-User-Name
+              header the new user will need to map their Inspector account onto a real
+              Honcho peer identifier.
+            </p>
           </div>
 
           <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
@@ -534,4 +511,10 @@
       }
     }
   </div>
+
+  <app-user-create-wizard
+    [open]="userCreateWizardOpen()"
+    (completed)="onUserCreateCompleted($event)"
+    (dismissed)="onUserCreateDismissed()"
+  />
 </div>

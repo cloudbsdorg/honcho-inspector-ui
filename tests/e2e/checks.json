@@ -1,8 +1,6 @@
 {
-  "new-profile-button": "PRESENT",
-  "label-input": "PRESENT",
-  "apikey-input": "PRESENT",
-  "baseurl-input": "PRESENT",
-  "workspaceid-input": "PRESENT",
-  "honchousername-input": "PRESENT"
+  "admin-open-user-create": "PRESENT",
+  "user-create-welcome": "PRESENT",
+  "user-create-password-match": "PRESENT",
+  "user-create-submit": "PRESENT"
 }

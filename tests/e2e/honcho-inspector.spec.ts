@@ -233,6 +233,81 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     });
   }
 
+  test('05a User-create wizard renders and submits a new admin', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByTestId('login-username').fill(USERNAME);
+    await page.getByTestId('login-password').fill(PASSWORD);
+    await page.getByTestId('login-submit').click();
+    await page.waitForURL(/\/profiles/, { timeout: 15_000 });
+    await page.getByTestId('set-active').first().click().catch(() => undefined);
+
+    await page.goto('/admin');
+    await page.getByTestId('admin-tab-users').click();
+    await check(page, 'admin-open-user-create', '[data-testid="admin-open-user-create"]');
+    await shot(page, '05a-admin-users-with-open-button.png');
+
+    // Open the wizard and capture each step's screen so a regression
+    // captures a known-good visual baseline.
+    await page.getByTestId('admin-open-user-create').click();
+    // Wait for the wizard to mount its step-1 DOM before asserting.
+    // The Open signal change happens synchronously but the Angular
+    // CD pass that renders the @switch case runs in the next tick.
+    await page.waitForSelector('[data-testid="user-create-mcp-block"]', {
+      timeout: 5_000,
+    });
+    await check(
+      page,
+      'user-create-welcome',
+      '[data-testid="user-create-mcp-block"]'
+    );
+    await shot(page, '05a-user-create-step1-welcome.png');
+
+    // Step 1 -> 2: Welcome -> Account
+    await page.getByTestId('user-create-next').click();
+    await page
+      .getByTestId('user-create-username')
+      .fill(`e2e-wizard-${Date.now().toString(36)}`);
+    await page.getByTestId('user-create-password').fill('longenough');
+    await page.getByTestId('user-create-confirm').fill('longenough');
+    await check(
+      page,
+      'user-create-password-match',
+      '[data-testid="user-create-password-match"]'
+    );
+    await shot(page, '05a-user-create-step2-account-filled.png');
+    await page.getByTestId('user-create-next').click();
+
+    // Step 2 -> 3: Account -> Identity (optional fields, leave blank)
+    await page
+      .getByTestId('user-create-email')
+      .fill('e2e-wizard@cloudbsd.org');
+    await shot(page, '05a-user-create-step3-identity.png');
+    await page.getByTestId('user-create-next').click();
+
+    // Step 3 -> 4: Identity -> Role/Review (choose admin so the user
+    // has parity with the bootstrap admin).
+    await page.getByTestId('user-create-role-admin').click();
+    await check(
+      page,
+      'user-create-submit',
+      '[data-testid="user-create-submit"]'
+    );
+    await shot(page, '05a-user-create-step4-review.png');
+
+    // Submit and expect the wizard to close (the admin-open-user-create
+    // button is back on screen).
+    await page.getByTestId('user-create-submit').click();
+    await page.waitForSelector('[data-testid="admin-open-user-create"]', {
+      timeout: 15_000,
+    });
+    await check(
+      page,
+      'admin-open-user-create',
+      '[data-testid="admin-open-user-create"]'
+    );
+    await shot(page, '05a-user-create-after-submit.png');
+  });
+
   test('06 Header logout clears session and ends on /login', async ({ page }) => {
     await page.goto('/login');
     await page.getByTestId('login-username').fill(USERNAME);
