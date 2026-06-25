@@ -204,4 +204,24 @@ describe('ProfileSelector', () => {
     expect(component.form.controls['label'].value).toBe('alice-workspace');
     expect(component.form.controls['apiKey'].value).toBe('');
   });
+
+  it('validate() reports ONLY the actually-missing field, not all four', async () => {
+    // Granular error reporting: a fresh form has only apiKey blank,
+    // so the error must say "API key is required" — not the old
+    // misleading four-field message.
+    component.openCreate();
+    expect(component.form.controls['apiKey'].value).toBe('');
+    await component.validate();
+    expect(component.validateResult()?.ok).toBe(false);
+    expect(component.validateResult()?.error).toBe('API key is required to validate');
+  });
+
+  it('validate() lists multiple missing fields when several are blank', async () => {
+    component.openCreate();
+    component.form.patchValue({ apiKey: '', baseUrl: '', honchoUserName: '' });
+    await component.validate();
+    expect(component.validateResult()?.error).toBe(
+      'API key, Base URL, Honcho user name are required to validate',
+    );
+  });
 });

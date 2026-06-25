@@ -148,17 +148,24 @@ export class ProfileSelector {
       workspaceId: string;
       honchoUserName: string;
     };
-    // Validate only requires the connectivity fields; missing label
-    // is fine because nothing is being saved.
-    if (
-      !value.apiKey?.trim() ||
-      !value.baseUrl?.trim() ||
-      !value.workspaceId?.trim() ||
-      !value.honchoUserName?.trim()
-    ) {
+    // Identify every missing field by name so the operator sees
+    // exactly what they still need to fill in. The form pre-fills
+    // label / honchoUserName / baseUrl / workspaceId from sensible
+    // defaults, so in practice the only field that ever shows up
+    // in this list is apiKey — but we keep the granular error so a
+    // user who manually clears a pre-filled field is told exactly
+    // which one.
+    const missing: string[] = [];
+    if (!value.apiKey?.trim()) missing.push('API key');
+    if (!value.baseUrl?.trim()) missing.push('Base URL');
+    if (!value.workspaceId?.trim()) missing.push('Workspace ID');
+    if (!value.honchoUserName?.trim()) missing.push('Honcho user name');
+    if (missing.length > 0) {
+      const list = missing.join(', ');
+      const verb = missing.length === 1 ? 'is' : 'are';
       this.validateResult.set({
         ok: false,
-        error: 'API key, base URL, workspace ID, and Honcho user name are all required to validate',
+        error: `${list} ${verb} required to validate`,
       });
       return;
     }
