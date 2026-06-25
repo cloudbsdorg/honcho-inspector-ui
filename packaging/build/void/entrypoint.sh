@@ -41,7 +41,7 @@ VERSION="0.1.0-SNAPSHOT_1"
 # /bin/sh is dash, not bash.
 XBPS_VERSION="$(printf '%s' "${VERSION}" | tr '-' '~')"
 ARCH="x86_64"
-ARTIFACT_NAME="${PROJECT}-${XBPS_VERSION}_1.${ARCH}.xbps"
+ARTIFACT_NAME="${PROJECT}-${XBPS_VERSION}.${ARCH}.xbps"
 ARTIFACT_PATH="/out/${ARTIFACT_NAME}"
 MAINTAINER="cloudBSD <admin@cloudbsd.org>"
 MAINTAINER_EMAIL="admin@cloudbsd.org"
@@ -271,7 +271,7 @@ cp "$INSTALL_SCRIPT" "$STAGE/INSTALL"
 cd "$(dirname "$ARTIFACT_PATH")"
 xbps-create \
     -A "$ARCH" \
-    -n "${PROJECT}-${XBPS_VERSION}_1" \
+    -n "${PROJECT}-${XBPS_VERSION}" \
     -s "Honcho Inspector UI (Angular 22 dashboard) for Void Linux" \
     -l "BSD-3-Clause" \
     -m "$MAINTAINER <$MAINTAINER_EMAIL>" \
@@ -281,7 +281,7 @@ xbps-create \
     --tags "angular dashboard honcho web ui" \
     "$STAGE"
 
-XBPS_FILE="${PROJECT}-${XBPS_VERSION}_1.${ARCH}.xbps"
+XBPS_FILE="${PROJECT}-${XBPS_VERSION}.${ARCH}.xbps"
 if [ ! -f "${XBPS_FILE}" ]; then
     echo "FATAL: xbps-create did not produce ${XBPS_FILE}" >&2
     exit 1

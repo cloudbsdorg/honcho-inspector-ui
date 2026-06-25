@@ -256,7 +256,7 @@ setpriv --reuid="${NOBODY_UID}" --regid="${NOBODY_GID}" --clear-groups -- \
         PKGDEST="${STAGE}" \
         BUILDDIR="${STAGE}" \
         SRCDEST="${STAGE}" \
-    bash -c "cd '${STAGE}' && fakeroot -- makepkg -s -f --noconfirm --skippgpcheck --nocolor"
+    bash -c "cd '${STAGE}' && makepkg -s -f --noconfirm --skippgpcheck --nocolor"
 
 # --- 4. Move the artifact to /out --------------------------------
 # makepkg writes honcho-inspector-ui-0.1.0.SNAPSHOT-1-x86_64.pkg.tar.zst

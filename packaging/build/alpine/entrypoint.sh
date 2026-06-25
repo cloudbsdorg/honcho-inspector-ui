@@ -26,7 +26,7 @@ VERSION="0.1.0-SNAPSHOT"
 ARCH="all"
 MAINTAINER="cloudBSD <admin@cloudbsd.org>"
 
-ARTIFACT_NAME="${PROJECT}_${VERSION}.apk"
+ARTIFACT_NAME="${PROJECT}-${VERSION}.apk"
 ARTIFACT_PATH="/out/${ARTIFACT_NAME}"
 
 # --- 0. Sanity-check the bind mounts ----------------------------

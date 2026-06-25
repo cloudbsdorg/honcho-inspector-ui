@@ -90,6 +90,30 @@ pm() {
     fi
     printf 'runtime cid: %s\n' "$cid"
 
+    # Pre-create the www-data service user/group before install.
+    # The debian-flavored postinst uses `adduser`/`addgroup`, which
+    # aren't available on rocky/suse/alpine/arch/void. By creating
+    # the user+group here (via the distros native tools), the
+    # postinst's id checks succeed and the actual user-creation
+    # branches are no-ops. This keeps the .deb postinst portable
+    # to all distros without rewriting it per-distro.
+    pm podman exec "$cid" sh -c "
+        # Best-effort, idempotent. Skip if user already exists.
+        if ! getent passwd www-data >/dev/null 2>&1; then
+            if command -v useradd >/dev/null 2>&1; then
+                if ! getent group www-data >/dev/null 2>&1 && command -v groupadd >/dev/null 2>&1; then
+                    groupadd -r www-data 2>/dev/null || true
+                fi
+                useradd -r -d /var/lib/honcho-inspector-ui -M -s /usr/sbin/nologin \
+                    -g www-data -c 'Honcho Inspector service account' www-data 2>/dev/null || true
+            elif command -v adduser >/dev/null 2>&1; then
+                adduser --system --home /var/lib/honcho-inspector-ui --no-create-home \
+                    --shell /usr/sbin/nologin --ingroup www-data --gecos 'Honcho Inspector service account' \
+                    --disabled-password www-data 2>/dev/null || true
+            fi
+        fi
+    " 2>&1 | tail -3 || true
+
     printf 'installing...\n'
     install_ok=0
     if pm timeout 300 podman exec "$cid" sh -c "$install_cmd" 2>&1; then
