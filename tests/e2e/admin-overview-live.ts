@@ -1,8 +1,14 @@
 import { chromium } from '@playwright/test';
 
 const BASE_URL = process.env['BASE_URL'] ?? 'http://127.0.0.1:4200';
-const USERNAME = 'admin';
-const PASSWORD = 'cloudbsd-admin-2026';
+const USERNAME = process.env['HONCHO_ADMIN_USERNAME'] ?? 'admin';
+const PASSWORD = process.env['HONCHO_ADMIN_PASSWORD'] ?? '';
+if (!PASSWORD) {
+  throw new Error(
+    'HONCHO_ADMIN_PASSWORD env var is required (the password the bootstrap wrote to ' +
+      '/etc/honcho-inspector/honcho.bootstrap.admin, or your smoke container password).',
+  );
+}
 
 async function runSetupWizard(page: import('@playwright/test').Page) {
   console.log('[admin-overview-live] running setup wizard');
@@ -59,15 +65,15 @@ async function runSetupWizard(page: import('@playwright/test').Page) {
     await page.waitForURL(/\/profiles/, { timeout: 30_000 });
   }
 
-  const sessionId = await page.evaluate(async (baseUrl) => {
+  const sessionId = await page.evaluate(async ([baseUrl, username, password]) => {
     const r = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'cloudbsd-admin-2026' }),
+      body: JSON.stringify({ username, password }),
     });
     const d = await r.json();
     return d.sessionId;
-  }, BASE_URL);
+  }, [BASE_URL, USERNAME, PASSWORD] as const);
   const createStatus = await page.evaluate(async ([baseUrl, sid]) => {
     const r = await fetch(`${baseUrl}/api/profiles`, {
       method: 'POST',
@@ -75,7 +81,7 @@ async function runSetupWizard(page: import('@playwright/test').Page) {
       body: JSON.stringify({
         label: 'Smoke Test Profile',
         apiKey: 'sk-test-regression-key-2026',
-        baseUrl: 'https://mcp.honcho.example',
+        baseUrl: 'https://honcho.example',
         workspaceId: 'default',
         honchoUserName: 'admin',
         active: true,

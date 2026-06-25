@@ -34,7 +34,7 @@ const SAMPLE: Profile = {
   userId: 'u1',
   label: 'Personal',
   apiKeyEncrypted: 'ZmFrZS1lbmNyeXB0ZWQ=',
-  baseUrl: 'https://mcp.honcho.example',
+  baseUrl: 'https://honcho.example',
   workspaceId: 'default',
   honchoUserName: 'alice',
   createdAt: '2026-01-01T00:00:00Z',
@@ -75,7 +75,7 @@ describe('ProfileService', () => {
       expect(JSON.parse(init!.body as string)).toEqual({
         label: 'Work',
         apiKey: 'hnc_test_key',
-        baseUrl: 'https://mcp.honcho.example',
+        baseUrl: 'https://honcho.example',
         workspaceId: 'ws-work',
         honchoUserName: 'alice',
       });
@@ -84,7 +84,7 @@ describe('ProfileService', () => {
     const created = await profiles.create({
       label: 'Work',
       apiKey: 'hnc_test_key',
-      baseUrl: 'https://mcp.honcho.example',
+      baseUrl: 'https://honcho.example',
       workspaceId: 'ws-work',
       honchoUserName: 'alice',
     });

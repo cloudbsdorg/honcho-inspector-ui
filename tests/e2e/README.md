@@ -46,7 +46,7 @@ Both are read by both the spec and `playwright.config.ts`.
 ### Tolerances (intentional)
 
 - **API failures are tolerated.** The smoke profile registers a
-  Honcho connection whose `baseUrl` is `https://mcp.honcho.example`
+  Honcho connection whose `baseUrl` is `https://honcho.example`
   — a fake URL the smoke proxy can't reach. The UI shows the
   failure in a banner / empty-state pane. That is expected and
   covered by the assertions; the test never requires the upstream
@@ -89,7 +89,7 @@ password        cloudbsd-admin-2026
 workspaceId     default
 honchoUserName  admin
 apiKey          sk-test-regression-key-2026
-baseUrl         https://mcp.honcho.example
+baseUrl         https://honcho.example
 ```
 
 They are baked into the spec as `USERNAME`, `PASSWORD`, and the

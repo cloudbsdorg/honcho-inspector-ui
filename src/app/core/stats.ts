@@ -211,22 +211,41 @@ export function topNByCount<T>(
  * Helper: the wall-clock date label for a bucket's start time, e.g.
  * `2026-06-23 14:00` for hourly buckets, `2026-06-23` for daily.
  * Formatting is intentionally compact (no seconds/minutes) so it
- * reads cleanly under a chart axis.
+ * reads cleanly under a chart axis. Uses the runtime locale via
+ * {@link Intl.DateTimeFormat}; in non-browser contexts (e.g. SSR
+ * or tests) falls back to `en-US`.
  */
 export function bucketLabel(startMs: number, granularity: Granularity): string {
-  const d = new Date(startMs);
-  const pad = (n: number) => String(n).padStart(2, '0');
+  const locale =
+    (typeof navigator !== 'undefined' && navigator.language) || 'en-US';
+  const minuteFmt = new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const hourFmt = new Intl.DateTimeFormat(locale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false,
+  });
+  const dayFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
   if (
     granularity === '1m' ||
     granularity === '5m' ||
     granularity === '15m' ||
     granularity === '30m'
   ) {
-    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return minuteFmt.format(new Date(startMs));
   }
   if (granularity === '1h' || granularity === '6h' || granularity === '12h') {
-    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`;
+    return hourFmt.format(new Date(startMs));
   }
-  // 1d / 1w / 1mo: date only
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return dayFmt.format(new Date(startMs));
 }

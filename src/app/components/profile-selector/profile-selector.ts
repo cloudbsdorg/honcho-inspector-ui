@@ -72,7 +72,7 @@ export class ProfileSelector {
     this.form.reset({
       label: '',
       apiKey: '',
-      baseUrl: 'https://mcp.honcho.example',
+      baseUrl: 'https://honcho.example',
       workspaceId: 'default',
       honchoUserName: '',
     });

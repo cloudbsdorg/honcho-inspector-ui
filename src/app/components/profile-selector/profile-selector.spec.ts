@@ -32,7 +32,7 @@ const PROFILE_A: Profile = {
   userId: 'u-1',
   label: 'Personal',
   apiKeyEncrypted: 'ZW5j',
-  baseUrl: 'https://mcp.honcho.example',
+  baseUrl: 'https://honcho.example',
   workspaceId: 'default',
   honchoUserName: 'alice',
   createdAt: '2026-01-01T00:00:00Z',

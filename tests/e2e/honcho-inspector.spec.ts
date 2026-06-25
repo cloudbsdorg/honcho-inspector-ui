@@ -24,7 +24,7 @@ const PASSWORD = 'cloudbsd-admin-2026';
 const PROFILE = {
   label: 'Smoke Test Profile',
   apiKey: 'sk-test-regression-key-2026',
-  baseUrl: 'https://mcp.honcho.example',
+  baseUrl: 'https://honcho.example',
   workspaceId: 'default',
   honchoUserName: 'admin',
 } as const;
