@@ -160,7 +160,7 @@ ARTIFACT_backend_void="honcho-inspector-backend-0.1.0-SNAPSHOT_1.x86_64.xbps"
 ARTIFACT_ui_debian="honcho-inspector-ui_0.1.0-SNAPSHOT_all.deb"
 ARTIFACT_ui_rocky="honcho-inspector-ui-0.1.0-SNAPSHOT-1.noarch.rpm"
 ARTIFACT_ui_suse="honcho-inspector-ui-0.1.0-SNAPSHOT-1.noarch.rpm"
-ARTIFACT_ui_alpine="honcho-inspector-ui-0.1.0-SNAPSHOT.apk"
+ARTIFACT_ui_alpine="honcho-inspector-ui-0.1.0a.apk"
 ARTIFACT_ui_arch="honcho-inspector-ui-0.1.0.SNAPSHOT-1-x86_64.pkg.tar.zst"
 ARTIFACT_ui_void="honcho-inspector-ui-0.1.0~SNAPSHOT_1.x86_64.xbps"
 

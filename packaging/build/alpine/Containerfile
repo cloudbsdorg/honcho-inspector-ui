@@ -3,88 +3,46 @@
 # Source base image:
 #   docker.io/library/alpine:3.23 -- Alpine ships Node 22 LTS in
 #   v3.23 main (Node 22.23.0); we use that as the base. Alpine is
-#   musl-based (vs glibc for the other distros in this matrix), so
-#   fpm's gem dependencies and the Node binary built for musl must
-#   both be installed. Alpine is the smallest base image we use
-#   (~5 MB compressed), which keeps the build cache and CI pull
-#   bandwidth low.
+#   musl-based (vs glibc for the other distros in this matrix).
 #
-# Why a third-party repo (Alpine v3.23/community) is added on demand:
-#   v3.23 main ships Node 22 LTS only; if a future Angular release
-#   needs Node 24, v3.23/community has nodejs-current tracking the
-#   latest. We keep the repo entry transient via the inline
-#   `--repository=` flag so it doesn't pollute /etc/apk/repositories.
+# We do NOT use fpm to build the apk -- fpm 1.17's apk builder is
+# rejected by apk-tools 3.x with "unexpected end of file". Instead
+# we invoke `apk mkpkg` directly. apk-tools is preinstalled in the
+# Alpine base image so no extra install is required.
 #
 # Artifact produced:
-#   honcho-inspector-ui-0.1.0-SNAPSHOT.apk (a fpm-built .apk via
-#   `fpm -s dir -t apk`). Written to /out at run time via the
-#   bind-mount contract:
+#   honcho-inspector-ui-0.1.0-SNAPSHOT.apk
+#   Written to /out at run time via the bind-mount contract:
 #
 #     podman run --rm \
 #       -v $PWD:/src:ro -v $PWD/../dist:/out:rw \
 #       --env HOST_UID=$(id -u) --env HOST_GID=$(id -g) \
 #       honcho-inspector-ui:builder-alpine
-#
-#   HOST_UID/HOST_GID default to 0:0; the entrypoint chowns the
-#   artifact back to the invoking user.
 
-# ====== build =====================================================
 FROM docker.io/library/alpine:3.23
 
 LABEL org.opencontainers.image.title="honcho-inspector-ui:builder-alpine" \
-      org.opencontainers.image.description="Honcho Inspector UI APK package builder (Alpine 3.23 + Node 22 + fpm)" \
+      org.opencontainers.image.description="Honcho Inspector UI APK package builder (Alpine 3.23 + Node 22 + apk mkpkg)" \
       org.opencontainers.image.source="https://github.com/cloudbsdorg/honcho-inspector-ui" \
       org.opencontainers.image.licenses="BSD-3-Clause"
 
 ARG HOST_UID=0
 ARG HOST_GID=0
 
-# Install in two passes:
-#   1. The native build toolchain + Ruby from main -- no edge repo
-#      needed; ruby 3.4.4 and build-base are in 3.22 main.
-#   2. nodejs24 + npm24 from edge/community via the inline
-#      --repository flag (transient repo, not persisted to
-#      /etc/apk/repositories).
-# We pin to the edge/community URL explicitly so the apk index is
-# fetched from the CDN for this install only.
-RUN set -eux \
- && apk add --no-cache \
-        ruby \
-        ruby-dev \
-        build-base \
-        rpm \
-        libffi-dev \
-        openssl-dev \
-        shadow \
-        python3 \
- && apk add --no-cache \
-        --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community \
+RUN apk add --no-cache \
         nodejs \
         npm \
- && gem install --no-document fpm \
- && rm -rf /var/cache/apk/* /root/.gem
+        shadow \
+        bash \
+        git \
+ && rm -rf /var/cache/apk/*
 
-# Patch fpm 1.17's apk.rb to fix the cut_tar_record EOF-raise bug.
-# Newer Ruby's stdlib tar generator omits the 1KB end-of-archive
-# marker; fpm's apk.rb raises "Invalid tar stream, eof before
-# end-of-tar record" when scanning for it. Replace the buggy scan
-# loop with a simple file copy so the cut stops at the actual end
-# of file. (Fixed in fpm upstream; revisit when a release lands.)
-COPY packaging/build/alpine/patch-fpm-apk.py /usr/local/bin/patch-fpm-apk.py
-RUN APK_RB="$(find /usr/lib/ruby /usr/local/lib/ruby -name apk.rb -path '*/fpm-1.17.0/*' 2>/dev/null | head -1)"; \
-    if [ -n "$APK_RB" ]; then \
-        python3 /usr/local/bin/patch-fpm-apk.py "$APK_RB"; \
-    fi
-
-# Bake the build entrypoint.
 COPY packaging/build/alpine/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 0755 /usr/local/bin/entrypoint.sh
 
-# Smoke-check the toolchain.
 RUN node --version \
  && npm --version \
- && ruby --version \
- && fpm --version
+ && apk --version
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD []

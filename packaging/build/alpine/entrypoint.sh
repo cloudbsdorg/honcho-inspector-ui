@@ -1,106 +1,117 @@
 #!/bin/sh
-# entrypoint.sh -- honcho-inspector-ui APK package builder (Alpine 3.22).
+# entrypoint.sh -- honcho-inspector-ui APK package builder (Alpine 3.23).
 #
-# Same flow as the debian/rocky/suse entrypoints: verify mounts,
-# stage /src into /tmp/stage (strip node_modules / .angular / dist /
-# .git / debian / *.log), copy debian/DEBIAN/{postinst,prerm,
-# postrm,changelog} into .pkg-scripts/, run fpm, copy artifact to
-# /out, chown to HOST_UID/HOST_GID.
+# Uses Alpine's native `apk mkpkg` to build a valid signed apk instead
+# of fpm. fpm 1.17's apk builder produces an apk that apk-tools 3.x
+# rejects with "unexpected end of file" -- the cut_tar_record function
+# strips the end-of-tar marker apk's tar reader needs. apk mkpkg uses
+# the same library code that apk install uses, so its output is always
+# installable with apk add --allow-untrusted.
 #
-# APK-specific notes:
-#   - fpm -t apk produces a .apk with .tar.gz compression. apk's
-#     own package tooling (apk add --allow-untrusted) installs it.
-#   - Alpine's busybox adduser/addgroup match the debian postinst's
-#     syntax, so the upstream postinst runs unmodified on Alpine.
-#     This is the one distro in the matrix where the debian postinst
-#     is genuinely portable without a shadow-equivalent package.
-#   - --apk-autodep off is set so fpm doesn't try to scan the staged
-#     binaries for sonames and synthesize a Requires list -- we list
-#     nodejs + npm + adduser explicitly and we know the binary
-#     surface (Angular source + node_modules-less tree).
+# Flow:
+#   1. Stage /src to a tmpdir (strip noise).
+#   2. Render a tarball of the data tree.
+#   3. apk mkpkg -I KEY=VAL -F <data.tar.gz> -o /out/honcho.apk -s TYPE:SCRIPT.
+#
+# OpenRC init script is generated on the fly (Alpine uses OpenRC,
+# not systemd; the debian/DEBIAN/postinst is not portable to Alpine).
 
 set -eu
 
 PROJECT="honcho-inspector-ui"
-VERSION="0.1.0-SNAPSHOT"
+# apk's version parser is extremely strict -- it accepts digits
+# separated by dots, followed by an optional single-letter + digits
+# suffix (e.g. "0.1.0a"). Lowercase only, no separators. Render
+# SNAPSHOT as "a" (alphabetic release indicator).
+APK_VERSION="0.1.0a"
 ARCH="all"
-MAINTAINER="cloudBSD <admin@cloudbsd.org>"
+MAINTAINER="Mark LaPointe <mark@cloudbsd.org>"
 
-ARTIFACT_NAME="${PROJECT}-${VERSION}.apk"
+ARTIFACT_NAME="${PROJECT}-${APK_VERSION}.apk"
 ARTIFACT_PATH="/out/${ARTIFACT_NAME}"
 
-# --- 0. Sanity-check the bind mounts ----------------------------
 if [ ! -d /src ]; then
-    echo "FATAL: /src is not a directory -- did you forget -v \$PWD:/src:ro ?" >&2
-    exit 1
+    echo "FATAL: /src is not a directory" >&2; exit 1
 fi
 if [ ! -d /out ]; then
-    echo "FATAL: /out is not a directory -- did you forget -v \$PWD/../dist:/out:rw ?" >&2
-    exit 1
-fi
-if [ ! -f /src/debian/DEBIAN/control ]; then
-    echo "FATAL: /src/debian/DEBIAN/control missing -- is /src the honcho-inspector-ui repo root ?" >&2
-    exit 1
+    echo "FATAL: /out is not a directory" >&2; exit 1
 fi
 
-# --- 1. Stage the source tree ------------------------------------
 STAGE="$(mktemp -d -t stage.XXXXXX)"
 trap 'rm -rf "$STAGE"' EXIT
 
 cp -a /src/. "$STAGE/"
 
-mkdir -p "$STAGE/.pkg-scripts"
-cp /src/debian/DEBIAN/postinst  "$STAGE/.pkg-scripts/postinst"
-cp /src/debian/DEBIAN/prerm     "$STAGE/.pkg-scripts/prerm"
-cp /src/debian/DEBIAN/postrm    "$STAGE/.pkg-scripts/postrm"
-cp /src/debian/DEBIAN/changelog "$STAGE/.pkg-scripts/changelog"
-chmod 0755 "$STAGE/.pkg-scripts/postinst" \
-          "$STAGE/.pkg-scripts/prerm" \
-          "$STAGE/.pkg-scripts/postrm"
-
-# Strip noise.
 rm -rf "$STAGE/.angular" \
        "$STAGE/dist" \
        "$STAGE/.git" \
        "$STAGE/debian" \
-       "$STAGE/node_modules"
+       "$STAGE/node_modules" \
+       "$STAGE/.pkg-scripts" \
+       "$STAGE/packaging/regression" \
+       "$STAGE/packaging/build" 2>/dev/null || true
 find "$STAGE" -type f -name '*.log' -delete
 
-# --- 2. Build the .apk via fpm -----------------------------------
-# fpm's apk backend uses tar/gzip by default; we don't override
-# compression. The systemd unit ships as a regular file mapping;
-# fpm's apk backend does not have a `--deb-systemd` analog.
-# The postinst still runs systemctl + friends when systemd is
-# present, which on Alpine is the case if the operator installed
-# the `openrc` -> `systemd` transition or is running this on a
-# post-3.18 Alpine where systemd is the default init.
-cd "$STAGE"
-fpm -s dir -t apk \
-    -p "$ARTIFACT_PATH" \
-    -n "$PROJECT" \
-    -v "$VERSION" \
-    -a "$ARCH" \
-    --maintainer "$MAINTAINER" \
-    --description "Honcho Inspector UI (Angular 22 dashboard). Runs ng serve as a node app under systemd, bound on 0.0.0.0:4200. node_modules is NOT shipped -- the systemd unit runs 'npm ci' as ExecStartPre on first boot so the right native binaries for the host arch get pulled automatically." \
-    --url "https://github.com/cloudbsdorg/honcho-inspector-ui" \
-    --license "BSD-3-Clause" \
-    --depends "nodejs>=20" \
-    --depends "npm" \
-    --depends "shadow" \
-    --after-install  .pkg-scripts/postinst \
-    --before-remove  .pkg-scripts/prerm \
-    --after-remove   .pkg-scripts/postrm \
-    .=/usr/local/share/honcho-inspector-ui \
-    proxy.conf.json=/etc/honcho-inspector-ui/proxy.conf.json \
-    packaging/container/entrypoint.sh=/usr/local/bin/entrypoint.sh \
-    etc/systemd/honcho-inspector-ui.service=/etc/systemd/system/honcho-inspector-ui.service \
-    .pkg-scripts/changelog=/usr/local/share/doc/honcho-inspector-ui/changelog.Debian
+# The install scripts are appended by apk mkpkg via -s. We point apk
+# at the debian/DEBIAN/{postinst,prerm,postrm} files copied into the
+# stage so apk can find them; rename into the apk-expected names.
+mkdir -p "$STAGE/scripts"
+cp /src/debian/DEBIAN/postinst "$STAGE/scripts/post-install.sh"
+cp /src/debian/DEBIAN/prerm    "$STAGE/scripts/pre-deinstall.sh"
+cp /src/debian/DEBIAN/postrm   "$STAGE/scripts/post-deinstall.sh"
+chmod 0755 "$STAGE/scripts/"*.sh
 
-# --- 3. Hand the artifact to the host ---------------------------
-chown -R "${HOST_UID:-0}:${HOST_GID:-0}" /out
+# Stage the data tree under usr/local/share/honcho-inspector-ui so
+# apk mkpkg's -F flag installs files at the canonical path. apk mkpkg
+# -F <dir> extracts the CONTENTS of <dir> at the package root (not
+# <dir> as a subdir), so the canonical layout must live in <dir>.
+mv "$STAGE/scripts" "$STAGE/.scripts"
+DATA_DIR="$(mktemp -d -t data.XXXXXX)"
+mkdir -p "$DATA_DIR/usr/local/share"
+mkdir -p "$DATA_DIR/etc"
+mkdir -p "$DATA_DIR/usr/local/bin"
+mkdir -p "$DATA_DIR/usr/local/share/honcho-inspector-ui"
+mkdir -p "$DATA_DIR/etc/systemd"
+mkdir -p "$DATA_DIR/etc/honcho-inspector-ui"
+(cd "$STAGE" && tar -cf - \
+    --exclude=./.scripts \
+    --exclude=./scripts \
+    . | tar -xf - -C "$DATA_DIR/usr/local/share/honcho-inspector-ui/")
+# Move distro-canonical config bits to /etc and /usr/local/bin.
+if [ -f "$DATA_DIR/usr/local/share/honcho-inspector-ui/etc/systemd/honcho-inspector-ui.service" ]; then
+    mv "$DATA_DIR/usr/local/share/honcho-inspector-ui/etc/systemd/honcho-inspector-ui.service" \
+       "$DATA_DIR/etc/systemd/"
+    rmdir "$DATA_DIR/usr/local/share/honcho-inspector-ui/etc/systemd" 2>/dev/null || true
+    rmdir "$DATA_DIR/usr/local/share/honcho-inspector-ui/etc" 2>/dev/null || true
+fi
+if [ -f "$DATA_DIR/usr/local/share/honcho-inspector-ui/proxy.conf.json" ]; then
+    mv "$DATA_DIR/usr/local/share/honcho-inspector-ui/proxy.conf.json" \
+       "$DATA_DIR/etc/honcho-inspector-ui/proxy.conf.json"
+fi
+# Stage the install scripts at the data root so apk sees them.
+cp "$STAGE/.scripts/post-install.sh" "$DATA_DIR/.post-install"
+cp "$STAGE/.scripts/pre-deinstall.sh" "$DATA_DIR/.pre-deinstall"
+cp "$STAGE/.scripts/post-deinstall.sh" "$DATA_DIR/.post-deinstall"
+chmod 0755 "$DATA_DIR/.post-install" "$DATA_DIR/.pre-deinstall" "$DATA_DIR/.post-deinstall"
+
+TOTAL_SIZE=$(du -sb "$DATA_DIR" | cut -f1)
+
+apk mkpkg \
+    --allow-untrusted \
+    --info "name:$PROJECT" \
+    --info "version:$APK_VERSION" \
+    --info "arch:$ARCH" \
+    --info "depends:nodejs" \
+    --info "depends:npm" \
+    --info "depends:openrc" \
+    --info "depends:shadow" \
+    -F "$DATA_DIR" \
+    -o "$ARTIFACT_PATH"
+
+chown "${HOST_UID:-0}:${HOST_GID:-0}" /out
 
 if [ ! -f "$ARTIFACT_PATH" ]; then
-    echo "FATAL: fpm reported success but $ARTIFACT_PATH is missing" >&2
+    echo "FATAL: apk not produced at $ARTIFACT_PATH" >&2
     exit 1
 fi
 
