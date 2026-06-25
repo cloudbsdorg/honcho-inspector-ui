@@ -1,0 +1,8 @@
+{
+  "timestamp": "20260625-090257",
+  "logs_dir": "packaging/regression/logs/20260625-090257/",
+  "host": "Linux 7.0.0-22-generic x86_64 GNU/Linux",
+  "pairs": [
+    {"pair":"ui-debian","build":true,"smoke":true,"pw":false}
+  ]
+}

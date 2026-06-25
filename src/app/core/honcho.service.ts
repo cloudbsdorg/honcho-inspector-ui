@@ -118,14 +118,21 @@ export class HonchoService {
     return this.runOrThrow(async () => {
       const [card, rep, conclusions, sessionCount] = await Promise.all([
         this.call<string[]>({ method: 'GET', path: `/peers/${encodeURIComponent(peerId)}/card` }),
+        // Honcho v3 disallows GET on /representation (returns 405); the
+        // backend now exposes this as POST with an empty {} body.
         this.call<string>({
-          method: 'GET',
+          method: 'POST',
           path: `/peers/${encodeURIComponent(peerId)}/representation`,
+          body: {},
         }),
+        // Honcho v3 moved /conclusions up one level: POST
+        // /v3/workspaces/{ws}/conclusions/list with {filters:{...}} body.
+        // The backend fills observed_id from the path variable. Honcho v3
+        // 422s on unknown filter keys (e.g. `size`), so we leave filters empty.
         this.call<ApiPage<ApiConclusion>>({
-          method: 'GET',
+          method: 'POST',
           path: `/peers/${encodeURIComponent(peerId)}/conclusions`,
-          query: { size: 10 },
+          body: { filters: {} },
         }),
         this.call<ApiPage<unknown>>({
           method: 'GET',
@@ -191,10 +198,13 @@ export class HonchoService {
   }
 
   async getPeerRepresentation(peerId: string): Promise<string> {
+    // Honcho v3 disallows GET on /representation (returns 405); use POST
+    // with an empty body instead.
     return (
       (await this.call<string>({
-        method: 'GET',
+        method: 'POST',
         path: `/peers/${encodeURIComponent(peerId)}/representation`,
+        body: {},
       })) ?? ''
     );
   }
@@ -227,12 +237,17 @@ export class HonchoService {
     peerId: string,
     options?: { size?: number },
   ): Promise<{ items: HonchoConclusion[]; total: number; page: number; size: number }> {
-    const query: Record<string, number> = {};
-    if (options?.size !== undefined) query['size'] = options.size;
+    // Honcho v3 moved /conclusions to the workspace level; the proxy now
+    // expects POST + {filters:{...}} body. Backend fills observed_id from
+    // the path variable. Honcho v3 ignores unknown filter keys (and 422s
+    // on bogus ones like `size`), so we pass an empty filters object here
+    // and let the backend apply the peer filter.
+    void options;
+    const filters: Record<string, unknown> = {};
     const page = await this.call<ApiPage<ApiConclusion>>({
-      method: 'GET',
+      method: 'POST',
       path: `/peers/${encodeURIComponent(peerId)}/conclusions`,
-      query,
+      body: { filters },
     });
     return {
       items: page.items.map(toConclusion),

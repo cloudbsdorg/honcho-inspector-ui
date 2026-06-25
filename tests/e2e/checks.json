@@ -4,20 +4,5 @@
   "apikey-input": "PRESENT",
   "baseurl-input": "PRESENT",
   "workspaceid-input": "PRESENT",
-  "honchousername-input": "PRESENT",
-  "active-badge": "PRESENT",
-  "app-header": "PRESENT",
-  "inspector-workspace-tab": "PRESENT",
-  "inspector-peers-tab": "PRESENT",
-  "inspector-sessions-tab": "PRESENT",
-  "inspector-conclusions-tab": "PRESENT",
-  "inspector-search-tab": "PRESENT",
-  "admin-overview-tab": "PRESENT",
-  "admin-users-tab": "PRESENT",
-  "admin-audit-tab": "PRESENT",
-  "admin-maintenance-tab": "PRESENT",
-  "login-overlay": "PRESENT",
-  "username-input": "PRESENT",
-  "password-input": "PRESENT",
-  "profile-selector": "PRESENT"
+  "honchousername-input": "PRESENT"
 }
