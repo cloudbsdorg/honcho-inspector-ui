@@ -1,0 +1,413 @@
+#!/bin/sh
+# regression-test -- honcho-inspector build matrix regression suite.
+#
+# Drives 12 build pairs (6 distros * 2 repos) end-to-end:
+#   Phase 1: build all builder images + produce artifacts (parallel)
+#   Phase 2: smoke-test each artifact in a matching-distro runtime
+#            container (parallel)
+#   Phase 3: Playwright E2E against each UI runtime (serial, Chrome is heavy)
+#
+# Repeatable properties:
+#   - Artifacts overwrite previous (fpm / pacman etc. are happy to)
+#   - Logs go to logs/<timestamp>/; previous runs kept unless --clean
+#   - Container layers are pruned between phases if reclaimable > 2GB
+#   - State file logs which pairs passed -- --resume skips done pairs
+#   - Disk-usage guard: bails if free space < 5GB on root fs
+
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Layout: <repo>/packaging/regression/bin/<script>
+# From bin/ we go up 3 dirs to reach <repo>: bin -> regression -> packaging -> <repo>
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+PACKAGING="$REPO_ROOT/packaging"
+# Sanity: verify REPO_ROOT is actually a repo root (has pom.xml or package.json)
+if [ ! -f "$REPO_ROOT/pom.xml" ] && [ ! -f "$REPO_ROOT/package.json" ]; then
+    echo "regression-test: REPO_ROOT=$REPO_ROOT doesn't look like a repo root" >&2
+    echo "  expected: <repo>/pom.xml or <repo>/package.json" >&2
+    exit 1
+fi
+# Sanity: verify REPO_ROOT is actually a repo root (has pom.xml or package.json)
+if [ ! -f "$REPO_ROOT/pom.xml" ] && [ ! -f "$REPO_ROOT/package.json" ]; then
+    echo "regression-test: REPO_ROOT=$REPO_ROOT doesn't look like a repo root" >&2
+    echo "  expected: <repo>/pom.xml or <repo>/package.json" >&2
+    exit 1
+fi
+REG_DIR="$PACKAGING/regression"
+ARTIFACTS_DIR="$REG_DIR/artifacts"
+LOGS_BASE="$REG_DIR/logs"
+PW_BASE="$REG_DIR/playwright"
+STATE_FILE="$REG_DIR/state.tsv"
+
+PARALLEL=3
+KEEP=0
+RUN_PLAYWRIGHT=0
+PLAYWRIGHT_ONLY=0
+RESUME=0
+CLEAN=0
+PHASE_ALL=1
+PHASE=0
+TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+LOGS_DIR="$LOGS_BASE/$TIMESTAMP"
+REQUESTED=""
+PAIRS=""
+
+# === distro metadata =============================================
+# These vars are EXPORTED so phase2-smoke-one (called as a child process
+# via xargs) can read them via standard POSIX env-var lookup. We can't
+# export shell functions in POSIX sh.
+
+DEBIAN_RUNTIME="docker.io/library/debian:13-slim"
+DEBIAN_INSTALL='apt-get update -qq >/dev/null 2>&1 && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends /tmp/ARTIFACT openjdk-25-jre-headless curl adduser ca-certificates gnupg && install -d -m 0755 /etc/apt/keyrings && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && apt-get update -qq >/dev/null 2>&1 && apt-get install -y --no-install-recommends nodejs'
+DEBIAN_BACKEND_START='su -s /bin/bash www-data -c "cd /var/lib/honcho-inspector && /usr/bin/java -Xms64m -Xmx256m -Dserver.address=127.0.0.1 -Dhoncho.config.dir=/etc/honcho-inspector -Dlogging.file.name=/var/log/honcho-inspector/honcho-inspector-backend.log -jar /usr/local/lib/honcho-inspector/honcho-inspector-backend.jar >/tmp/svc.log 2>&1 &"'
+DEBIAN_UI_START='su -s /bin/bash www-data -c "export HOME=/var/lib/honcho-inspector-ui XDG_CACHE_HOME=/var/lib/honcho-inspector-ui/.cache npm_config_cache=/var/lib/honcho-inspector-ui/.npm PATH=/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/sbin:/bin && cd /usr/local/share/honcho-inspector-ui && npm install --omit=dev --no-audit --no-fund >/tmp/npm.log 2>&1 && /usr/bin/env npx --no-install ng serve --host 0.0.0.0 --port 4200 --proxy-config /etc/honcho-inspector-ui/proxy.conf.json --watch=false >/tmp/svc.log 2>&1 &"'
+DEBIAN_BACKEND_HEALTH="http://127.0.0.1:8080/api/health"
+DEBIAN_UI_HEALTH="http://127.0.0.1:4200/"
+
+ROCKY_RUNTIME="docker.io/library/rockylinux:10-minimal"
+ROCKY_INSTALL='dnf install -y /tmp/ARTIFACT'
+ROCKY_BACKEND_START="$DEBIAN_BACKEND_START"
+ROCKY_UI_START="$DEBIAN_UI_START"
+ROCKY_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
+ROCKY_UI_HEALTH="$DEBIAN_UI_HEALTH"
+
+SUSE_RUNTIME="docker.io/library/opensuse/leap:16.0"
+SUSE_INSTALL='zypper --non-interactive install --no-confirm /tmp/ARTIFACT'
+SUSE_BACKEND_START="$DEBIAN_BACKEND_START"
+SUSE_UI_START="$DEBIAN_UI_START"
+SUSE_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
+SUSE_UI_HEALTH="$DEBIAN_UI_HEALTH"
+
+ALPINE_RUNTIME="docker.io/library/alpine:3.22"
+ALPINE_INSTALL='apk add --allow-untrusted --no-cache /tmp/ARTIFACT'
+ALPINE_BACKEND_START="$DEBIAN_BACKEND_START"
+ALPINE_UI_START="$DEBIAN_UI_START"
+ALPINE_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
+ALPINE_UI_HEALTH="$DEBIAN_UI_HEALTH"
+
+ARCH_RUNTIME="docker.io/library/archlinux:latest"
+ARCH_INSTALL='pacman -U --noconfirm --overwrite "*" /tmp/ARTIFACT'
+ARCH_BACKEND_START="$DEBIAN_BACKEND_START"
+ARCH_UI_START="$DEBIAN_UI_START"
+ARCH_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
+ARCH_UI_HEALTH="$DEBIAN_UI_HEALTH"
+
+VOID_RUNTIME="docker.io/voidlinux/voidlinux:glibc"
+VOID_INSTALL='xbps-install -y /tmp/ARTIFACT'
+VOID_BACKEND_START='sleep 5'
+VOID_UI_START="$DEBIAN_UI_START"
+VOID_BACKEND_HEALTH="$DEBIAN_BACKEND_HEALTH"
+VOID_UI_HEALTH="$DEBIAN_UI_HEALTH"
+
+ARTIFACT_backend_debian="honcho-inspector-backend_0.1.0-SNAPSHOT_all.deb"
+ARTIFACT_backend_rocky="honcho-inspector-backend-0.1.0-SNAPSHOT-1.noarch.rpm"
+ARTIFACT_backend_suse="honcho-inspector-backend-0.1.0-SNAPSHOT-1.noarch.rpm"
+ARTIFACT_backend_alpine="honcho-inspector-backend-0.1.0-SNAPSHOT.apk"
+ARTIFACT_backend_arch="honcho-inspector-backend-0.1.0.SNAPSHOT-1-x86_64.pkg.tar.zst"
+ARTIFACT_backend_void="honcho-inspector-backend-0.1.0-SNAPSHOT_1.x86_64.xbps"
+ARTIFACT_ui_debian="honcho-inspector-ui_0.1.0-SNAPSHOT_all.deb"
+ARTIFACT_ui_rocky="honcho-inspector-ui-0.1.0-SNAPSHOT-1.noarch.rpm"
+ARTIFACT_ui_suse="honcho-inspector-ui-0.1.0-SNAPSHOT-1.noarch.rpm"
+ARTIFACT_ui_alpine="honcho-inspector-ui-0.1.0-SNAPSHOT.apk"
+ARTIFACT_ui_arch="honcho-inspector-ui-0.1.0.SNAPSHOT-1-x86_64.pkg.tar.zst"
+ARTIFACT_ui_void="honcho-inspector-ui-0.1.0-SNAPSHOT_1.x86_64.xbps"
+
+usage() {
+    cat >&2 <<'USAGE'
+Usage: bin/regression-test [options] [repos] [distros]
+
+Repos:
+  backend            test the backend builder + artifact
+  ui                 test the UI builder + artifact
+  backend ui         test both (default)
+
+Distros:
+  debian rocky suse alpine arch void
+
+Options:
+  --parallel N       max concurrent ops (default 3; capped at nproc/2)
+  --playwright       also run Playwright E2E against UI stacks
+  --phase N          run only phase N (1=build, 2=smoke, 3=playwright)
+  --resume           skip pairs already PASS in state file
+  --clean            wipe logs/, artifacts/, state.tsv before run
+  --keep             leave runtime containers running after pair passes
+  --help             show this help
+
+Examples:
+  bin/regression-test                              # full 12-pair matrix
+  bin/regression-test backend debian               # one pair
+  bin/regression-test ui --playwright              # 6 UI pairs + playwright
+  bin/regression-test --resume --parallel 6        # resume, max throughput
+USAGE
+    exit 1
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --parallel)   PARALLEL="$2"; shift 2 ;;
+        --playwright) RUN_PLAYWRIGHT=1; shift ;;
+        --phase)      PHASE="$2"; PHASE_ALL=0; shift 2 ;;
+        --resume)     RESUME=1; shift ;;
+        --clean)      CLEAN=1; shift ;;
+        --keep)       KEEP=1; shift ;;
+        --help|-h)    usage ;;
+        backend|ui)   REQUESTED="$REQUESTED $1"; shift ;;
+        debian|rocky|suse|alpine|arch|void) REQUESTED="$REQUESTED $1"; shift ;;
+        *) echo "regression-test: unknown arg: $1" >&2; usage ;;
+    esac
+done
+
+[ -z "$REQUESTED" ] && REQUESTED="backend ui debian rocky suse alpine arch void"
+
+# Parse REPO DISTRO REPO DISTRO pairs. Bare REPO at the end expands to all.
+PREV_REPO=""
+for t in $REQUESTED; do
+    case "$t" in
+        backend|ui)
+            if [ -n "$PREV_REPO" ]; then
+                for d in debian rocky suse alpine arch void; do
+                    PAIRS="$PAIRS $PREV_REPO $d"
+                done
+            fi
+            PREV_REPO="$t"
+            ;;
+        debian|rocky|suse|alpine|arch|void)
+            if [ -z "$PREV_REPO" ]; then
+                echo "regression-test: distro '$t' needs preceding repo" >&2
+                exit 1
+            fi
+            PAIRS="$PAIRS $PREV_REPO $t"
+            PREV_REPO=""
+            ;;
+    esac
+done
+if [ -n "$PREV_REPO" ]; then
+    for d in debian rocky suse alpine arch void; do
+        PAIRS="$PAIRS $PREV_REPO $d"
+    done
+fi
+PAIRS="$(echo $PAIRS)"
+[ -z "$PAIRS" ] && { echo "regression-test: no pairs requested" >&2; usage; }
+
+NPROC=$(nproc 2>/dev/null || echo 4)
+MAX_PARALLEL=$((NPROC / 2))
+[ "$MAX_PARALLEL" -lt 1 ] && MAX_PARALLEL=1
+if [ "$PARALLEL" -gt "$MAX_PARALLEL" ]; then
+    echo "regression-test: capping --parallel $PARALLEL -> $MAX_PARALLEL (nproc=$NPROC)"
+    PARALLEL=$MAX_PARALLEL
+fi
+
+for cmd in podman curl jq awk; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "regression-test: required command not found: $cmd" >&2
+        exit 1
+    fi
+done
+
+if [ "$CLEAN" = "1" ]; then
+    echo "regression-test: --clean; wiping logs, artifacts, state"
+    rm -rf "$LOGS_BASE"/* "$ARTIFACTS_DIR"/* "$PW_BASE"/* "$STATE_FILE"
+fi
+
+mkdir -p "$ARTIFACTS_DIR" "$LOGS_BASE" "$PW_BASE" "$LOGS_DIR"
+
+MIN_FREE_GB=5
+check_disk() {
+    free_kb=$(df -Pk / | awk 'NR==2 {print $4}')
+    free_gb=$((free_kb / 1024 / 1024))
+    if [ "$free_gb" -lt "$MIN_FREE_GB" ]; then
+        echo "regression-test: ABORT -- only ${free_gb}GB free on / (need >=${MIN_FREE_GB}GB)" >&2
+        echo "  run: sudo podman system prune -a -f --volumes" >&2
+        exit 2
+    fi
+}
+
+maybe_prune() {
+    reclaimable=$(sudo podman system df -f json 2>/dev/null | jq -r '
+        [.Images[]?, .Containers[]?, .Volumes[]?]
+        | map(select(.reclaimable != null))
+        | map(.reclaimable)
+        | map(select(test("^[0-9.]+GB$|^[0-9.]+MB$|^[0-9.]+kB$|^[0-9.]+B$")))
+        | map(
+            if test("GB$") then (sub("GB$"; "") | tonumber * 1024 * 1024 * 1024)
+            elif test("MB$") then (sub("MB$"; "") | tonumber * 1024 * 1024)
+            elif test("kB$") then (sub("kB$"; "") | tonumber * 1024)
+            else 0 end
+          )
+        | add // 0
+    ' 2>/dev/null)
+    if [ -z "$reclaimable" ] || [ "$reclaimable" = "null" ]; then
+        return 0
+    fi
+    threshold=$((2 * 1024 * 1024 * 1024))
+    if [ "$reclaimable" -gt "$threshold" ]; then
+        printf 'regression-test: pruning reclaimable images/containers (%.1fGB)...\n' \
+            "$(awk -v r=$reclaimable 'BEGIN{printf "%.1f", r/1024/1024/1024}')"
+        sudo podman system prune -f >/dev/null 2>&1 || podman system prune -f >/dev/null 2>&1 || true
+    fi
+}
+
+state_get() {
+    repo="$1"; distro="$2"
+    if [ -f "$STATE_FILE" ]; then
+        awk -F'\t' -v r="$repo" -v d="$distro" \
+            '$1==r && $2==d {print $3; exit}' "$STATE_FILE"
+    fi
+}
+
+state_set() {
+    repo="$1"; distro="$2"; status="$3"
+    tmp="${STATE_FILE}.tmp"
+    awk -F'\t' -v r="$repo" -v d="$distro" \
+        '$1!=r || $2!=d {print}' "$STATE_FILE" >"$tmp" 2>/dev/null || true
+    printf '%s\t%s\t%s\t%s\n' "$repo" "$distro" "$status" "$TIMESTAMP" >>"$tmp"
+    mv "$tmp" "$STATE_FILE"
+}
+
+run_phase() {
+    phase_num="$1"
+    pass_marker="$2"
+    script="$3"
+    shift 3
+
+    if [ "$PLAYWRIGHT_ONLY" = "1" ] && [ "$phase_num" != "3" ]; then
+        return 0
+    fi
+
+    jobs=""
+    set -- "$@"
+    while [ $# -gt 0 ]; do
+        repo="$1"; distro="$2"
+        shift 2
+        if [ "$RESUME" = "1" ]; then
+            cur="$(state_get "$repo" "$distro")"
+            if [ "$cur" = "PASS" ]; then
+                printf 'regression-test: phase %d SKIP  %s (resume, already PASS)\n' \
+                    "$phase_num" "${repo}-${distro}"
+                continue
+            fi
+        fi
+        if [ "$phase_num" -gt 1 ]; then
+            cur="$(state_get "$repo" "$distro")"
+            if [ "$cur" != "PASS" ]; then
+                printf 'regression-test: phase %d SKIP  %s (phase 1 not PASS)\n' \
+                    "$phase_num" "${repo}-${distro}"
+                continue
+            fi
+        fi
+        jobs="$jobs
+$repo $distro"
+    done
+    jobs="$(echo "$jobs" | sed '/^$/d')"
+    [ -z "$jobs" ] && { echo "regression-test: phase $phase_num: nothing to do"; return 0; }
+
+    n_jobs=$(echo "$jobs" | wc -l)
+    printf 'regression-test: phase %d -- %d pairs @ --parallel %d\n' \
+        "$phase_num" "$n_jobs" "$PARALLEL"
+
+    # Export everything the phase scripts need to read via $VAR.
+    export REPO_ROOT ARTIFACTS_DIR LOGS_DIR TIMESTAMP KEEP
+    # Per-distro metadata. Export the whole set so phase2 can do
+    # eval "x=\${${distro^^}_RUNTIME}".
+    distro_vars="DEBIAN_RUNTIME DEBIAN_INSTALL DEBIAN_BACKEND_START DEBIAN_UI_START \
+        DEBIAN_BACKEND_HEALTH DEBIAN_UI_HEALTH \
+        ROCKY_RUNTIME ROCKY_INSTALL ROCKY_BACKEND_START ROCKY_UI_START \
+        ROCKY_BACKEND_HEALTH ROCKY_UI_HEALTH \
+        SUSE_RUNTIME SUSE_INSTALL SUSE_BACKEND_START SUSE_UI_START \
+        SUSE_BACKEND_HEALTH SUSE_UI_HEALTH \
+        ALPINE_RUNTIME ALPINE_INSTALL ALPINE_BACKEND_START ALPINE_UI_START \
+        ALPINE_BACKEND_HEALTH ALPINE_UI_HEALTH \
+        ARCH_RUNTIME ARCH_INSTALL ARCH_BACKEND_START ARCH_UI_START \
+        ARCH_BACKEND_HEALTH ARCH_UI_HEALTH \
+        VOID_RUNTIME VOID_INSTALL VOID_BACKEND_START VOID_UI_START \
+        VOID_BACKEND_HEALTH VOID_UI_HEALTH \
+        ARTIFACT_backend_debian ARTIFACT_backend_rocky ARTIFACT_backend_suse \
+        ARTIFACT_backend_alpine ARTIFACT_backend_arch ARTIFACT_backend_void \
+        ARTIFACT_ui_debian ARTIFACT_ui_rocky ARTIFACT_ui_suse \
+        ARTIFACT_ui_alpine ARTIFACT_ui_arch ARTIFACT_ui_void"
+    export $distro_vars
+
+    echo "$jobs" | xargs -I {} \
+        -P "$PARALLEL" \
+        sh -c '
+            set -eu
+            pair="$1"
+            repo="${pair%% *}"; distro="${pair##* }"
+            '"$script"' "$repo" "$distro" "$REPO_ROOT" "$ARTIFACTS_DIR" "$LOGS_DIR" "$TIMESTAMP"
+        ' _ {} || true
+
+    pass=0; fail=0
+    set -- $jobs
+    while [ $# -gt 0 ]; do
+        repo="$1"; distro="$2"
+        shift 2
+        log="$LOGS_DIR/${repo}-${distro}.log"
+        if grep -qF "$pass_marker" "$log" 2>/dev/null; then
+            state_set "$repo" "$distro" "PASS"
+            pass=$((pass+1))
+        else
+            state_set "$repo" "$distro" "FAIL"
+            fail=$((fail+1))
+        fi
+    done
+    echo "regression-test: phase $phase_num -- $pass PASS / $fail FAIL"
+    return $fail
+}
+
+TOTAL_FAIL=0
+
+if [ "$PHASE_ALL" = "1" ] || [ "$PHASE" = "1" ]; then
+    check_disk
+    maybe_prune
+    run_phase 1 "ARTIFACT OK" "$SCRIPT_DIR/phase1-build-one" $PAIRS || TOTAL_FAIL=$((TOTAL_FAIL+$?))
+    check_disk
+fi
+
+if [ "$PHASE_ALL" = "1" ] || [ "$PHASE" = "2" ]; then
+    check_disk
+    maybe_prune
+    run_phase 2 "SMOKE PASS" "$SCRIPT_DIR/phase2-smoke-one" $PAIRS || TOTAL_FAIL=$((TOTAL_FAIL+$?))
+    check_disk
+fi
+
+if { [ "$PHASE_ALL" = "1" ] || [ "$PHASE" = "3" ]; } && [ "$RUN_PLAYWRIGHT" = "1" ]; then
+    PW_PAIRS=""
+    set -- $PAIRS
+    while [ $# -gt 0 ]; do
+        repo="$1"; distro="$2"
+        shift 2
+        [ "$repo" = "ui" ] && PW_PAIRS="$PW_PAIRS $repo $distro"
+    done
+    check_disk
+    run_phase 3 "PW PASS" "$SCRIPT_DIR/phase3-pw-one" $PW_PAIRS || true
+fi
+
+echo
+echo "============================================================"
+echo "REGRESSION MATRIX SUMMARY"
+echo "============================================================"
+echo "Run timestamp:    $TIMESTAMP"
+echo "Logs:             $LOGS_DIR/"
+echo "Artifacts:        $ARTIFACTS_DIR/"
+echo "State:            $STATE_FILE"
+echo
+printf '%-25s %s\n' "PAIR" "STATUS"
+printf '%-25s %s\n' "----" "------"
+set -- $PAIRS
+while [ $# -gt 0 ]; do
+    repo="$1"; distro="$2"
+    shift 2
+    status="$(state_get "$repo" "$distro")"
+    [ -z "$status" ] && status="SKIP"
+    printf '%-25s %s\n' "${repo}-${distro}" "$status"
+done
+
+if [ "$TOTAL_FAIL" -gt 0 ]; then
+    echo
+    echo "FAILED pairs: $TOTAL_FAIL"
+    echo "Inspect logs under $LOGS_DIR/ for full transcripts."
+    exit 1
+fi
+echo
+echo "All requested pairs PASSED."
+exit 0

@@ -1,0 +1,140 @@
+#!/bin/sh
+# phase2-smoke-one -- install a single (REPO, DISTRO) pair's artifact
+# in a matching-distro runtime container, start the service, probe the
+# health endpoint.
+#
+# Args:
+#   $1 -- repo (backend|ui)
+#   $2 -- distro
+#   $3 -- repo root (path to honcho-inspector-<repo>)
+#   $4 -- artifacts dir
+#   $5 -- logs dir
+#
+# Exits 0 on success, 1 on any failure.
+
+set -eu
+
+repo="$1"; distro="$2"; REPO_ROOT="$3"; ARTIFACTS_DIR="$4"; LOGS_DIR="$5"
+pair="${repo}-${distro}"
+log="$LOGS_DIR/${pair}.log"
+artifact_var="ARTIFACT_${repo}_${distro}"
+eval "artifact=\"\$$artifact_var\""
+artifact_path="$ARTIFACTS_DIR/$artifact"
+
+if [ ! -f "$artifact_path" ]; then
+    {
+        printf 'SMOKE SKIP -- artifact missing (run phase 1 first)\n'
+    } >>"$log" 2>&1
+    exit 1
+fi
+
+# Pull per-distro metadata from the parent orchestrator via env vars.
+# POSIX sh can't do ${var^^} (bash-only); use tr for uppercase.
+DISTRO_UC=$(printf '%s' "$distro" | tr '[:lower:]' '[:upper:]')
+REPO_UC=$(printf '%s' "$repo" | tr '[:lower:]' '[:upper:]')
+runtime_var="${DISTRO_UC}_RUNTIME"
+install_var="${DISTRO_UC}_INSTALL"
+start_var="${DISTRO_UC}_${REPO_UC}_START"
+health_var="${DISTRO_UC}_${REPO_UC}_HEALTH"
+eval "runtime=\"\${$runtime_var}\""
+eval "install_tmpl=\"\${$install_var}\""
+eval "start_cmd=\"\${$start_var}\""
+eval "health_url=\"\${$health_var}\""
+
+if [ -z "$runtime" ]; then
+    {
+        printf 'SMOKE FAILED -- empty runtime var for %s\n' "$distro"
+    } >>"$log" 2>&1
+    exit 1
+fi
+
+artifact_basename="$(basename "$artifact")"
+install_cmd=$(printf '%s' "$install_tmpl" | sed "s|/tmp/ARTIFACT|/tmp/${artifact_basename}|g")
+
+# Try sudo first; fall back to user podman. Most distros need root in
+# the container to install packages.
+pm() {
+    if command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    else
+        "$@"
+    fi
+}
+
+{
+    printf '\n=== phase 2: smoke %s ===\n' "$pair"
+    printf 'runtime: %s\n' "$runtime"
+    printf 'artifact: %s\n' "$artifact_path"
+
+    # Pull first (progress to stderr only) so the cid capture below
+    # only sees the container ID, not pull output.
+    pm podman pull "$runtime" >/dev/null 2>&1 || true
+
+    # Capture only the container ID. podman sometimes writes progress
+    # to stdout during pull; --quiet suppresses it. We capture stdout
+    # only.
+    cid=$(pm podman run --rm -d --quiet \
+        --init \
+        -v "$artifact_path:/tmp/${artifact_basename}:ro" \
+        "$runtime" \
+        sleep 600 2>/dev/null) || cid=""
+    if [ -z "$cid" ]; then
+        printf 'SMOKE FAILED -- could not boot %s\n' "$runtime"
+        exit 1
+    fi
+    printf 'runtime cid: %s\n' "$cid"
+
+    printf 'installing...\n'
+    install_ok=0
+    if pm timeout 300 podman exec "$cid" sh -c "$install_cmd" 2>&1; then
+        install_ok=1
+    elif timeout 300 podman exec "$cid" sh -c "$install_cmd" 2>&1; then
+        install_ok=1
+    fi
+    if [ "$install_ok" != "1" ]; then
+        pm podman rm -f "$cid" >/dev/null 2>&1 || podman rm -f "$cid" >/dev/null 2>&1 || true
+        printf 'SMOKE FAILED -- install error\n'
+        exit 1
+    fi
+
+    printf 'starting service...\n'
+    pm podman exec "$cid" sh -c "$start_cmd" 2>&1 \
+        || podman exec "$cid" sh -c "$start_cmd" 2>&1 || true
+
+    printf 'probing %s (max 60s)...\n' "$health_url"
+    health_ok=0
+    for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+        sleep 5
+        probe_ok=0
+        pm podman exec "$cid" curl -fsS "$health_url" >/dev/null 2>&1 && probe_ok=1
+        [ "$probe_ok" = "0" ] && podman exec "$cid" curl -fsS "$health_url" >/dev/null 2>&1 && probe_ok=1
+        if [ "$probe_ok" = "1" ]; then
+            health_ok=1
+            printf 'HEALTH OK  after %d attempts\n' "$i"
+            break
+        fi
+        printf '  attempt %d: not ready\n' "$i"
+    done
+
+    if [ "$health_ok" != "1" ]; then
+        printf 'HEALTH FAILED  last 30 lines of svc.log:\n'
+        pm podman exec "$cid" sh -c 'tail -30 /tmp/svc.log 2>/dev/null; echo ---; tail -30 /tmp/npm.log 2>/dev/null' 2>&1 \
+            || podman exec "$cid" sh -c 'tail -30 /tmp/svc.log 2>/dev/null' 2>&1 || true
+        pm podman rm -f "$cid" >/dev/null 2>&1 || podman rm -f "$cid" >/dev/null 2>&1 || true
+        exit 1
+    fi
+
+    printf 'health body:\n'
+    pm podman exec "$cid" curl -fsS "$health_url" 2>&1 \
+        || podman exec "$cid" curl -fsS "$health_url" 2>&1 | head -3
+
+    # Default: clean up. Parent can override by exporting KEEP=1.
+    if [ "${KEEP:-0}" = "1" ]; then
+        printf 'KEEPING runtime container: %s (KEEP=1)\n' "$cid"
+    else
+        pm podman rm -f "$cid" >/dev/null 2>&1 || podman rm -f "$cid" >/dev/null 2>&1 || true
+    fi
+
+    printf 'SMOKE PASS  %s\n' "$pair"
+    exit 0
+} >>"$log" 2>&1

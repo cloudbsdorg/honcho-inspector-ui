@@ -1,0 +1,12 @@
+# Regression runtime artifacts (NOT committed)
+artifacts/
+logs/
+playwright/
+state.tsv
+
+# Phase scripts (POSIX sh helpers)
+!bin/*.sh
+!bin/regression-test
+
+# README
+!README.md

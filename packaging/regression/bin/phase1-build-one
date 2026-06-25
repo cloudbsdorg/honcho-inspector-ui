@@ -1,0 +1,53 @@
+#!/bin/sh
+# phase1-build-one -- build a single (REPO, DISTRO) pair's builder
+# image + produce the native package artifact.
+#
+# Args:
+#   $1 -- repo (backend|ui)
+#   $2 -- distro (debian|rocky|suse|alpine|arch|void)
+#   $3 -- repo root (path to honcho-inspector-<repo>)
+#   $4 -- artifacts dir
+#   $5 -- logs dir
+#   $6 -- log timestamp
+#
+# Env (set by parent):
+#   LOG_FILE  -- path to per-pair log; all output appended here
+#
+# Exits 0 on success, 1 on any failure.
+
+set -eu
+
+repo="$1"; distro="$2"; REPO_ROOT="$3"; ARTIFACTS_DIR="$4"; LOGS_DIR="$5"; TS="$6"
+pair="${repo}-${distro}"
+log="$LOGS_DIR/${pair}.log"
+artifact_var="ARTIFACT_${repo}_${distro}"
+eval "artifact=\"\$$artifact_var\""
+artifact_path="$ARTIFACTS_DIR/$artifact"
+
+{
+    printf '\n=== phase 1: build %s (ts=%s) ===\n' "$pair" "$TS"
+    if ! podman build \
+        -t "honcho-${repo}:builder-${distro}" \
+        -f "$REPO_ROOT/packaging/build/${distro}/Containerfile" \
+        "$REPO_ROOT" 2>&1; then
+        printf 'BUILD FAILED  %s\n' "$pair"
+        exit 1
+    fi
+    rm -f "$artifact_path"
+    if ! podman run --rm \
+        --env HOST_UID=$(id -u) --env HOST_GID=$(id -g) \
+        -v "$REPO_ROOT:/src:ro" \
+        -v "$ARTIFACTS_DIR:/out:rw" \
+        --userns=keep-id \
+        "honcho-${repo}:builder-${distro}" 2>&1; then
+        printf 'BUILD RUN FAILED  %s\n' "$pair"
+        exit 1
+    fi
+    if [ ! -f "$artifact_path" ]; then
+        printf 'ARTIFACT MISSING  expected %s\n' "$artifact_path"
+        exit 1
+    fi
+    size=$(stat -c%s "$artifact_path" 2>/dev/null || wc -c <"$artifact_path")
+    printf 'ARTIFACT OK  %s (%d bytes)\n' "$artifact_path" "$size"
+    exit 0
+} >>"$log" 2>&1

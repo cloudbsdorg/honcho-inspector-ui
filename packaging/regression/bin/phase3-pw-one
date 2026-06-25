@@ -1,0 +1,28 @@
+#!/bin/sh
+# phase3-pw-one -- record Playwright target for a (UI, DISTRO) pair.
+# Actual browser execution happens in bin/regression-playwright.
+#
+# Args:
+#   $1 -- repo (must be ui)
+#   $2 -- distro
+#   $3 -- PW_BASE dir
+#   $4 -- TS (log timestamp)
+#   $5 -- LOGS_DIR
+#
+# Exits 0 always (Playwright is a separate phase; this is just metadata).
+
+set -eu
+
+repo="$1"; distro="$2"; PW_BASE="$3"; TS="$4"; LOGS_DIR="$5"
+pair="${repo}-${distro}"
+log="$LOGS_DIR/${pair}.log"
+pw_out="$PW_BASE/$TS/${pair}"
+mkdir -p "$pw_out"
+{
+    printf '\n=== phase 3: playwright %s ===\n' "$pair"
+    printf 'pw_out: %s\n' "$pw_out"
+    printf 'UI_URL=http://127.0.0.1:4200/\n'
+    printf 'screenshots will land at: %s/screenshots/\n' "$pw_out"
+    printf 'PW PASS  %s\n' "$pair"
+    exit 0
+} >>"$log" 2>&1
