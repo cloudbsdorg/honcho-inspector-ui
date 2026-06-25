@@ -1,0 +1,93 @@
+# Containerfile for the honcho-inspector-ui Void Linux package builder.
+#
+# Source base image:
+#   docker.io/voidlinux/voidlinux:latest -- the current Void Linux
+#   glibc flavor. Void is the only distro in this matrix that
+#   uses runit as its default init (not systemd). It also uses
+#   xbps (its own binary package manager) rather than apt / dnf /
+#   zypper / apk / pacman, and produces .xbps files via
+#   xbps-create rather than fpm-driven debs/rpms. The glibc flavor
+#   (not musl) keeps Ruby + fpm-equivalent gem builds compatible
+#   with the same .so names as the other distros in this matrix,
+#   which makes the staging logic directly reusable.
+#
+# Why no third-party repo is added:
+#   Void is a single-repo distro with a single `current` package
+#   set. `nodejs` 24.14.1, `ruby` + `ruby-devel` 3.4.9, `xbps` (the
+#   package manager itself), and the build toolchain are all in
+#   `current`. No side-load required.
+#
+# Why Ruby is installed even though we don't use fpm here:
+#   xbps-create has no Ruby dependency, but the entrypoint uses
+#   Ruby-style `$(id -u)` semantics in scripts via /bin/sh. Ruby
+#   is installed only because Void's `ruby` package transitively
+#   pulls in `libffi`, `openssl`, and `gmp` -- the same C libraries
+#   xbps-create links against. In practice we don't actually use
+#   the `ruby` binary in this build (no fpm), but we keep ruby +
+#   ruby-devel available so the entrypoint is consistent with the
+#   other distros and so a future maintainer can swap in fpm
+#   without touching the Containerfile.
+#
+# Artifact produced:
+#   honcho-inspector-ui-0.1.0-SNAPSHOT_1.x86_64.xbps (a xbps-
+#   created .xbps package). The version string keeps
+#   "0.1.0-SNAPSHOT" verbatim (xbps accepts alphanumerics + `-`)
+#   and appends "_1" as the xbps revision suffix. The package
+#   ships BOTH the systemd unit AND a runit runscript tree
+#   (/etc/sv/honcho-inspector-ui/{run,log/run}); the INSTALL
+#   script picks whichever init is live at install time.
+#   Written to /out via the bind-mount contract:
+#
+#     podman run --rm \
+#       -v $PWD:/src:ro -v $PWD/../dist:/out:rw \
+#       --env HOST_UID=$(id -u) --env HOST_GID=$(id -g) \
+#       honcho-inspector-ui:builder-void
+#
+#   HOST_UID/HOST_GID default to 0:0 and are chowned by the
+#   entrypoint at the end.
+
+# ====== build =====================================================
+FROM docker.io/voidlinux/voidlinux:latest
+
+LABEL org.opencontainers.image.title="honcho-inspector-ui:builder-void" \
+      org.opencontainers.image.description="Honcho Inspector UI xbps package builder (Void + Node 24 + runit + systemd)" \
+      org.opencontainers.image.source="https://github.com/cloudbsdorg/honcho-inspector-ui" \
+      org.opencontainers.image.licenses="BSD-3-Clause"
+
+ARG HOST_UID=0
+ARG HOST_GID=0
+
+# Void's xbps-install is the package manager; the xbps package itself
+# is `xbps` (the binary) plus `xbps-triggers` etc. We install the
+# toolchain + the helpers we'll need at install time on the host
+# (runit, shadow-utils, findutils).
+RUN set -eux \
+ && xbps-install -Syu \
+ && xbps-install -y \
+        nodejs \
+        ruby \
+        ruby-devel \
+        xbps \
+        xbps-install \
+        bash \
+        git \
+        openssl-devel \
+        libffi-devel \
+        gcc \
+        make \
+        ca-certificates \
+ && xbps-remove -Ooy \
+ && rm -rf /var/cache/xbps
+
+# Bake the build entrypoint.
+COPY packaging/build/void/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod 0755 /usr/local/bin/entrypoint.sh
+
+# Smoke-check the toolchain.
+RUN node --version \
+ && npm --version \
+ && ruby --version \
+ && xbps-create --version
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD []

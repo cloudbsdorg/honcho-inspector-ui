@@ -1,0 +1,84 @@
+# Containerfile for the honcho-inspector-ui Rocky Linux package builder.
+#
+# Source base image:
+#   docker.io/library/rockylinux:10-minimal -- the current Rocky
+#   Linux release (RHEL-10 lineage) on the minimal variant. Rocky is
+#   the downstream-of-record for the post-CentOS-Linux era; the 10
+#   release ships Node 24 directly in AppStream as `nodejs24` (no
+#   Nodesource-style side-load required) and Ruby 3.3 as `ruby`,
+#   so we get a fully distro-native toolchain. The minimal image
+#   keeps the layer cache small (no extras like docs, locales, or
+#   the gnome stack).
+#
+# Why no third-party repo is added:
+#   Node 24 (`nodejs24` 1:24.14.1-2.el10_1) and Ruby 3.3 (`ruby`
+#   3.3.10-12.el10_1) are both in the upstream AppStream repo on
+#   Rocky 10. The only third-party thing in this image is the fpm
+#   Ruby gem, installed via `gem install --no-document fpm`.
+#
+# Why the build tools are added:
+#   fpm's RPM backend shells out to rpmbuild, which itself needs
+#   `rpm-build`, `rpm-devel`, and `rpmlint` for the `%install` and
+#   `%files` stages of an rpmbuild-from-spec. These are not in the
+#   minimal image by default.
+#
+# Artifact produced:
+#   honcho-inspector-ui-0.1.0-SNAPSHOT-1.noarch.rpm (a noarch fpm
+#   RPM, built with `fpm -s dir -t rpm`). Written to /out at run
+#   time via the bind-mount contract:
+#
+#     podman run --rm \
+#       -v $PWD:/src:ro -v $PWD/../dist:/out:rw \
+#       --env HOST_UID=$(id -u) --env HOST_GID=$(id -g) \
+#       honcho-inspector-ui:builder-rocky
+#
+#   HOST_UID/HOST_GID default to 0:0 and are passed by the caller so
+#   the entrypoint can chown the artifact back to the host user.
+
+# ====== build =====================================================
+FROM docker.io/library/rockylinux:10-minimal
+
+LABEL org.opencontainers.image.title="honcho-inspector-ui:builder-rocky" \
+      org.opencontainers.image.description="Honcho Inspector UI RPM package builder (Rocky 10 + Node 24 + fpm)" \
+      org.opencontainers.image.source="https://github.com/cloudbsdorg/honcho-inspector-ui" \
+      org.opencontainers.image.licenses="BSD-3-Clause"
+
+ARG HOST_UID=0
+ARG HOST_GID=0
+
+# dnf auto-installs weak dependencies unless we say otherwise; the
+# minimal base image does not even pull in cracklib-dicts or gpgme
+# by default, so we keep the install tight.
+RUN set -eux \
+ && dnf install -y --setopt=install_weak_deps=False \
+        dnf-plugins-core \
+        nodejs24 \
+        ruby \
+        ruby-devel \
+        gcc \
+        gcc-c++ \
+        make \
+        rpm-build \
+        rpm-devel \
+        rpmlint \
+        redhat-rpm-config \
+        openssl-devel \
+        libffi-devel \
+        shadow-utils \
+ && gem install --no-document fpm \
+ && dnf clean all \
+ && rm -rf /var/cache/dnf /var/cache/yum
+
+# Bake the build entrypoint. The source tree is NEVER COPY'd in --
+# /src is the canonical source-of-truth at podman-run time.
+COPY packaging/build/rocky/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod 0755 /usr/local/bin/entrypoint.sh
+
+# Smoke-check the toolchain.
+RUN node --version \
+ && npm --version \
+ && ruby --version \
+ && fpm --version
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD []
