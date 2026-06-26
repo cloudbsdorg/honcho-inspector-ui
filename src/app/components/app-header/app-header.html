@@ -35,18 +35,20 @@
   </div>
 
   <div class="flex items-center gap-2">
-    <select
-      (change)="switchProfile($any($event.target).value)"
-      data-testid="profile-switcher"
-      class="th-border border-2 px-2 py-1 text-xs font-bold uppercase tracking-widest outline-none"
-      style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
-      [value]="profile()?.id ?? ''"
-      [attr.aria-label]="'Switch active Honcho profile'"
-    >
-      @for (p of profiles(); track p.id) {
-        <option [value]="p.id">{{ p.label }}</option>
-      }
-    </select>
+    @if (profiles().length > 0) {
+      <select
+        (change)="switchProfile($any($event.target).value)"
+        data-testid="profile-switcher"
+        class="th-border border-2 px-2 py-1 text-xs font-bold uppercase tracking-widest outline-none"
+        style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
+        [value]="profile()?.id ?? ''"
+        [attr.aria-label]="'Switch active Honcho profile'"
+      >
+        @for (p of profiles(); track p.id) {
+          <option [value]="p.id">{{ p.label }}</option>
+        }
+      </select>
+    }
 
     @for (link of navLinks(); track link.path) {
       <a
