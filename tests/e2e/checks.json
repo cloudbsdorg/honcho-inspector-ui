@@ -19,5 +19,15 @@
   "prefs-tz-target-preview": "PRESENT",
   "prefs-tz-current-tokyo": "PRESENT",
   "prefs-tz-auto": "PRESENT",
-  "prefs-theme-section": "PRESENT"
+  "prefs-theme-section": "PRESENT",
+  "open-admin": "PRESENT",
+  "open-profiles": "PRESENT",
+  "logout-button": "PRESENT",
+  "open-overview": "PRESENT",
+  "open-inspector": "PRESENT",
+  "profile-switcher": "PRESENT",
+  "open-profiles-still": "PRESENT",
+  "open-preferences-still": "PRESENT",
+  "logout-button-still": "PRESENT",
+  "profile-switcher-still": "PRESENT"
 }
