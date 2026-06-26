@@ -51,20 +51,91 @@ export class MemoryInspector implements OnInit {
 
   /**
    * Flatten an arbitrary metadata record into a sortable key/value
-   * table. Nested objects and arrays are rendered as compact JSON
-   * strings so the table never wraps unexpectedly. Used by the
-   * "Metadata" section of the Workspace tab.
+   * table. Only LEAF values become rows; intermediate objects are
+   * not rows themselves (their existence is encoded in the dotted
+   * key path). Nested arrays and objects are recursed into; each
+   * leaf gets a row with an indented `key` path ("a.b.c" or
+   * "tags[0]") so the tree is visible without expanding/collapsing.
+   * Cycles are guarded via a `seen` set; if a cycle is hit the leaf
+   * renders the literal "<cycle>". Empty objects / arrays become
+   * sentinel rows ("{}" / "[]") so they're visible too. Functions /
+   * Symbols / BigInts are rendered via `String(v)`; null/undefined
+   * render as "". The `depth` field drives the template indent step.
    */
-  metadataEntries(obj: Record<string, unknown> | null | undefined): { key: string; value: string }[] {
-    if (!obj) return [];
-    return Object.entries(obj).map(([k, v]) => ({
-      key: k,
-      value: v === null || v === undefined
-        ? ''
-        : typeof v === 'object'
-          ? JSON.stringify(v)
-          : String(v),
-    }));
+  metadataEntries(
+    obj: Record<string, unknown> | null | undefined,
+  ): { key: string; value: string; depth: number }[] {
+    const out: { key: string; value: string; depth: number }[] = [];
+    const root = obj ?? {};
+    // Top-level keys enter the recursion at depth 0; the children
+    // of those keys become depth 1, etc.
+    if (root && typeof root === 'object' && !Array.isArray(root)) {
+      for (const [k, v] of Object.entries(root)) {
+        this.flattenInto(out, k, v, new WeakSet(), 0);
+      }
+    }
+    return out;
+  }
+
+  private flattenInto(
+    out: { key: string; value: string; depth: number }[],
+    prefix: string,
+    value: unknown,
+    seen: WeakSet<object>,
+    depth: number,
+  ): void {
+    // Depth cap prevents pathological data (recursive arrays) from
+    // blowing up the table; 16 is deep enough for any real Honcho
+    // metadata shape.
+    if (depth > 16) {
+      out.push({
+        key: prefix || '(root)',
+        value: '<depth>',
+        depth,
+      });
+      return;
+    }
+    if (value === null || value === undefined) {
+      out.push({ key: prefix, value: '', depth });
+      return;
+    }
+    if (Array.isArray(value)) {
+      if (seen.has(value)) {
+        out.push({ key: prefix, value: '<cycle>', depth });
+        return;
+      }
+      seen.add(value);
+      if (value.length === 0) {
+        out.push({ key: prefix, value: '[]', depth });
+        return;
+      }
+      value.forEach((item, i) => {
+        const childKey = prefix ? `${prefix}[${i}]` : `[${i}]`;
+        this.flattenInto(out, childKey, item, seen, depth + 1);
+      });
+      return;
+    }
+    if (typeof value === 'object') {
+      const obj = value as Record<string, unknown>;
+      if (seen.has(obj)) {
+        out.push({ key: prefix, value: '<cycle>', depth });
+        return;
+      }
+      seen.add(obj);
+      const entries = Object.entries(obj);
+      if (entries.length === 0) {
+        out.push({ key: prefix, value: '{}', depth });
+        return;
+      }
+      // Descend into the object — only the leaves become rows.
+      for (const [k, v] of entries) {
+        const childKey = prefix ? `${prefix}.${k}` : k;
+        this.flattenInto(out, childKey, v, seen, depth + 1);
+      }
+      return;
+    }
+    // Primitive leaf row.
+    out.push({ key: prefix, value: String(value), depth });
   }
 
   readonly tabs = signal<readonly Tab[]>([

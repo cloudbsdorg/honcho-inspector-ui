@@ -231,3 +231,105 @@ describe('MemoryInspector', () => {
     expect(component.selectedSessionId()).toBe('sess-123');
   });
 });
+
+describe('MemoryInspector.metadataEntries', () => {
+  let component: MemoryInspector;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideRouter([])],
+    });
+    const fixture = TestBed.createComponent(MemoryInspector);
+    component = fixture.componentInstance;
+  });
+
+  it('returns empty array for null/undefined input', () => {
+    expect(component.metadataEntries(null)).toEqual([]);
+    expect(component.metadataEntries(undefined)).toEqual([]);
+  });
+
+  it('flattens flat key/value pairs', () => {
+    const out = component.metadataEntries({ source: 'fixture', version: 1 });
+    expect(out).toContainEqual({ key: 'source', value: 'fixture', depth: 0 });
+    expect(out).toContainEqual({ key: 'version', value: '1', depth: 0 });
+  });
+
+  it('recurses into nested objects with dotted keys', () => {
+    const out = component.metadataEntries({
+      owner: { name: 'mlapointe', email: 'a@b.c' },
+    });
+    // Only leaves are rows; intermediate objects are NOT rows (their
+    // existence is encoded in the dotted key path).
+    expect(out).toContainEqual({ key: 'owner.name', value: 'mlapointe', depth: 1 });
+    expect(out).toContainEqual({ key: 'owner.email', value: 'a@b.c', depth: 1 });
+    expect(out).toHaveLength(2);
+  });
+
+  it('handles deeply nested objects (infinite-style nesting)', () => {
+    const out = component.metadataEntries({
+      a: { b: { c: { d: { e: 'deep' } } } },
+    });
+    // 4 nested levels — but only the leaf 'e' becomes a row.
+    expect(out).toContainEqual({ key: 'a.b.c.d.e', value: 'deep', depth: 4 });
+    expect(out).toHaveLength(1);
+  });
+
+  it('recurses into arrays with index in key', () => {
+    const out = component.metadataEntries({
+      tags: ['alpha', 'beta', 'gamma'],
+    });
+    // Array is not a row; only the elements are.
+    expect(out).toContainEqual({ key: 'tags[0]', value: 'alpha', depth: 1 });
+    expect(out).toContainEqual({ key: 'tags[1]', value: 'beta', depth: 1 });
+    expect(out).toContainEqual({ key: 'tags[2]', value: 'gamma', depth: 1 });
+    expect(out).toHaveLength(3);
+  });
+
+  it('handles arrays of objects', () => {
+    const out = component.metadataEntries({
+      peers: [{ name: 'alice' }, { name: 'bob' }],
+    });
+    // Each array element becomes one row per leaf in that element.
+    expect(out).toContainEqual({ key: 'peers[0].name', value: 'alice', depth: 2 });
+    expect(out).toContainEqual({ key: 'peers[1].name', value: 'bob', depth: 2 });
+    expect(out).toHaveLength(2);
+  });
+
+  it('renders null and undefined as empty value strings', () => {
+    const out = component.metadataEntries({ a: null, b: undefined, c: 0, d: '' });
+    expect(out).toContainEqual({ key: 'a', value: '', depth: 0 });
+    expect(out).toContainEqual({ key: 'b', value: '', depth: 0 });
+    expect(out).toContainEqual({ key: 'c', value: '0', depth: 0 });
+    expect(out).toContainEqual({ key: 'd', value: '', depth: 0 });
+  });
+
+  it('detects cycles and renders <cycle> instead of recursing', () => {
+    const a: Record<string, unknown> = { name: 'a' };
+    const b: Record<string, unknown> = { name: 'b', ref: a };
+    a['ref'] = b; // cycle a -> b -> a
+    const out = component.metadataEntries(a);
+    const cycleRow = out.find((e) => e.value === '<cycle>');
+    expect(cycleRow).toBeTruthy();
+  });
+
+  it('caps recursion depth at 16 levels', () => {
+    // Build a 20-level chain.
+    let innermost: Record<string, unknown> = { v: 'x' };
+    let wrapped: Record<string, unknown> = innermost;
+    for (let i = 0; i < 20; i++) {
+      const next: Record<string, unknown> = { level: i };
+      next['next'] = wrapped;
+      wrapped = next;
+    }
+    const out = component.metadataEntries(wrapped);
+    // Should contain at least one <depth> marker and not infinite-loop.
+    expect(out.some((e) => e.value === '<depth>')).toBe(true);
+  });
+
+  it('handles empty objects and empty arrays with sentinel markers', () => {
+    const out = component.metadataEntries({ empty: {}, list: [] });
+    // Empty {} / [] become one sentinel row each so they're visible.
+    expect(out).toContainEqual({ key: 'empty', value: '{}', depth: 0 });
+    expect(out).toContainEqual({ key: 'list', value: '[]', depth: 0 });
+  });
+});

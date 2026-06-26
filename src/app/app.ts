@@ -8,7 +8,7 @@ import { AppHeader } from './components/app-header/app-header';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-header />
-    <main class="min-h-0 flex-1 overflow-hidden">
+    <main class="min-h-0 flex-1 overflow-y-auto">
       <router-outlet />
     </main>
   `,
@@ -18,10 +18,6 @@ import { AppHeader } from './components/app-header/app-header';
         display: flex;
         flex-direction: column;
         height: 100dvh;
-      }
-      main {
-        display: flex;
-        flex-direction: column;
       }
     `,
   ],
