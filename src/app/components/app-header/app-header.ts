@@ -8,10 +8,11 @@ import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { ProfileService } from '../../core/profile.service';
 import { HonchoService } from '../../core/honcho.service';
 import { ThemePicker } from '../theme-picker/theme-picker';
+import { UserMenu } from '../user-menu/user-menu';
 
 @Component({
   selector: 'app-header',
-  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, ThemePicker],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, ThemePicker, UserMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app-header.html',
   styleUrl: './app-header.css',
@@ -48,7 +49,6 @@ export class AppHeader {
   // its color to the bg. RouterLinkActive adds .active automatically.
   readonly navLinks = computed(() => {
     const hasProfile = this.profile() !== null;
-    const hasProfiles = this.profiles().length > 0;
     const links: Array<{ path: string; label: string; testid: string }> = [];
     // Overview needs an active profile to render the workspace data.
     if (hasProfile) {
@@ -61,11 +61,8 @@ export class AppHeader {
     if (hasProfile) {
       links.push({ path: '/inspector', label: '◈ Inspector', testid: 'open-inspector' });
     }
-    // Preferences is per-user, never needs a profile.
-    links.push({ path: '/preferences', label: '◈ Preferences', testid: 'open-preferences' });
-    if (this.isAdmin()) {
-      links.push({ path: '/admin', label: '⚙ Admin', testid: 'open-admin' });
-    }
+    // Admin lives in the user-menu dropdown (not here) so the main
+    // nav stays focused on the Honcho workspace.
     return links;
   });
 
@@ -83,10 +80,5 @@ export class AppHeader {
   switchProfile(id: string): void {
     this.profileService.setActive(id);
     this.honcho.reset();
-  }
-
-  logout(): void {
-    this.honcho.reset();
-    this.auth.logout();
   }
 }

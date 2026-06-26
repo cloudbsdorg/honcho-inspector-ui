@@ -1,0 +1,118 @@
+<div class="relative">
+  <button
+    type="button"
+    data-testid="user-menu-trigger"
+    (click)="toggle()"
+    [attr.aria-haspopup]="'menu'"
+    [attr.aria-expanded]="isOpen()"
+    [attr.aria-label]="'Open user menu for ' + userName()"
+    class="th-border flex items-center gap-2 border-2 px-2 py-1 text-xs font-bold uppercase tracking-widest transition-all hover:th-glow"
+    style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
+  >
+    <span
+      class="block h-4 w-4 flex-shrink-0 border th-border"
+      style="
+        border-radius: var(--radius);
+        background: var(--accent);
+        color: var(--bg);
+      "
+      aria-hidden="true"
+    >{{ (userName() || '?').charAt(0).toUpperCase() }}</span>
+    <span class="hidden sm:inline" data-testid="user-menu-username">{{ userName() }}</span>
+    @if (isAdmin()) {
+      <span
+        class="text-[9px] opacity-70"
+        style="color: var(--text-dim)"
+        aria-label="admin"
+        title="Administrator"
+        data-testid="user-menu-admin-badge"
+      >⚙</span>
+    }
+    <span class="text-[10px] opacity-60" [class.rotate-180]="isOpen()">▾</span>
+  </button>
+
+  @if (isOpen()) {
+    <div
+      data-testid="user-menu-panel"
+      role="menu"
+      class="th-border th-shadow absolute right-0 z-50 mt-1 w-64 border-2 p-1 th-menu-enter"
+      style="border-radius: var(--radius); background: var(--surface); color: var(--text)"
+    >
+      <div
+        class="px-2 py-2"
+        style="border-bottom: 1px solid var(--accent)"
+        data-testid="user-menu-header"
+      >
+        <div class="text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-dim)">
+          Signed in as
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold" data-testid="user-menu-name">{{ userName() }}</span>
+          @if (isAdmin()) {
+            <span
+              class="text-[9px] uppercase tracking-widest opacity-70"
+              style="color: var(--accent)"
+              data-testid="user-menu-admin-label"
+              >admin</span
+            >
+          }
+        </div>
+      </div>
+
+      <a
+        routerLink="/preferences"
+        data-testid="user-menu-preferences"
+        role="menuitem"
+        (click)="close()"
+        class="flex w-full items-center gap-3 px-2 py-2 text-left text-sm hover:th-glow"
+        style="border-radius: var(--radius); color: var(--text)"
+      >
+        <span aria-hidden="true" style="color: var(--accent)">◈</span>
+        <span class="min-w-0 flex-1">
+          <span class="block font-bold">Preferences</span>
+          <span class="block truncate text-[10px] opacity-70" style="color: var(--text-dim)">
+            Timezone, theme, locale
+          </span>
+        </span>
+      </a>
+
+      @if (isAdmin()) {
+        <a
+          routerLink="/admin"
+          data-testid="user-menu-admin"
+          role="menuitem"
+          (click)="close()"
+          class="flex w-full items-center gap-3 px-2 py-2 text-left text-sm hover:th-glow"
+          style="border-radius: var(--radius); color: var(--text)"
+        >
+          <span aria-hidden="true" style="color: var(--accent)">⚙</span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-bold">Admin</span>
+            <span class="block truncate text-[10px] opacity-70" style="color: var(--text-dim)">
+              Users, audit, maintenance
+            </span>
+          </span>
+        </a>
+      }
+
+      <div style="border-top: 1px solid var(--accent)"></div>
+
+      <button
+        type="button"
+        role="menuitem"
+        data-testid="user-menu-logout"
+        (click)="logout()"
+        class="flex w-full items-center gap-3 px-2 py-2 text-left text-sm hover:th-glow"
+        style="border-radius: var(--radius); color: var(--text)"
+      >
+        <span aria-hidden="true" style="color: var(--danger)">⏻</span>
+        <span class="min-w-0 flex-1">
+          <span class="block font-bold">Logout</span>
+          <span class="block truncate text-[10px] opacity-70" style="color: var(--text-dim)">
+            End this session
+          </span>
+        </span>
+      </button>
+    </div>
+  }
+</div>

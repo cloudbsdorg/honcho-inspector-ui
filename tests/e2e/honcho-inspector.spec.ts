@@ -320,8 +320,11 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId("profile-row").first().click();
     await page.getByTestId("set-active").first().click();
 
-    await check(page, 'open-preferences', '[data-testid="open-preferences"]');
-    await page.getByTestId('open-preferences').click();
+    await check(page, 'user-menu-trigger', '[data-testid="user-menu-trigger"]');
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    await check(page, 'user-menu-preferences', '[data-testid="user-menu-preferences"]');
+    await page.getByTestId('user-menu-preferences').click();
     await page.waitForURL(/\/preferences/, { timeout: 15_000 });
     await check(page, 'prefs-tz-section', '[data-testid="prefs-tz-section"]');
     await check(page, 'prefs-tz-current', '[data-testid="prefs-tz-current"]');
@@ -388,24 +391,32 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId('login-submit').click();
     await page.waitForURL(/\/profiles/, { timeout: 15_000 });
 
-    // Admin link SHOULD show (user IS admin).
-    await check(page, 'open-admin', '[data-testid="open-admin"]');
+    // Admin link lives inside the user-menu dropdown (open it first).
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    await check(page, 'user-menu-admin', '[data-testid="user-menu-admin"]');
     // Overview and Inspector should NOT show (no active profile).
     expect(await page.locator('[data-testid="open-overview"]').count()).toBe(0);
     expect(await page.locator('[data-testid="open-inspector"]').count()).toBe(0);
     // Switcher should NOT show (no profiles at all).
     expect(await page.locator('[data-testid="profile-switcher"]').count()).toBe(0);
-    // Connections, Preferences, Logout, Theme picker stay.
+    // Connections stays in main nav; Preferences + Logout stay in menu.
     await check(page, 'open-profiles', '[data-testid="open-profiles"]');
-    await check(page, 'open-preferences', '[data-testid="open-preferences"]');
-    await check(page, 'logout-button', '[data-testid="logout-button"]');
+    await check(page, 'user-menu-preferences', '[data-testid="user-menu-preferences"]');
+    await check(page, 'user-menu-logout', '[data-testid="user-menu-logout"]');
     await shot(page, '05d-header-admin-no-profiles.png');
+    // Close the menu so the next click assertion is on the closed state.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(100);
 
     // Clicking Admin lands on /admin if the route allows it without
     // an active profile. Currently authGuard redirects to /profiles
     // when there's no active profile (even for admins), so we assert
     // the URL ends with /admin OR /profiles and isn't a blank screen.
-    await page.getByTestId('open-admin').click();
+    // Re-open the menu after the screenshot Escape.
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    await page.getByTestId('user-menu-admin').click();
     await page.waitForFunction(
       () =>
         location.pathname === '/admin' || location.pathname === '/profiles',
@@ -425,18 +436,23 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId('login-submit').click();
     await page.waitForURL(/\/profiles/, { timeout: 15_000 });
 
-    // Admin link must NOT show.
-    expect(await page.locator('[data-testid="open-admin"]').count()).toBe(0);
+    // Admin link must NOT show. Open the menu first (the admin item
+    // only renders inside the open dropdown).
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    expect(await page.locator('[data-testid="user-menu-admin"]').count()).toBe(0);
     // Overview + Inspector hidden (no active profile).
     expect(await page.locator('[data-testid="open-overview"]').count()).toBe(0);
     expect(await page.locator('[data-testid="open-inspector"]').count()).toBe(0);
     // Switcher hidden (no profiles).
     expect(await page.locator('[data-testid="profile-switcher"]').count()).toBe(0);
-    // Connections + Preferences + Logout stay.
+    // Connections stays in main nav; Preferences + Logout stay in menu.
     await check(page, 'open-profiles', '[data-testid="open-profiles"]');
-    await check(page, 'open-preferences', '[data-testid="open-preferences"]');
-    await check(page, 'logout-button', '[data-testid="logout-button"]');
+    await check(page, 'user-menu-preferences', '[data-testid="user-menu-preferences"]');
+    await check(page, 'user-menu-logout', '[data-testid="user-menu-logout"]');
     await shot(page, '05e-header-non-admin-no-profiles.png');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(100);
 
     // URL-hack /admin must redirect to / (adminGuard).
     await page.goto('/admin');
@@ -453,37 +469,48 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.waitForURL(/\/profiles/, { timeout: 15_000 });
 
     // On /profiles with an active profile, the header must show
-    // Overview + Connections + Inspector + Preferences + Logout.
+    // Overview + Connections + Inspector + Profile switcher +
+    // user-menu trigger (Preferences + Logout live inside the menu).
     await page.getByTestId('profile-row').first().click();
     await page.getByTestId('set-active').first().click();
     await page.waitForTimeout(400);
     await check(page, 'open-overview', '[data-testid="open-overview"]');
     await check(page, 'open-profiles', '[data-testid="open-profiles"]');
     await check(page, 'open-inspector', '[data-testid="open-inspector"]');
-    await check(page, 'open-preferences', '[data-testid="open-preferences"]');
+    await check(page, 'user-menu-trigger', '[data-testid="user-menu-trigger"]');
     await check(page, 'profile-switcher', '[data-testid="profile-switcher"]');
-    await check(page, 'logout-button', '[data-testid="logout-button"]');
+    // Open the menu and verify Preferences + Logout live inside.
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    await check(page, 'user-menu-preferences', '[data-testid="user-menu-preferences"]');
+    await check(page, 'user-menu-logout', '[data-testid="user-menu-logout"]');
     await shot(page, '05c-header-with-profile.png');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(100);
 
     // Clear active profile and verify Overview + Inspector disappear
-    // while Connections + Preferences + Logout + the switcher stay
-    // (the switcher renders whenever there are profiles to switch to,
-    // regardless of which one is active).
+    // while Connections + the switcher + the user-menu trigger stay.
     await page.evaluate(() => {
       window.localStorage.removeItem('honcho-active-profile');
     });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(400);
     await check(page, 'open-profiles-still', '[data-testid="open-profiles"]');
-    await check(page, 'open-preferences-still', '[data-testid="open-preferences"]');
-    await check(page, 'logout-button-still', '[data-testid="logout-button"]');
+    await check(page, 'user-menu-trigger-still', '[data-testid="user-menu-trigger"]');
     expect(await page.locator('[data-testid="open-overview"]').count())
       .toBe(0);
     expect(await page.locator('[data-testid="open-inspector"]').count())
       .toBe(0);
     // Switcher stays because there are profiles to choose from.
     await check(page, 'profile-switcher-still', '[data-testid="profile-switcher"]');
+    // Menu items still inside the open menu.
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    await check(page, 'open-preferences-still', '[data-testid="user-menu-preferences"]');
+    await check(page, 'logout-button-still', '[data-testid="user-menu-logout"]');
     await shot(page, '05c-header-no-profile.png');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(100);
 
     // Drop all profiles (clear localStorage and reload) so the
     // switcher itself disappears.
@@ -493,7 +520,9 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
       // localStorage isn't enough. Logout instead, which clears the
       // in-memory store via the SPA session reset.
     });
-    await page.getByTestId('logout-button').click();
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    await page.getByTestId('user-menu-logout').click();
     await page.waitForTimeout(2000);
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(500);
@@ -513,7 +542,9 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await expect(page.getByTestId('app-header')).toBeVisible();
     await shot(page, '06a-before-logout.png');
 
-    await page.getByTestId('logout-button').click();
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    await page.getByTestId('user-menu-logout').click();
     await page.waitForTimeout(2000);
     await page.goto('/login');
     await expect(page.getByTestId('login-overlay')).toBeVisible({ timeout: 10_000 });
