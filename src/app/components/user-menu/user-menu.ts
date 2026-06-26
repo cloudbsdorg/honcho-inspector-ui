@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { computed } from '@angular/core';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { HonchoService } from '../../core/honcho.service';
@@ -32,6 +32,7 @@ import { HonchoService } from '../../core/honcho.service';
 export class UserMenu {
   private readonly auth = inject(HonchoAuthService);
   private readonly honcho = inject(HonchoService);
+  private readonly router = inject(Router);
   private readonly host = inject(ElementRef<HTMLElement>);
 
   readonly userName = computed(() => this.auth.user()?.username ?? '');
@@ -50,6 +51,7 @@ export class UserMenu {
     this.isOpen.set(false);
     this.honcho.reset();
     this.auth.logout();
+    this.router.navigateByUrl('/login');
   }
 
   @HostListener('document:click', ['$event'])

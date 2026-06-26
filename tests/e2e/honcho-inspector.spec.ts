@@ -523,9 +523,8 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId('user-menu-trigger').click();
     await page.waitForTimeout(150);
     await page.getByTestId('user-menu-logout').click();
-    await page.waitForTimeout(2000);
-    await page.goto('/login', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(500);
+    // UserMenu now navigates to /login automatically.
+    await page.waitForURL(/\/login/, { timeout: 5_000 });
     await shot(page, '05c-header-after-logout.png');
   });
 
@@ -545,8 +544,8 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId('user-menu-trigger').click();
     await page.waitForTimeout(150);
     await page.getByTestId('user-menu-logout').click();
-    await page.waitForTimeout(2000);
-    await page.goto('/login');
+    // UserMenu navigates to /login automatically.
+    await page.waitForURL(/\/login/, { timeout: 5_000 });
     await expect(page.getByTestId('login-overlay')).toBeVisible({ timeout: 10_000 });
     await check(page, 'login-overlay', '[data-testid="login-overlay"]');
     await shot(page, '06b-after-logout.png');
