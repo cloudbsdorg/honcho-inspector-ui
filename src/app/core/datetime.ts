@@ -260,6 +260,82 @@ export function toIsoUtc(
 }
 
 /**
+ * Convert a wall-clock string produced by `<input type="datetime-local">`
+ * (e.g. `"2026-06-25T13:45"`) into a wallclock-UTC ISO-8601 string (e.g.
+ * `"2026-06-25T18:45:00.000Z"`) interpreted in `timeZone`. The browser's
+ * datetime-local input always emits a naive local-time string with no
+ * offset — backend endpoints require an explicit zone. Returns `''`
+ * for empty / unparseable input.
+ *
+ * Algorithm: ask Intl.DateTimeFormat what wall-clock the target zone
+ * shows for a probe Date, compare against the naive local string, and
+ * solve for the offset that maps one to the other. The runtime zone
+ * is the fallback when Intl is unavailable.
+ */
+export function localWallclockToUtcIso(
+  local: string | null | undefined,
+  timeZone?: string,
+): string {
+  if (!local) return '';
+  const parts = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(
+    local.trim(),
+  );
+  if (!parts) return '';
+  const [_, y, mo, d, h, mi, s] = parts;
+  const [Y, M, D, H, MI, S] = [y, mo, d, h, mi, s ?? '00'].map(Number);
+  if ([Y, M, D, H, MI, S].some((n) => !Number.isFinite(n))) return '';
+  if (M < 1 || M > 12 || D < 1 || D > 31 || H > 23 || MI > 59 || S > 59) return '';
+  // Reject impossible dates by round-tripping through Date.UTC and
+  // comparing the calendar fields (e.g. 2026-02-30 → March 2).
+  const probe = new Date(Date.UTC(Y, M - 1, D, H, MI, S));
+  if (
+    probe.getUTCFullYear() !== Y ||
+    probe.getUTCMonth() !== M - 1 ||
+    probe.getUTCDate() !== D
+  ) {
+    return '';
+  }
+
+  const tz = timeZone ?? defaultRuntimeTimezone();
+  // Anchor: assume the naive string is in `tz` and find the matching UTC
+  // instant. Probe with Date.UTC(...), then check what wall-clock it
+  // shows in `tz`. The difference is the zone offset.
+  const guessMs = Date.UTC(Y, M - 1, D, H, MI, S);
+  let offsetMs = 0;
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const partsOut = fmt.formatToParts(new Date(guessMs));
+    const get = (type: string) =>
+      parseInt(partsOut.find((p) => p.type === type)?.value ?? 'NaN', 10);
+    const asUtc = Date.UTC(
+      get('year'),
+      get('month') - 1,
+      get('day'),
+      get('hour') === 24 ? 0 : get('hour'),
+      get('minute'),
+      get('second'),
+    );
+    offsetMs = asUtc - guessMs;
+  } catch {
+    // Runtime-local fallback: parse as runtime-local and emit the
+    // resulting instant's ISO.
+    const localProbe = new Date(Y, M - 1, D, H, MI, S);
+    return localProbe.toISOString();
+  }
+  const utcMs = guessMs - offsetMs;
+  return new Date(utcMs).toISOString();
+}
+
+/**
  * Return the short IANA name of the user's effective timezone. Useful for the
  * profile-settings UI to show "Currently: America/Chicago" alongside the
  * override selector.

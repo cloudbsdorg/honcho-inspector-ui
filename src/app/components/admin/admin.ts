@@ -19,7 +19,11 @@ import { ChartComponent } from '../charts/chart.component';
 import { UserCreateWizard } from './user-create-wizard';
 import { describeCron } from '../../core/cron';
 import { TimezoneService } from '../../core/timezone.service';
-import { formatWallClock, formatWallClockTooltip } from '../../core/datetime';
+import {
+  formatWallClock,
+  formatWallClockTooltip,
+  localWallclockToUtcIso,
+} from '../../core/datetime';
 
 type Tab = 'overview' | 'users' | 'audit' | 'maintenance';
 type PageSizeUi = 10 | 20 | 30;
@@ -232,9 +236,17 @@ export class AdminPanel implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     try {
+      // The datetime-local input emits a naive local-time string with
+      // no zone ("2026-06-25T13:45"). Backend endpoints require an
+      // explicit zone — convert to wallclock-UTC using the user's
+      // effective timezone.
+      const sinceRaw = this.auditSince();
+      const sinceIso = sinceRaw
+        ? localWallclockToUtcIso(sinceRaw, this.tz.effectiveTimezone())
+        : '';
       const result = await this.admin.listAudit({
         action: this.auditAction() || undefined,
-        since: this.auditSince() || undefined,
+        since: sinceIso || undefined,
         page: this.auditPage(),
         pageSize: this.auditPageSize(),
       });

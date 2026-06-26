@@ -5,6 +5,7 @@ import {
   formatTimezoneAbbreviation,
   formatWallClock,
   formatWallClockTooltip,
+  localWallclockToUtcIso,
   parseHonchoTimestamp,
   toIsoUtc,
 } from './datetime';
@@ -305,5 +306,67 @@ describe('COMMON_TIMEZONES', () => {
 
   it('has no duplicates', () => {
     expect(new Set(COMMON_TIMEZONES).size).toBe(COMMON_TIMEZONES.length);
+  });
+});
+
+describe('localWallclockToUtcIso', () => {
+  it('returns empty string for empty/null/undefined input', () => {
+    expect(localWallclockToUtcIso('')).toBe('');
+    expect(localWallclockToUtcIso(null)).toBe('');
+    expect(localWallclockToUtcIso(undefined)).toBe('');
+  });
+
+  it('returns empty string for unparseable input', () => {
+    expect(localWallclockToUtcIso('not-a-date')).toBe('');
+    expect(localWallclockToUtcIso('2026-13-40T99:99')).toBe('');
+  });
+
+  it('interprets naive local string in UTC when timeZone is UTC', () => {
+    // 2026-06-25T13:45 in UTC == 2026-06-25T13:45:00Z
+    expect(localWallclockToUtcIso('2026-06-25T13:45', 'UTC')).toBe(
+      '2026-06-25T13:45:00.000Z',
+    );
+  });
+
+  it('interprets naive local string in America/Chicago (UTC-5 in June)', () => {
+    // 2026-06-25T13:45 Chicago == 18:45 UTC (CDT is UTC-5)
+    expect(localWallclockToUtcIso('2026-06-25T13:45', 'America/Chicago')).toBe(
+      '2026-06-25T18:45:00.000Z',
+    );
+  });
+
+  it('interprets naive local string in America/Chicago during CST (UTC-6)', () => {
+    // January is CST (UTC-6), so 13:45 Chicago == 19:45 UTC
+    expect(localWallclockToUtcIso('2026-01-15T13:45', 'America/Chicago')).toBe(
+      '2026-01-15T19:45:00.000Z',
+    );
+  });
+
+  it('interprets naive local string in Asia/Tokyo (UTC+9, no DST)', () => {
+    // 2026-06-25T13:45 Tokyo == 04:45 UTC
+    expect(localWallclockToUtcIso('2026-06-25T13:45', 'Asia/Tokyo')).toBe(
+      '2026-06-25T04:45:00.000Z',
+    );
+  });
+
+  it('handles seconds-precision input', () => {
+    expect(localWallclockToUtcIso('2026-06-25T13:45:30', 'UTC')).toBe(
+      '2026-06-25T13:45:30.000Z',
+    );
+  });
+
+  it('falls back gracefully when Intl cannot determine the offset', () => {
+    // Even with a bogus zone name, the function should not throw —
+    // it should return something parseable.
+    const result = localWallclockToUtcIso('2026-06-25T13:45', 'Not/A/Zone');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('produces ISO strings the backend accepts (matches Spring parser)', () => {
+    // Regression test for the original audit-tab bug: the backend's
+    // Spring Instant parser accepts both Z and offset forms, so we
+    // make sure our output is one of those.
+    const result = localWallclockToUtcIso('2026-06-25T13:45', 'America/Chicago');
+    expect(result).toMatch(/Z$|[+-]\d{2}:\d{2}$/);
   });
 });
