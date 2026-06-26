@@ -47,12 +47,22 @@ export class AppHeader {
   // with the accent text; the active one fills with the accent and flips
   // its color to the bg. RouterLinkActive adds .active automatically.
   readonly navLinks = computed(() => {
-    const links: Array<{ path: string; label: string; testid: string }> = [
-      { path: '/', label: '◈ Overview', testid: 'open-overview' },
-      { path: '/profiles', label: '◈ Connections', testid: 'open-profiles' },
-      { path: '/inspector', label: '◈ Inspector', testid: 'open-inspector' },
-      { path: '/preferences', label: '◈ Preferences', testid: 'open-preferences' },
-    ];
+    const hasProfile = this.profile() !== null;
+    const hasProfiles = this.profiles().length > 0;
+    const links: Array<{ path: string; label: string; testid: string }> = [];
+    // Overview needs an active profile to render the workspace data.
+    if (hasProfile) {
+      links.push({ path: '/', label: '◈ Overview', testid: 'open-overview' });
+    }
+    // Connections is the profile management page itself — always
+    // available, including on first boot when no profiles exist.
+    links.push({ path: '/profiles', label: '◈ Connections', testid: 'open-profiles' });
+    // Inspector needs an active profile.
+    if (hasProfile) {
+      links.push({ path: '/inspector', label: '◈ Inspector', testid: 'open-inspector' });
+    }
+    // Preferences is per-user, never needs a profile.
+    links.push({ path: '/preferences', label: '◈ Preferences', testid: 'open-preferences' });
     if (this.isAdmin()) {
       links.push({ path: '/admin', label: '⚙ Admin', testid: 'open-admin' });
     }

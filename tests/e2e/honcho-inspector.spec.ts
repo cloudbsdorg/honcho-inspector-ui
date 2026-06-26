@@ -378,6 +378,62 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await shot(page, '05b-preferences-theme-retro.png');
   });
 
+  test('05c Header hides nav items that have nothing to navigate to', async ({ page }) => {
+    // Log in as the bootstrap admin (who has profiles) so the app loads.
+    await page.goto('/login');
+    await page.getByTestId('login-username').fill(USERNAME);
+    await page.getByTestId('login-password').fill(PASSWORD);
+    await page.getByTestId('login-submit').click();
+    await page.waitForURL(/\/profiles/, { timeout: 15_000 });
+
+    // On /profiles with an active profile, the header must show
+    // Overview + Connections + Inspector + Preferences + Logout.
+    await page.getByTestId('profile-row').first().click();
+    await page.getByTestId('set-active').first().click();
+    await page.waitForTimeout(400);
+    await check(page, 'open-overview', '[data-testid="open-overview"]');
+    await check(page, 'open-profiles', '[data-testid="open-profiles"]');
+    await check(page, 'open-inspector', '[data-testid="open-inspector"]');
+    await check(page, 'open-preferences', '[data-testid="open-preferences"]');
+    await check(page, 'profile-switcher', '[data-testid="profile-switcher"]');
+    await check(page, 'logout-button', '[data-testid="logout-button"]');
+    await shot(page, '05c-header-with-profile.png');
+
+    // Clear active profile and verify Overview + Inspector disappear
+    // while Connections + Preferences + Logout + the switcher stay
+    // (the switcher renders whenever there are profiles to switch to,
+    // regardless of which one is active).
+    await page.evaluate(() => {
+      window.localStorage.removeItem('honcho-active-profile');
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(400);
+    await check(page, 'open-profiles-still', '[data-testid="open-profiles"]');
+    await check(page, 'open-preferences-still', '[data-testid="open-preferences"]');
+    await check(page, 'logout-button-still', '[data-testid="logout-button"]');
+    expect(await page.locator('[data-testid="open-overview"]').count())
+      .toBe(0);
+    expect(await page.locator('[data-testid="open-inspector"]').count())
+      .toBe(0);
+    // Switcher stays because there are profiles to choose from.
+    await check(page, 'profile-switcher-still', '[data-testid="profile-switcher"]');
+    await shot(page, '05c-header-no-profile.png');
+
+    // Drop all profiles (clear localStorage and reload) so the
+    // switcher itself disappears.
+    await page.evaluate(() => {
+      window.localStorage.removeItem('honcho-active-profile');
+      // The ProfileService caches the profiles list in memory; clearing
+      // localStorage isn't enough. Logout instead, which clears the
+      // in-memory store via the SPA session reset.
+    });
+    await page.getByTestId('logout-button').click();
+    await page.waitForTimeout(2000);
+    await page.goto('/login', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(500);
+    await shot(page, '05c-header-after-logout.png');
+  });
+
   test('06 Header logout clears session and ends on /login', async ({ page }) => {
     await page.goto('/login');
     await page.getByTestId('login-username').fill(USERNAME);
