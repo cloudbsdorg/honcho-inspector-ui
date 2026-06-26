@@ -7,6 +7,7 @@ import { Profile, ProfileWithKey } from '../../core/models';
 import { formatError } from '../../core/error-message';
 import { TimezoneService } from '../../core/timezone.service';
 import { formatWallClock, formatWallClockTooltip } from '../../core/datetime';
+import { ConfirmDialogService } from '../confirm-dialog/confirm-dialog.service';
 
 interface TestResult {
   ok: boolean;
@@ -30,6 +31,7 @@ export class ProfileSelector {
   private readonly auth = inject(HonchoAuthService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
+  private readonly confirm = inject(ConfirmDialogService);
   readonly tz = inject(TimezoneService);
   readonly formatWallClock = formatWallClock;
   readonly formatWallClockTooltip = formatWallClockTooltip;
@@ -244,7 +246,12 @@ export class ProfileSelector {
 
   async delete(profile: Profile): Promise<void> {
     if (typeof window === 'undefined') return;
-    const ok = window.confirm(`Delete profile "${profile.label}"? This cannot be undone.`);
+    const ok = await this.confirm.ask({
+      title: `Delete profile "${profile.label}"?`,
+      body: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
     if (!ok) return;
     try {
       await this.profiles.delete(profile.id);

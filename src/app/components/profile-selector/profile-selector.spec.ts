@@ -4,6 +4,7 @@ import { ProfileSelector } from './profile-selector';
 import { ProfileService } from '../../core/profile.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { Profile } from '../../core/models';
+import { ConfirmDialogService } from '../confirm-dialog/confirm-dialog.service';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -132,7 +133,8 @@ describe('ProfileSelector', () => {
   });
 
   it('should call delete on the service and remove the row after confirm()', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmSvc = TestBed.inject(ConfirmDialogService);
+    const askSpy = vi.spyOn(confirmSvc, 'ask').mockResolvedValue(true);
     installFetch((path, init) => {
       if (path === '/api/profiles/p-a' && init?.method === 'DELETE') {
         return new Response(null, { status: 204 });
@@ -140,12 +142,13 @@ describe('ProfileSelector', () => {
       return jsonResponse({});
     });
     await component.delete(PROFILE_A);
-    expect(confirmSpy).toHaveBeenCalled();
+    expect(askSpy).toHaveBeenCalled();
     expect(profiles.profiles().find((p) => p.id === 'p-a')).toBeUndefined();
   });
 
   it('should NOT call delete on the service when confirm() returns false', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirmSvc = TestBed.inject(ConfirmDialogService);
+    vi.spyOn(confirmSvc, 'ask').mockResolvedValue(false);
     const before = profiles.profiles().length;
     await component.delete(PROFILE_A);
     expect(profiles.profiles().length).toBe(before);
