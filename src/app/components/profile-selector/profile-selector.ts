@@ -253,14 +253,6 @@ export class ProfileSelector {
     }
   }
 
-  onTimezoneChange(value: string): void {
-    if (!value || value === '') {
-      this.tz.clearOverride();
-      return;
-    }
-    this.tz.setOverride(value);
-  }
-
   async test(profile: Profile): Promise<void> {
     this.testResults.update((m) => ({ ...m, [profile.id]: { ok: false, message: '...' } }));
     try {

@@ -11,5 +11,13 @@
   "admin-open-user-create": "PRESENT",
   "user-create-welcome": "PRESENT",
   "user-create-password-match": "PRESENT",
-  "user-create-submit": "PRESENT"
+  "user-create-submit": "PRESENT",
+  "open-preferences": "PRESENT",
+  "prefs-tz-section": "PRESENT",
+  "prefs-tz-current": "PRESENT",
+  "tz-option-tokyo": "PRESENT",
+  "prefs-tz-target-preview": "PRESENT",
+  "prefs-tz-current-tokyo": "PRESENT",
+  "prefs-tz-auto": "PRESENT",
+  "prefs-theme-section": "PRESENT"
 }

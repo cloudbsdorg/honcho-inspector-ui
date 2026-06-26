@@ -1,0 +1,271 @@
+<div
+  class="th-border mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden border-2"
+  style="border-radius: var(--radius); background: var(--surface)"
+  data-testid="preferences-pane"
+>
+  <header
+    class="th-border flex items-center justify-between border-b-2 px-4 py-3"
+    style="background: var(--bg)"
+  >
+    <div>
+      <h1
+        class="th-display text-base font-bold uppercase tracking-widest"
+        style="color: var(--accent)"
+      >
+        Preferences
+      </h1>
+      <p class="text-[10px] opacity-70" style="color: var(--text-dim)">
+        User-scoped settings · applies to every screen for
+        <span style="color: var(--accent)" data-testid="prefs-username">{{ username() }}</span>
+      </p>
+    </div>
+    <a
+      routerLink="/"
+      data-testid="prefs-close"
+      class="th-border border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
+      style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
+      >← Back</a
+    >
+  </header>
+
+  <div class="flex-1 overflow-y-auto p-4">
+    <!-- Display Timezone -->
+    <section
+      class="th-border mb-4 border-2 p-4"
+      style="border-radius: var(--radius); background: var(--bg)"
+      data-testid="prefs-tz-section"
+      aria-labelledby="prefs-tz-heading"
+    >
+      <header class="mb-3 flex items-center justify-between">
+        <h2
+          id="prefs-tz-heading"
+          class="text-xs font-bold uppercase tracking-widest"
+          style="color: var(--accent)"
+        >
+          Display Timezone
+        </h2>
+        <span class="text-[10px] opacity-60" data-testid="prefs-tz-detected">
+          Detected from browser: <strong class="font-mono">{{ tz.detectedTimezone() }}</strong>
+        </span>
+      </header>
+
+      <p class="mb-3 text-xs opacity-80" style="color: var(--text-dim)">
+        All timestamps in the inspector, dashboard, admin, and audit views render in
+        your selected zone. Storage and transport remain wallclock UTC.
+      </p>
+
+      <!-- Live preview of the CURRENT zone -->
+      <div
+        class="th-border mb-3 flex items-center justify-between gap-3 border-2 px-3 py-2"
+        style="border-radius: var(--radius); background: var(--surface)"
+        data-testid="prefs-tz-current"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-[10px] font-bold uppercase opacity-70" style="color: var(--text-dim)">
+            Current
+          </span>
+          <strong class="font-mono text-sm" style="color: var(--accent)">
+            {{ tz.effectiveTimezone() }}
+          </strong>
+        </div>
+        <div
+          class="font-mono text-lg"
+          style="color: var(--text)"
+          [title]="previewNowTooltip()"
+          data-testid="prefs-tz-current-clock"
+        >
+          {{ previewNow() }}
+        </div>
+        <div class="flex items-center gap-2">
+          @if (tz.hasOverride()) {
+            <button
+              type="button"
+              data-testid="prefs-tz-reset"
+              (click)="resetZone()"
+              class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+              style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
+            >
+              Use browser default
+            </button>
+          } @else {
+            <span
+              class="text-[10px] uppercase tracking-widest opacity-60"
+              style="color: var(--text-dim)"
+              data-testid="prefs-tz-auto"
+              >Using browser default</span
+            >
+          }
+        </div>
+      </div>
+
+      <!-- Live preview of the TARGET zone (hovered/selected) -->
+      @if (targetZone(); as tz_) {
+        <div
+          class="th-border mb-3 flex items-center justify-between gap-3 border-2 px-3 py-2"
+          style="border-radius: var(--radius); background: var(--surface)"
+          data-testid="prefs-tz-target-preview"
+        >
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] font-bold uppercase opacity-70" style="color: var(--text-dim)">
+              Hover preview
+            </span>
+            <strong class="font-mono text-sm" style="color: var(--accent)">{{ tz_ }}</strong>
+          </div>
+          <div
+            class="font-mono text-lg"
+            style="color: var(--text)"
+            [title]="targetPreviewTooltip()"
+            data-testid="prefs-tz-target-clock"
+          >
+            {{ targetPreview() }}
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="prefs-tz-apply"
+              (click)="setZone(tz_)"
+              class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+              style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Search + grouped picker -->
+      <div class="mb-3">
+        <label class="sr-only" for="prefs-tz-filter">Filter timezones</label>
+        <input
+          id="prefs-tz-filter"
+          type="search"
+          data-testid="prefs-tz-filter"
+          [value]="tzFilter()"
+          (input)="onFilterInput($any($event.target).value)"
+          placeholder="Search (e.g. chicago, tokyo, europe)"
+          class="th-border w-full border-2 px-2 py-1 font-mono text-xs"
+          style="border-radius: var(--radius); background: var(--surface); color: var(--text)"
+        />
+      </div>
+
+      <div
+        class="th-border max-h-80 overflow-y-auto border-2"
+        style="border-radius: var(--radius); background: var(--surface)"
+        data-testid="prefs-tz-picker"
+        role="listbox"
+      >
+        @if (noMatches()) {
+          <p
+            class="p-3 text-center text-xs opacity-70"
+            style="color: var(--text-dim)"
+            data-testid="prefs-tz-empty"
+          >
+            No timezones match "{{ tzFilter() }}". Try a different search term.
+          </p>
+        } @else {
+          @for (group of filteredGroups(); track group.region) {
+            <div class="border-b last:border-b-0" style="border-color: var(--accent)">
+              <div
+                class="bg-opacity-30 px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style="background: var(--bg); color: var(--text-dim)"
+              >
+                {{ group.region }}
+              </div>
+              @for (zone of group.zones; track zone) {
+                <button
+                  type="button"
+                  role="option"
+                  [attr.aria-selected]="tz.effectiveTimezone() === zone"
+                  [attr.data-testid]="'tz-option'"
+                  [attr.data-tz-zone]="zone"
+                  (mouseenter)="highlightZone(zone)"
+                  (focus)="highlightZone(zone)"
+                  (click)="setZone(zone)"
+                  class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left font-mono text-xs"
+                  style="color: var(--text)"
+                  [class.th-glow]="tz.effectiveTimezone() === zone"
+                >
+                  <span>{{ zone }}</span>
+                  @if (tz.effectiveTimezone() === zone) {
+                    <span style="color: var(--accent)" data-testid="tz-active-marker">✓ active</span>
+                  }
+                </button>
+              }
+            </div>
+          }
+        }
+      </div>
+    </section>
+
+    <!-- Theme -->
+    <section
+      class="th-border mb-4 border-2 p-4"
+      style="border-radius: var(--radius); background: var(--bg)"
+      data-testid="prefs-theme-section"
+      aria-labelledby="prefs-theme-heading"
+    >
+      <h2
+        id="prefs-theme-heading"
+        class="mb-3 text-xs font-bold uppercase tracking-widest"
+        style="color: var(--accent)"
+      >
+        Theme
+      </h2>
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        @for (t of theme.availableThemes(); track t.id) {
+          <button
+            type="button"
+            [attr.data-testid]="'prefs-theme-option'"
+            [attr.data-theme-id]="t.id"
+            (click)="setTheme(t.id)"
+            class="th-border flex items-center gap-3 border-2 px-3 py-2 text-left text-sm"
+            style="border-radius: var(--radius); background: var(--surface); color: var(--text)"
+            [class.th-glow]="theme.theme() === t.id"
+          >
+            <span
+              class="block h-8 w-8 flex-shrink-0 border-2 th-border"
+              style="
+                border-radius: var(--radius);
+                background-image: var(--swatch);
+                background-size: cover;
+              "
+              [style.--swatch]="t.preview"
+            ></span>
+            <span class="min-w-0 flex-1">
+              <span class="block font-bold">{{ t.name }}</span>
+              <span
+                class="block truncate text-[10px] opacity-70"
+                style="color: var(--text-dim)"
+                >{{ t.description }}</span
+              >
+            </span>
+            @if (theme.theme() === t.id) {
+              <span style="color: var(--accent)">✓</span>
+            }
+          </button>
+        }
+      </div>
+    </section>
+
+    <!-- Locale (informational; actual wiring is at boot via LOCALE_ID) -->
+    <section
+      class="th-border mb-4 border-2 p-4"
+      style="border-radius: var(--radius); background: var(--bg)"
+      data-testid="prefs-locale-section"
+      aria-labelledby="prefs-locale-heading"
+    >
+      <h2
+        id="prefs-locale-heading"
+        class="mb-3 text-xs font-bold uppercase tracking-widest"
+        style="color: var(--accent)"
+      >
+        Locale
+      </h2>
+      <p class="text-xs opacity-80" style="color: var(--text-dim)">
+        Locale controls how dates, numbers, and currencies are formatted (e.g. "Jun 25, 2026" vs
+        "25 juin 2026"). Timezone is controlled separately above. Locale is resolved from your
+        browser at startup and is not editable here — restart the app to change it.
+      </p>
+    </section>
+  </div>
+</div>

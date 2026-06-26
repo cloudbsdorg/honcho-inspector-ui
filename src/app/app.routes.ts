@@ -35,5 +35,11 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./components/memory-inspector/memory-inspector').then((m) => m.MemoryInspector),
   },
+  {
+    path: 'preferences',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./components/preferences/preferences').then((m) => m.Preferences),
+  },
   { path: '**', redirectTo: '' },
 ];

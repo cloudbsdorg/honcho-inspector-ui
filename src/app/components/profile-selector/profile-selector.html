@@ -390,55 +390,6 @@
           }
         </dl>
 
-        <section
-          class="th-border mb-4 border-2 p-4"
-          style="border-radius: var(--radius); background: var(--surface)"
-          data-testid="timezone-settings"
-          aria-labelledby="timezone-settings-heading"
-        >
-          <header class="mb-3 flex items-center justify-between">
-            <h3
-              id="timezone-settings-heading"
-              class="text-[10px] font-bold uppercase tracking-widest"
-              style="color: var(--text-dim)"
-            >
-              Display Timezone
-            </h3>
-            <span class="text-[10px] opacity-60" data-testid="tz-detected-label">
-              Detected: {{ tz.detectedTimezone() }}
-            </span>
-          </header>
-          <div class="flex flex-wrap items-center gap-2">
-            <label class="sr-only" for="tz-select">Timezone</label>
-            <select
-              id="tz-select"
-              data-testid="tz-select"
-              class="th-border border-2 px-2 py-1 font-mono text-xs"
-              style="border-radius: var(--radius); background: var(--bg); color: var(--text)"
-              [value]="tz.effectiveTimezone()"
-              (change)="onTimezoneChange($any($event.target).value)"
-            >
-              <option value="">(Browser default)</option>
-              @for (zone of tz.commonTimezones; track zone) {
-                <option [value]="zone">{{ zone }}</option>
-              }
-            </select>
-            <button
-              type="button"
-              data-testid="tz-reset"
-              [disabled]="!tz.hasOverride()"
-              (click)="tz.clearOverride()"
-              class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest disabled:opacity-40"
-              style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
-            >
-              Reset to Browser
-            </button>
-            <span class="text-[10px] opacity-60" data-testid="tz-effective-label">
-              Currently displaying: <strong class="font-mono">{{ tz.effectiveTimezone() }}</strong>
-            </span>
-          </div>
-        </section>
-
         @if (selectedTestResult(); as r) {
           <div
             class="th-border mb-4 flex items-center justify-between gap-3 border-2 px-3 py-2 text-xs"

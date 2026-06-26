@@ -1,0 +1,22 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+[data-testid='prefs-tz-option'] {
+  transition: background-color 120ms ease;
+}
+
+[data-testid='prefs-tz-option']:hover,
+[data-testid='prefs-tz-option']:focus-visible {
+  background-color: var(--accent);
+  color: var(--bg);
+  outline: none;
+}
+
+[data-testid='prefs-tz-option'][aria-selected='true'] {
+  background-color: var(--accent);
+  color: var(--bg);
+}

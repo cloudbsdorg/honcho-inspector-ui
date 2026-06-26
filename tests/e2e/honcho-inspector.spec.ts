@@ -311,6 +311,73 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await shot(page, '05a-user-create-after-submit.png');
   });
 
+  test('05b Preferences pane is reachable, searchable, and applies a TZ override', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByTestId('login-username').fill(USERNAME);
+    await page.getByTestId('login-password').fill(PASSWORD);
+    await page.getByTestId('login-submit').click();
+    await page.waitForURL(/\/profiles/, { timeout: 15_000 });
+    await page.getByTestId("profile-row").first().click();
+    await page.getByTestId("set-active").first().click();
+
+    await check(page, 'open-preferences', '[data-testid="open-preferences"]');
+    await page.getByTestId('open-preferences').click();
+    await page.waitForURL(/\/preferences/, { timeout: 15_000 });
+    await check(page, 'prefs-tz-section', '[data-testid="prefs-tz-section"]');
+    await check(page, 'prefs-tz-current', '[data-testid="prefs-tz-current"]');
+    await shot(page, '05b-preferences-initial.png');
+
+    // Search filter narrows the picker.
+    await page.getByTestId('prefs-tz-filter').fill('tokyo');
+    await page.waitForTimeout(150);
+    await check(
+      page,
+      'tz-option-tokyo',
+      '[data-testid="tz-option"][data-tz-zone="Asia/Tokyo"]'
+    );
+    await shot(page, '05b-preferences-search-tokyo.png');
+
+    // Apply via the Apply button on the hover-preview row.
+    await page.getByTestId('tz-option').hover();
+    await page.waitForTimeout(150);
+    await check(
+      page,
+      'prefs-tz-target-preview',
+      '[data-testid="prefs-tz-target-preview"]'
+    );
+    await page.getByTestId('prefs-tz-apply').click();
+    await page.waitForTimeout(150);
+    await check(
+      page,
+      'prefs-tz-current-tokyo',
+      '[data-testid="prefs-tz-current"] >> text=Asia/Tokyo'
+    );
+    await shot(page, '05b-preferences-tokyo-applied.png');
+
+    // Reset back to browser default.
+    await page.getByTestId('prefs-tz-reset').click();
+    await page.waitForTimeout(150);
+    await check(
+      page,
+      'prefs-tz-auto',
+      '[data-testid="prefs-tz-auto"]'
+    );
+    await shot(page, '05b-preferences-after-reset.png');
+
+    // Theme section is reachable from the same pane.
+    await check(
+      page,
+      'prefs-theme-section',
+      '[data-testid="prefs-theme-section"]'
+    );
+    await page
+      .getByTestId('prefs-theme-option')
+      .filter({ hasText: 'Retro CRT' })
+      .click();
+    await page.waitForTimeout(150);
+    await shot(page, '05b-preferences-theme-retro.png');
+  });
+
   test('06 Header logout clears session and ends on /login', async ({ page }) => {
     await page.goto('/login');
     await page.getByTestId('login-username').fill(USERNAME);

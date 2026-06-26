@@ -51,6 +51,7 @@ export class AppHeader {
       { path: '/', label: '◈ Overview', testid: 'open-overview' },
       { path: '/profiles', label: '◈ Connections', testid: 'open-profiles' },
       { path: '/inspector', label: '◈ Inspector', testid: 'open-inspector' },
+      { path: '/preferences', label: '◈ Preferences', testid: 'open-preferences' },
     ];
     if (this.isAdmin()) {
       links.push({ path: '/admin', label: '⚙ Admin', testid: 'open-admin' });
