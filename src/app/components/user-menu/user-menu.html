@@ -35,37 +35,65 @@
     <div
       data-testid="user-menu-panel"
       role="menu"
-      class="th-border th-shadow absolute right-0 z-50 mt-1 w-64 border-2 p-1 th-menu-enter"
-      style="border-radius: var(--radius); background: var(--surface); color: var(--text)"
+      class="th-border th-shadow absolute right-0 z-50 mt-1 flex w-72 flex-col gap-1 border-2 p-2 th-menu-enter"
+      style="border-radius: var(--radius); background: var(--surface); color: var(--text); max-height: calc(100dvh - 80px); overflow-y: auto"
     >
+      <!-- 1. Signed-in header -->
       <div
-        class="px-2 py-2"
+        class="flex items-center justify-between px-2 py-2"
         style="border-bottom: 1px solid var(--accent)"
         data-testid="user-menu-header"
       >
-        <div class="text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-dim)">
-          Signed in as
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="font-bold" data-testid="user-menu-name">{{ userName() }}</span>
-          @if (isAdmin()) {
-            <span
-              class="text-[9px] uppercase tracking-widest opacity-70"
-              style="color: var(--accent)"
-              data-testid="user-menu-admin-label"
-              >admin</span
-            >
-          }
+        <div>
+          <div class="text-[10px] uppercase tracking-widest opacity-60" style="color: var(--text-dim)">
+            Signed in as
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold" data-testid="user-menu-name">{{ userName() }}</span>
+            @if (isAdmin()) {
+              <span
+                class="text-[9px] uppercase tracking-widest opacity-70"
+                style="color: var(--accent)"
+                data-testid="user-menu-admin-label"
+                >admin</span
+              >
+            }
+          </div>
         </div>
       </div>
 
+      <!-- 2. Workspace navigation -->
+      @for (link of workspaceLinks(); track link.path) {
+        <a
+          [routerLink]="link.path"
+          [routerLinkActiveOptions]="{ exact: link.path === '/' }"
+          routerLinkActive="is-active-menu"
+          [attr.data-testid]="link.testid"
+          role="menuitem"
+          (click)="close()"
+          class="user-menu-item flex items-center gap-3 px-2 py-2 text-left text-sm"
+          style="border-radius: var(--radius)"
+        >
+          <span aria-hidden="true" style="color: var(--accent)">{{ link.icon }}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-bold">{{ link.label }}</span>
+            <span class="block truncate text-[10px] opacity-70" style="color: var(--text-dim)">
+              {{ link.description }}
+            </span>
+          </span>
+        </a>
+      }
+
+      <div style="border-top: 1px solid var(--accent)" class="my-1"></div>
+
+      <!-- 3. Preferences -->
       <a
         routerLink="/preferences"
         data-testid="user-menu-preferences"
         role="menuitem"
         (click)="close()"
-        class="flex w-full items-center gap-3 px-2 py-2 text-left text-sm hover:th-glow"
-        style="border-radius: var(--radius); color: var(--text)"
+        class="user-menu-item flex items-center gap-3 px-2 py-2 text-left text-sm"
+        style="border-radius: var(--radius)"
       >
         <span aria-hidden="true" style="color: var(--accent)">◈</span>
         <span class="min-w-0 flex-1">
@@ -76,34 +104,57 @@
         </span>
       </a>
 
-      @if (isAdmin()) {
-        <a
-          routerLink="/admin"
-          data-testid="user-menu-admin"
-          role="menuitem"
-          (click)="close()"
-          class="flex w-full items-center gap-3 px-2 py-2 text-left text-sm hover:th-glow"
-          style="border-radius: var(--radius); color: var(--text)"
+      <!-- 4. Theme picker (6 themes, 2x3 grid) -->
+      <div
+        class="px-2 py-2"
+        style="border-top: 1px solid var(--accent)"
+        data-testid="user-menu-theme-section"
+      >
+        <div
+          class="mb-2 text-[10px] uppercase tracking-widest opacity-60"
+          style="color: var(--text-dim)"
         >
-          <span aria-hidden="true" style="color: var(--accent)">⚙</span>
-          <span class="min-w-0 flex-1">
-            <span class="block font-bold">Admin</span>
-            <span class="block truncate text-[10px] opacity-70" style="color: var(--text-dim)">
-              Users, audit, maintenance
-            </span>
-          </span>
-        </a>
-      }
+          Theme
+        </div>
+        <div class="grid grid-cols-3 gap-1.5">
+          @for (t of themes(); track t.id) {
+            <button
+              type="button"
+              role="menuitem"
+              [attr.data-testid]="'user-menu-theme-option'"
+              [attr.data-theme-id]="t.id"
+              [attr.aria-checked]="activeTheme() === t.id"
+              [attr.aria-label]="'Theme: ' + t.name"
+              (click)="selectTheme(t.id)"
+              class="user-menu-theme-option flex flex-col items-center gap-1 border-2 p-1.5 text-[10px] font-bold uppercase tracking-widest"
+              style="border-radius: var(--radius)"
+              [class.is-active-theme]="activeTheme() === t.id"
+            >
+              <span
+                class="block h-5 w-full border th-border"
+                style="
+                  border-radius: var(--radius);
+                  background-image: var(--swatch);
+                  background-size: cover;
+                "
+                [style.--swatch]="t.preview"
+              ></span>
+              <span class="truncate text-center" style="max-width: 100%">{{ t.name }}</span>
+            </button>
+          }
+        </div>
+      </div>
 
-      <div style="border-top: 1px solid var(--accent)"></div>
+      <div style="border-top: 1px solid var(--accent)" class="my-1"></div>
 
+      <!-- 5. Logout (destructive) -->
       <button
         type="button"
         role="menuitem"
         data-testid="user-menu-logout"
         (click)="logout()"
-        class="flex w-full items-center gap-3 px-2 py-2 text-left text-sm hover:th-glow"
-        style="border-radius: var(--radius); color: var(--text)"
+        class="user-menu-item user-menu-item-danger flex items-center gap-3 px-2 py-2 text-left text-sm"
+        style="border-radius: var(--radius)"
       >
         <span aria-hidden="true" style="color: var(--danger)">⏻</span>
         <span class="min-w-0 flex-1">

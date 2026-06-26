@@ -396,12 +396,12 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.waitForTimeout(150);
     await check(page, 'user-menu-admin', '[data-testid="user-menu-admin"]');
     // Overview and Inspector should NOT show (no active profile).
-    expect(await page.locator('[data-testid="open-overview"]').count()).toBe(0);
-    expect(await page.locator('[data-testid="open-inspector"]').count()).toBe(0);
+    expect(await page.locator('[data-testid="user-menu-overview"]').count()).toBe(0);
+    expect(await page.locator('[data-testid="user-menu-inspector"]').count()).toBe(0);
     // Switcher should NOT show (no profiles at all).
     expect(await page.locator('[data-testid="profile-switcher"]').count()).toBe(0);
     // Connections stays in main nav; Preferences + Logout stay in menu.
-    await check(page, 'open-profiles', '[data-testid="open-profiles"]');
+    await check(page, 'user-menu-connections', '[data-testid="user-menu-connections"]');
     await check(page, 'user-menu-preferences', '[data-testid="user-menu-preferences"]');
     await check(page, 'user-menu-logout', '[data-testid="user-menu-logout"]');
     await shot(page, '05d-header-admin-no-profiles.png');
@@ -438,12 +438,12 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.waitForTimeout(150);
     expect(await page.locator('[data-testid="user-menu-admin"]').count()).toBe(0);
     // Overview + Inspector hidden (no active profile).
-    expect(await page.locator('[data-testid="open-overview"]').count()).toBe(0);
-    expect(await page.locator('[data-testid="open-inspector"]').count()).toBe(0);
+    expect(await page.locator('[data-testid="user-menu-overview"]').count()).toBe(0);
+    expect(await page.locator('[data-testid="user-menu-inspector"]').count()).toBe(0);
     // Switcher hidden (no profiles).
     expect(await page.locator('[data-testid="profile-switcher"]').count()).toBe(0);
     // Connections stays in main nav; Preferences + Logout stay in menu.
-    await check(page, 'open-profiles', '[data-testid="open-profiles"]');
+    await check(page, 'user-menu-connections', '[data-testid="user-menu-connections"]');
     await check(page, 'user-menu-preferences', '[data-testid="user-menu-preferences"]');
     await check(page, 'user-menu-logout', '[data-testid="user-menu-logout"]');
     await shot(page, '05e-header-non-admin-no-profiles.png');
@@ -464,16 +464,22 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId('login-submit').click();
     await page.waitForURL(/\/profiles/, { timeout: 15_000 });
 
-    // On /profiles with an active profile, the header must show
-    // Overview + Connections + Inspector + Profile switcher +
-    // user-menu trigger (Preferences + Logout live inside the menu).
+    // On /profiles with an active profile, opening the user menu
+    // must show Overview + Connections + Inspector + Preferences +
+    // Theme section + Logout. Profile switcher stays in the header.
     await page.getByTestId('profile-row').first().click();
     await page.getByTestId('set-active').first().click();
     await page.waitForTimeout(400);
-    await check(page, 'open-overview', '[data-testid="open-overview"]');
-    await check(page, 'open-profiles', '[data-testid="open-profiles"]');
-    await check(page, 'open-inspector', '[data-testid="open-inspector"]');
     await check(page, 'user-menu-trigger', '[data-testid="user-menu-trigger"]');
+    await check(page, 'profile-switcher', '[data-testid="profile-switcher"]');
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    await check(page, 'user-menu-overview', '[data-testid="user-menu-overview"]');
+    await check(page, 'user-menu-connections', '[data-testid="user-menu-connections"]');
+    await check(page, 'user-menu-inspector', '[data-testid="user-menu-inspector"]');
+    await check(page, 'user-menu-preferences', '[data-testid="user-menu-preferences"]');
+    await check(page, 'user-menu-theme-section', '[data-testid="user-menu-theme-section"]');
+    await check(page, 'user-menu-logout', '[data-testid="user-menu-logout"]');
     await check(page, 'profile-switcher', '[data-testid="profile-switcher"]');
     // Open the menu and verify Preferences + Logout live inside.
     await page.getByTestId('user-menu-trigger').click();
@@ -491,11 +497,11 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(400);
-    await check(page, 'open-profiles-still', '[data-testid="open-profiles"]');
+    await check(page, 'open-profiles-still', '[data-testid="user-menu-connections"]');
     await check(page, 'user-menu-trigger-still', '[data-testid="user-menu-trigger"]');
-    expect(await page.locator('[data-testid="open-overview"]').count())
+    expect(await page.locator('[data-testid="user-menu-overview"]').count())
       .toBe(0);
-    expect(await page.locator('[data-testid="open-inspector"]').count())
+    expect(await page.locator('[data-testid="user-menu-inspector"]').count())
       .toBe(0);
     // Switcher stays because there are profiles to choose from.
     await check(page, 'profile-switcher-still', '[data-testid="profile-switcher"]');

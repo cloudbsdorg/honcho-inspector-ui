@@ -450,6 +450,12 @@ export class AdminPanel implements OnInit {
 
   formatMetadata(metadata: Record<string, unknown> | undefined | null): string {
     if (!metadata || Object.keys(metadata).length === 0) return '—';
-    return JSON.stringify(metadata);
+    try {
+      const json = JSON.stringify(metadata);
+      // Truncate at 200 chars so audit log rows stay one line tall.
+      return json.length > 200 ? json.slice(0, 197) + '…' : json;
+    } catch {
+      return '<unserializable>';
+    }
   }
 }

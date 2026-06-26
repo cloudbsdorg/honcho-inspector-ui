@@ -50,20 +50,6 @@
       </select>
     }
 
-    @for (link of navLinks(); track link.path) {
-      <a
-        [routerLink]="link.path"
-        [routerLinkActiveOptions]="{ exact: link.path === '/' }"
-        routerLinkActive="is-active"
-        [attr.data-testid]="link.testid"
-        class="th-border app-header-link border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
-        style="border-radius: var(--radius)"
-        >{{ link.label }}</a
-      >
-    }
-
-    <app-theme-picker />
-
     <app-user-menu />
   </div>
 </header>

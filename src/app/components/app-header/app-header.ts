@@ -7,12 +7,17 @@ import { filter, map, startWith } from 'rxjs/operators';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { ProfileService } from '../../core/profile.service';
 import { HonchoService } from '../../core/honcho.service';
-import { ThemePicker } from '../theme-picker/theme-picker';
 import { UserMenu } from '../user-menu/user-menu';
 
+/**
+ * Compact global header. Workspace navigation, theme picker, preferences,
+ * admin, and logout all live inside the <app-user-menu> dropdown so the
+ * header itself stays minimal: logo + workspace name + active-profile
+ * summary + profile switcher + avatar trigger.
+ */
 @Component({
   selector: 'app-header',
-  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, ThemePicker, UserMenu],
+  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, UserMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app-header.html',
   styleUrl: './app-header.css',
@@ -24,7 +29,6 @@ export class AppHeader {
   private readonly router = inject(Router);
 
   readonly userName = computed(() => this.auth.user()?.username ?? '');
-  readonly isAdmin = computed(() => this.auth.isAdmin());
   readonly profile = this.profileService.activeProfile;
   readonly profiles = this.profileService.profiles;
 
@@ -42,28 +46,6 @@ export class AppHeader {
   readonly visible = computed(() => {
     const u = this.url();
     return !u.startsWith('/setup') && !u.startsWith('/login');
-  });
-
-  // The empty/non-active nav links use the dashboard's surface background
-  // with the accent text; the active one fills with the accent and flips
-  // its color to the bg. RouterLinkActive adds .active automatically.
-  readonly navLinks = computed(() => {
-    const hasProfile = this.profile() !== null;
-    const links: Array<{ path: string; label: string; testid: string }> = [];
-    // Overview needs an active profile to render the workspace data.
-    if (hasProfile) {
-      links.push({ path: '/', label: '◈ Overview', testid: 'open-overview' });
-    }
-    // Connections is the profile management page itself — always
-    // available, including on first boot when no profiles exist.
-    links.push({ path: '/profiles', label: '◈ Connections', testid: 'open-profiles' });
-    // Inspector needs an active profile.
-    if (hasProfile) {
-      links.push({ path: '/inspector', label: '◈ Inspector', testid: 'open-inspector' });
-    }
-    // Admin lives in the user-menu dropdown (not here) so the main
-    // nav stays focused on the Honcho workspace.
-    return links;
   });
 
   constructor() {

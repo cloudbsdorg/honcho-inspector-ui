@@ -123,14 +123,25 @@ describe('Dashboard', () => {
     expect(text).toContain('Peers (2)');
   });
 
-  it('should render the app header with the theme picker', () => {
-    const picker = (fixture.nativeElement as HTMLElement).querySelector('app-theme-picker');
-    expect(picker).toBeTruthy();
+  it('should render the app header with the user menu trigger', () => {
+    const trigger = (fixture.nativeElement as HTMLElement).querySelector(
+      'app-user-menu [data-testid="user-menu-trigger"]',
+    );
+    expect(trigger).toBeTruthy();
   });
 
-  it('should render the inspector link in the app header', () => {
+  it('should render the inspector link in the user menu', async () => {
+    // Inspector nav link now lives inside the collapsed user-menu
+    // dropdown. Open it via click and verify the link is present.
+    const trigger = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="user-menu-trigger"]',
+    ) as HTMLButtonElement | null;
+    expect(trigger).toBeTruthy();
+    trigger?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
     const link = (fixture.nativeElement as HTMLElement).querySelector(
-      '[data-testid="open-inspector"]',
+      '[data-testid="user-menu-inspector"]',
     );
     expect(link).toBeTruthy();
   });

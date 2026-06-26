@@ -2,11 +2,69 @@
   display: inline-block;
 }
 
-[data-testid='user-menu-preferences']:hover,
-[data-testid='user-menu-preferences']:focus-visible,
-[data-testid='user-menu-logout']:hover,
-[data-testid='user-menu-logout']:focus-visible {
-  background-color: var(--accent);
-  color: var(--bg);
+.user-menu-item {
+  background: transparent;
+  color: var(--text);
+  border: 2px solid transparent;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+
+.user-menu-item:hover,
+.user-menu-item:focus-visible {
+  background: var(--bg);
+  border-color: var(--border-soft);
+  color: var(--accent);
   outline: none;
+}
+
+.user-menu-item.is-active-menu {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.user-menu-item-danger:hover,
+.user-menu-item-danger:focus-visible {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.user-menu-theme-option {
+  background: transparent;
+  color: var(--text);
+  border-color: transparent;
+}
+
+.user-menu-theme-option:hover,
+.user-menu-theme-option:focus-visible {
+  background: var(--bg);
+  border-color: var(--border-soft);
+  color: var(--accent);
+  outline: none;
+}
+
+.user-menu-theme-option.is-active-theme {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.th-menu-enter {
+  animation: th-menu-slide 0.14s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes th-menu-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
