@@ -36,7 +36,22 @@ export const authGuard: CanActivateFn = async (route) => {
 
   if (auth.isAuthenticated()) {
     const path = route.routeConfig?.path;
-    if (path === 'login' || path === 'profiles') return true;
+    // Routes that are always reachable for an authenticated user, even
+    // without an active Honcho profile: login (handled above via
+    // navigation, but defensive), profile management itself, the
+    // per-user preferences pane, and the admin surface (its data path
+    // is per-backend, not per-profile).
+    if (
+      path === 'login' ||
+      path === 'profiles' ||
+      path === 'preferences' ||
+      path === 'admin'
+    ) {
+      return true;
+    }
+    // Everything else (dashboard / overview, inspector, etc.) needs an
+    // active Honcho profile to render anything useful. If we don't have
+    // one yet, send the user to /profiles to pick one.
     if (!profiles.activeProfileId()) {
       try {
         await profiles.list();

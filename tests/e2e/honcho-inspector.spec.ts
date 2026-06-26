@@ -417,14 +417,10 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId('user-menu-trigger').click();
     await page.waitForTimeout(150);
     await page.getByTestId('user-menu-admin').click();
-    await page.waitForFunction(
-      () =>
-        location.pathname === '/admin' || location.pathname === '/profiles',
-      null,
-      { timeout: 5_000 },
-    );
-    const url = page.url();
-    expect(url.endsWith('/admin') || url.endsWith('/profiles')).toBe(true);
+    // Admin is reachable without an active profile now — the URL
+    // lands on /admin directly.
+    await page.waitForURL(/\/admin/, { timeout: 5_000 });
+    expect(page.url()).toContain('/admin');
     await shot(page, '05d-admin-click-landing.png');
   });
 
