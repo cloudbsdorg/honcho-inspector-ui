@@ -8,6 +8,7 @@
   "admin-users-tab": "PRESENT",
   "admin-audit-tab": "PRESENT",
   "admin-maintenance-tab": "PRESENT",
+  "admin-diagnostics-tab": "PRESENT",
   "admin-open-user-create": "PRESENT",
   "user-create-welcome": "PRESENT",
   "user-create-password-match": "PRESENT",
@@ -33,5 +34,8 @@
   "profile-switcher-still": "PRESENT",
   "open-preferences-still": "PRESENT",
   "logout-button-still": "PRESENT",
+  "admin-diagnostics-health": "PRESENT",
+  "admin-diagnostics-build": "PRESENT",
+  "admin-diagnostics-metrics": "PRESENT",
   "login-overlay": "PRESENT"
 }

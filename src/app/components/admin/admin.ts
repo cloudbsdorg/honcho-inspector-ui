@@ -6,7 +6,7 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { JsonPipe } from '@angular/common';
+import { DecimalPipe, JsonPipe } from '@angular/common';
 import { AdminService, type PageSize } from '../../core/admin.service';
 import { formatError } from '../../core/error-message';
 import {
@@ -24,8 +24,9 @@ import {
   formatWallClockTooltip,
   localWallclockToUtcIso,
 } from '../../core/datetime';
+import { DiagnosticsService } from '../../core/diagnostics.service';
 
-type Tab = 'overview' | 'users' | 'audit' | 'maintenance';
+type Tab = 'overview' | 'users' | 'audit' | 'maintenance' | 'diagnostics';
 type PageSizeUi = 10 | 20 | 30;
 
 const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
@@ -36,7 +37,7 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
 
 @Component({
   selector: 'app-admin',
-  imports: [ChartComponent, JsonPipe, UserCreateWizard],
+  imports: [ChartComponent, DecimalPipe, JsonPipe, UserCreateWizard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin.html',
   styleUrl: './admin.css',
@@ -45,6 +46,7 @@ export class AdminPanel implements OnInit {
   private readonly admin = inject(AdminService);
   protected readonly describeCron = describeCron;
   readonly tz = inject(TimezoneService);
+  readonly diagnostics = inject(DiagnosticsService);
   readonly formatWallClock = formatWallClock;
   readonly formatWallClockTooltip = formatWallClockTooltip;
 
@@ -199,6 +201,9 @@ export class AdminPanel implements OnInit {
     if (tab === 'users' && this.users().length === 0) this.loadUsers();
     if (tab === 'audit' && this.audit().length === 0) this.loadAudit();
     if (tab === 'maintenance' && !this.maintenance()) this.loadMaintenance();
+    if (tab === 'diagnostics' && !this.diagnostics.envelope() && !this.diagnostics.error()) {
+      this.diagnostics.load();
+    }
   }
 
   async loadOverview(): Promise<void> {

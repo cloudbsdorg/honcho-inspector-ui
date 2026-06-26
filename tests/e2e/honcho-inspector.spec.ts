@@ -217,7 +217,7 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     });
   }
 
-  for (const tabId of ['overview', 'users', 'audit', 'maintenance'] as const) {
+  for (const tabId of ['overview', 'users', 'audit', 'maintenance', 'diagnostics'] as const) {
     test(`05 Admin · ${tabId} tab`, async ({ page }) => {
       await page.goto('/login');
       await page.getByTestId('login-username').fill(USERNAME);
@@ -527,7 +527,42 @@ test.describe.serial('Honcho Inspector 9-screen regression', () => {
     await page.getByTestId('user-menu-logout').click();
     // UserMenu now navigates to /login automatically.
     await page.waitForURL(/\/login/, { timeout: 5_000 });
-    await shot(page, '05c-header-after-logout.png');
+  });
+
+  test('05f Admin Diagnostics tab loads health, build, and metrics', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByTestId('login-username').fill(USERNAME);
+    await page.getByTestId('login-password').fill(PASSWORD);
+    await page.getByTestId('login-submit').click();
+    await page.waitForURL(/\/profiles/, { timeout: 15_000 });
+    await page.getByTestId('user-menu-trigger').click();
+    await page.waitForTimeout(150);
+    await page.getByTestId('user-menu-admin').click();
+    await page.waitForURL(/\/admin/, { timeout: 15_000 });
+    await page.getByTestId('admin-tab-diagnostics').click();
+    await page.waitForSelector('[data-testid="admin-diagnostics-status"]', {
+      timeout: 10_000,
+    });
+    await check(page, 'admin-diagnostics-health', '[data-testid="admin-diagnostics-health"]');
+    await check(page, 'admin-diagnostics-build', '[data-testid="admin-diagnostics-build"]');
+    await check(
+      page,
+      'admin-diagnostics-metrics',
+      '[data-testid="admin-diagnostics-metrics"]'
+    );
+    const statusText = await page
+      .getByTestId('admin-diagnostics-status')
+      .innerText();
+    expect(statusText).toContain('UP');
+    const metricCount = await page
+      .getByTestId('admin-diagnostics-metric-count')
+      .innerText();
+    expect(metricCount).toMatch(/\d+ metrics/);
+    const tableExists = await page
+      .getByTestId('admin-diagnostics-metrics-table')
+      .count();
+    expect(tableExists).toBe(1);
+    await shot(page, '05f-admin-diagnostics.png');
   });
 
   test('06 Header logout clears session and ends on /login', async ({ page }) => {

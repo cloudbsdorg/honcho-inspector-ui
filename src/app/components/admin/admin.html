@@ -19,7 +19,7 @@
     style="background: var(--bg-2); border-radius: 0"
     role="tablist"
   >
-    @for (t of ['overview', 'users', 'audit', 'maintenance']; track t) {
+    @for (t of ['overview', 'users', 'audit', 'maintenance', 'diagnostics']; track t) {
       <button
         type="button"
         role="tab"
@@ -528,6 +528,199 @@
               >{{ report | json }}</pre>
             }
           </div>
+        </div>
+      }
+
+      @case ('diagnostics') {
+        <div class="space-y-4" data-testid="admin-diagnostics">
+          @if (diagnostics.error(); as e) {
+            <div
+              class="border-2 px-3 py-2 text-sm"
+              data-testid="admin-diagnostics-error"
+              [style.borderColor]="'var(--danger)'"
+              [style.color]="'var(--danger)'"
+              style="
+                border-radius: var(--radius);
+                background: color-mix(in srgb, var(--danger) 10%, transparent);
+              "
+            >
+              Could not reach diagnostics: {{ e }}
+            </div>
+          }
+
+          <div class="flex justify-end">
+            <button
+              type="button"
+              data-testid="admin-diagnostics-refresh"
+              (click)="diagnostics.load()"
+              [disabled]="diagnostics.busy()"
+              class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest disabled:opacity-40"
+              style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
+            >
+              @if (diagnostics.busy()) { refreshing… } @else { refresh }
+            </button>
+          </div>
+
+          <section
+            class="th-border border-2 p-4"
+            style="border-radius: var(--radius); background: var(--surface)"
+            data-testid="admin-diagnostics-health"
+            aria-labelledby="admin-diagnostics-health-heading"
+          >
+            <header class="mb-3 flex items-center justify-between">
+              <h2
+                id="admin-diagnostics-health-heading"
+                class="text-xs font-bold uppercase tracking-widest"
+                style="color: var(--accent)"
+              >
+                Health
+              </h2>
+              @if (diagnostics.envelope()?.health; as h) {
+                <span
+                  class="text-[10px] font-bold uppercase tracking-widest"
+                  [style.color]="h.status === 'UP' ? 'var(--accent-2)' : 'var(--danger)'"
+                  data-testid="admin-diagnostics-status"
+                >● {{ h.status }}</span>
+              }
+            </header>
+            @if (diagnostics.envelope()?.health; as h) {
+              <dl class="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                @if (h.groups && h.groups.length > 0) {
+                  <div>
+                    <dt class="opacity-60">Groups</dt>
+                    <dd class="flex flex-wrap gap-1">
+                      @for (g of h.groups; track g) {
+                        <span
+                          class="border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                          style="border-color: var(--accent); color: var(--accent); border-radius: var(--radius)"
+                        >{{ g }}</span>
+                      }
+                    </dd>
+                  </div>
+                }
+              </dl>
+            } @else if (!diagnostics.busy()) {
+              <p class="text-xs opacity-60">No data yet — press refresh to load.</p>
+            }
+          </section>
+
+          <section
+            class="th-border border-2 p-4"
+            style="border-radius: var(--radius); background: var(--surface)"
+            data-testid="admin-diagnostics-build"
+            aria-labelledby="admin-diagnostics-build-heading"
+          >
+            <h2
+              id="admin-diagnostics-build-heading"
+              class="mb-3 text-xs font-bold uppercase tracking-widest"
+              style="color: var(--accent)"
+            >
+              Build
+            </h2>
+            @if (diagnostics.envelope()?.build; as info) {
+              <dl class="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                @if (info.artifact || info.version) {
+                  <div>
+                    <dt class="opacity-60">Artifact</dt>
+                    <dd class="font-mono">{{ info.artifact }}</dd>
+                  </div>
+                  <div>
+                    <dt class="opacity-60">Version</dt>
+                    <dd class="font-mono">{{ info.version }}</dd>
+                  </div>
+                }
+                @if (info.buildTime) {
+                  <div>
+                    <dt class="opacity-60">Build time</dt>
+                    <dd class="font-mono">{{ info.buildTime }}</dd>
+                  </div>
+                }
+                @if (info.gitCommit) {
+                  <div>
+                    <dt class="opacity-60">Git commit</dt>
+                    <dd class="font-mono" data-testid="admin-diagnostics-git-commit">
+                      {{ info.gitCommit }}
+                    </dd>
+                  </div>
+                }
+                @if (info.gitBranch) {
+                  <div>
+                    <dt class="opacity-60">Branch</dt>
+                    <dd class="font-mono">{{ info.gitBranch }}</dd>
+                  </div>
+                }
+                @if (!info.artifact && !info.version && !info.gitCommit && !info.gitBranch) {
+                  <p class="text-xs opacity-60" data-testid="admin-diagnostics-info-empty">
+                    No build info exposed. Set
+                    <code class="font-mono">spring.info.git.mode=full</code> or wire an
+                    <code class="font-mono">InfoContributor</code>.
+                  </p>
+                }
+              </dl>
+            } @else if (!diagnostics.busy()) {
+              <p class="text-xs opacity-60">No data yet — press refresh to load.</p>
+            }
+          </section>
+
+          <section
+            class="th-border border-2 p-4"
+            style="border-radius: var(--radius); background: var(--surface)"
+            data-testid="admin-diagnostics-metrics"
+            aria-labelledby="admin-diagnostics-metrics-heading"
+          >
+            <header class="mb-3 flex items-center justify-between">
+              <h2
+                id="admin-diagnostics-metrics-heading"
+                class="text-xs font-bold uppercase tracking-widest"
+                style="color: var(--accent)"
+              >
+                Metrics
+              </h2>
+              <span class="text-[10px] opacity-60" data-testid="admin-diagnostics-metric-count">
+                {{ diagnostics.envelope()?.metrics?.length || 0 }} metrics
+              </span>
+            </header>
+            @if (diagnostics.envelope()?.metrics?.length) {
+              <div class="max-h-96 overflow-y-auto">
+                <table
+                  class="th-border w-full border-2 text-xs"
+                  style="border-radius: var(--radius); border-collapse: collapse"
+                  data-testid="admin-diagnostics-metrics-table"
+                >
+                  <thead>
+                    <tr style="background: var(--bg)">
+                      <th class="sticky top-0 px-2 py-1 text-left font-bold uppercase tracking-wider opacity-80" style="background: var(--bg)">
+                        Metric
+                      </th>
+                      <th class="sticky top-0 px-2 py-1 text-left font-bold uppercase tracking-widest opacity-80" style="background: var(--bg)">
+                        Value
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (metric of diagnostics.envelope()?.metrics || []; track metric.name) {
+                      <tr class="border-t" style="border-color: var(--border)">
+                        <td class="px-2 py-1 font-mono break-all">{{ metric.name }}</td>
+                        <td class="px-2 py-1 font-mono">
+                          @for (m of metric.measurements; track m.statistic) {
+                            <div>
+                              <span class="opacity-60">{{ m.statistic }}:</span>
+                              {{ m.value | number: '1.0-2' }}
+                              @if (metric.baseUnit) {
+                                <span class="opacity-60"> {{ metric.baseUnit }}</span>
+                              }
+                            </div>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else if (!diagnostics.busy()) {
+              <p class="text-xs opacity-60">No data yet — press refresh to load.</p>
+            }
+          </section>
         </div>
       }
     }

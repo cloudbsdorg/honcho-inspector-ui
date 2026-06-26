@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map, startWith } from 'rxjs/operators';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
@@ -17,7 +17,7 @@ import { UserMenu } from '../user-menu/user-menu';
  */
 @Component({
   selector: 'app-header',
-  imports: [CommonModule, FormsModule, RouterLink, RouterLinkActive, UserMenu],
+  imports: [CommonModule, FormsModule, RouterLink, UserMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app-header.html',
   styleUrl: './app-header.css',
