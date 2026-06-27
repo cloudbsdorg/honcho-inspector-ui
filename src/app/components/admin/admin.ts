@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { DecimalPipe, JsonPipe } from '@angular/common';
 import { AdminService, type PageSize } from '../../core/admin.service';
+import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { formatError } from '../../core/error-message';
 import {
   AdminAuditEntry,
@@ -45,6 +46,7 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
 })
 export class AdminPanel implements OnInit {
   private readonly admin = inject(AdminService);
+  private readonly auth = inject(HonchoAuthService);
   protected readonly describeCron = describeCron;
   readonly tz = inject(TimezoneService);
   readonly diagnostics = inject(DiagnosticsService);

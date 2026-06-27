@@ -115,12 +115,12 @@ export class ChangePasswordModal {
   });
 
   /**
-   * Conditionally require the current-password field. The validators
-   * are wired when the mode is 'self' and removed when 'admin-reset'
-   * so an admin can reset another user's password without knowing
-   * the target's current password.
-   */
-  ngOnChanges(): void {
+    * Conditionally require the current-password field. The validators
+    * are wired when the mode is 'self' and removed when 'admin-reset'
+    * so an admin can reset another user's password without knowing
+    * the target's current password.
+    */
+  syncValidators(): void {
     const currentCtrl = this.form.controls['currentPassword'];
     if (this.mode === 'self') {
       currentCtrl.setValidators([Validators.required]);
@@ -163,11 +163,14 @@ export class ChangePasswordModal {
   });
 
   /**
-   * Lifecycle hook: reset form + clear error when the modal opens.
-   * Without this, opening the modal for a second user after a first
-   * would show the previous form's values.
+   * Lifecycle hook: sync the conditional current-password validator
+   * (so the form knows whether the current-password field is
+   * required) and reset form + clear error when the modal opens.
+   * Without the reset, opening the modal for a second user after
+   * a first would show the previous form's values.
    */
   ngOnChanges(): void {
+    this.syncValidators();
     if (this.open) {
       this.error.set(null);
       this.success.set(false);
@@ -208,7 +211,7 @@ export class ChangePasswordModal {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-Session-Id': this.auth.sessionId() ?? '',
+            'X-Session-Id': this.auth.credentials()?.sessionId ?? '',
           },
           body: JSON.stringify({
             currentPassword: v.currentPassword,
