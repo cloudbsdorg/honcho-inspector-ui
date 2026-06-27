@@ -108,16 +108,8 @@
               ✦ Workspace Overview
             </button>
           </li>
-          <cdk-virtual-scroll-viewport
-            itemSize="53"
-            minBufferPx="200"
-            maxBufferPx="400"
-            class="block flex-1"
-          >
-            <li
-              *cdkVirtualFor="let peer of honcho.peers(); trackBy: trackPeerId"
-              class="block"
-            >
+          @for (peer of honcho.peers(); track peer.id) {
+            <li>
               <button
                 type="button"
                 (click)="selectPeer(peer.id)"
@@ -125,7 +117,7 @@
                 [attr.data-peer-id]="peer.id"
                 [attr.data-active]="selectedPeerId() === peer.id"
                 class="th-border w-full border-2 px-2 py-2 text-left text-sm transition-all"
-                style="border-radius: var(--radius); min-height: 45px"
+                style="border-radius: var(--radius)"
                 [style.background]="
                   selectedPeerId() === peer.id ? 'var(--accent)' : 'var(--surface)'
                 "
@@ -142,7 +134,7 @@
                 }
               </button>
             </li>
-          </cdk-virtual-scroll-viewport>
+          }
         </ul>
       }
     </div>
