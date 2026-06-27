@@ -15,13 +15,12 @@ import { ProfileService } from '../../core/profile.service';
 import { ThemeService } from '../../core/theme.service';
 import { TimezoneService } from '../../core/timezone.service';
 import { formatRelative, formatWallClock, formatWallClockTooltip } from '../../core/datetime';
-import { ChatPanel } from '../chat-panel/chat-panel';
 import { WorkspaceOverview } from './workspace-overview';
 import { MetricsService } from '../../core/metrics.service';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, FormsModule, ChatPanel, WorkspaceOverview],
+  imports: [CommonModule, FormsModule, WorkspaceOverview],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',

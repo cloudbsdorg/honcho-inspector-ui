@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  HostListener,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -16,6 +24,7 @@ import {
 } from '../../core/models';
 import { TimezoneService } from '../../core/timezone.service';
 import { formatRelative, formatWallClock, formatWallClockTooltip } from '../../core/datetime';
+import { ChatPanel } from '../chat-panel/chat-panel';
 
 type TabId = 'workspace' | 'peers' | 'sessions' | 'conclusions' | 'search';
 
@@ -27,7 +36,7 @@ interface Tab {
 
 @Component({
   selector: 'app-memory-inspector',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ChatPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './memory-inspector.html',
   styleUrl: './memory-inspector.css',
@@ -168,6 +177,118 @@ export class MemoryInspector implements OnInit {
 
   readonly selectedPeerId = signal<string | null>(null);
   readonly selectedSessionId = signal<string | null>(null);
+
+  // Pop-out modal state. When set, renders a full-screen overlay
+  // with the full text + copy / close controls. The trigger lives
+  // in the Peer Card / Representation sections of the right pane;
+  // without it, long representation text would push everything
+  // off the fold.
+  readonly poppedOut = signal<{ title: string; body: string } | null>(null);
+
+  // Chat pop-out: separate from the text pop-out because chat has
+  // a much more complex UI (input + history + send button) that
+  // needs the full app-chat-panel component, not a static body.
+  // Triggered by the "Chat ↗" button on the peer detail header.
+  readonly chatPoppedOut = signal(false);
+
+  openPopOut(title: string, body: string): void {
+    this.poppedOut.set({ title, body });
+  }
+
+  closePopOut(): void {
+    this.poppedOut.set(null);
+  }
+
+  openChatPopOut(): void {
+    this.chatPoppedOut.set(true);
+  }
+
+  closeChatPopOut(): void {
+    this.chatPoppedOut.set(false);
+  }
+
+  /**
+   * ESC closes the pop-out. Bound at the host level so the keyup
+   * is captured even if focus is inside the modal's body (the
+   * user might be selecting text). The host listener is the
+   * standard Angular pattern for a global key handler that should
+   * fire regardless of where focus is.
+   */
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.poppedOut()) {
+      this.closePopOut();
+    } else if (this.chatPoppedOut()) {
+      this.closeChatPopOut();
+    }
+  }
+
+  /**
+   * Format a Peer Card `string[]` for the pop-out modal: each
+   * fact on its own line as a bulleted item, so the modal can
+   * render it as a list (template splits on `\n- ` and renders
+   * <li> elements) rather than a wall of text. Facts that don't
+   * start with a leading dash get one prepended.
+   */
+  cardAsString(card: readonly string[]): string {
+    return card.map((fact) => '- ' + fact).join('\n');
+  }
+
+  /**
+   * Copy the pop-out body to the OS clipboard. Uses the async
+   * Clipboard API when available (modern browsers) with a
+   * graceful fallback to a hidden-textarea + document.execCommand
+   * for older browsers and the http:// (insecure) context.
+   */
+  async copyPoppedOut(): Promise<void> {
+    const body = this.poppedOut()?.body ?? '';
+    if (!body) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(body);
+        return;
+      }
+    } catch {
+      // fall through to the legacy path
+    }
+    // Legacy fallback: stage the text in a temporary textarea and
+    // run the deprecated execCommand('copy'). Survives in
+    // older Safari, embedded webviews, and the http:// scheme.
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = body;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch {
+      // best-effort; operator can manually select + copy
+    }
+  }
+
+  /**
+   * Truncate a string to at most `limit` characters, breaking on a
+   * word boundary if possible (so we don't slice mid-word), and
+   * appending an ellipsis. Returns the original string if it
+   * already fits. Used to cap the inline Representation body in
+   * the right pane so the layout doesn't grow without bound.
+   */
+  truncate(text: string | null | undefined, limit = 400): string {
+    if (!text) return '';
+    if (text.length <= limit) return text;
+    // Try to cut at the last whitespace within the window so the
+    // ellipsis doesn't fall mid-word. Search the last 40 chars of
+    // the window for a space; fall back to a hard cut.
+    const window = text.slice(0, limit);
+    const lastSpace = window.lastIndexOf(' ');
+    if (lastSpace > limit - 40) {
+      return window.slice(0, lastSpace) + '…';
+    }
+    return window + '…';
+  }
 
   setTab(id: TabId): void {
     this.activeTab.set(id);
