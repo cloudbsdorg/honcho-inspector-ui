@@ -32,12 +32,26 @@
 
     @if (error(); as e) {
       <div
-        class="border-b-2 th-border px-3 py-2 text-xs"
+        class="flex items-start justify-between gap-2 border-b-2 th-border px-3 py-2 text-xs"
         data-testid="profile-error"
-        [style.borderColor]="'var(--danger)'"
-        [style.color]="'var(--danger)'"
+        style="background: color-mix(in srgb, var(--danger) 10%, transparent)"
       >
-        {{ e }}
+        <span
+          [style.color]="'var(--danger)'"
+          class="flex-1 break-words"
+        >
+          {{ e }}
+        </span>
+        <button
+          type="button"
+          (click)="dismissError()"
+          data-testid="profile-error-dismiss"
+          aria-label="Dismiss error"
+          class="th-border border-2 px-1.5 text-[10px] font-bold uppercase tracking-widest"
+          style="border-radius: var(--radius); color: var(--text); background: var(--surface)"
+        >
+          ✕
+        </button>
       </div>
     }
 
@@ -47,40 +61,50 @@
           loading connections...
         </div>
       } @else if (list().length === 0) {
-        <div class="p-3 text-xs opacity-70" style="color: var(--text-dim)">
-          No connections yet. Tap <span style="color: var(--accent)">+ New</span> to add your
-          first Honcho connection.
+        <div
+          class="m-2 th-border border-2 p-3 text-xs"
+          data-testid="profile-empty-list"
+          style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+        >
+          <p class="mb-1 text-sm font-bold" style="color: var(--accent)">
+            No connections yet
+          </p>
+          <p class="opacity-80">
+            Tap <span style="color: var(--accent)">+ New</span> above to add your
+            first Honcho connection. A connection is one Honcho workspace +
+            API key pair that this UI can browse.
+          </p>
         </div>
       } @else {
         <ul class="space-y-1.5" data-testid="profile-list">
           @for (profile of list(); track profile.id) {
-            <li>
-              <button
-                type="button"
-                (click)="select(profile)"
-                [attr.aria-pressed]="selectedId() === profile.id"
-                [attr.data-testid]="'profile-row'"
-                [attr.data-profile-id]="profile.id"
-                class="th-border w-full border-2 px-3 py-2 text-left transition-colors"
-                [style.borderColor]="
-                  selectedId() === profile.id
-                    ? 'var(--accent)'
-                    : 'var(--border)'
-                "
-                [style.background]="
-                  selectedId() === profile.id
-                    ? 'color-mix(in srgb, var(--accent) 15%, transparent)'
-                    : 'var(--bg)'
-                "
-                style="border-radius: var(--radius); color: var(--text)"
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <span
-                    class="th-display text-sm font-bold uppercase tracking-wider"
-                    style="color: var(--accent)"
-                  >
-                    {{ profile.label }}
-                  </span>
+            <li
+              [attr.data-testid]="'profile-row'"
+              [attr.data-profile-id]="profile.id"
+              class="th-border w-full border-2 px-3 py-2 text-left transition-colors"
+              [style.borderColor]="
+                selectedId() === profile.id
+                  ? 'var(--accent)'
+                  : 'var(--border)'
+              "
+              [style.background]="
+                selectedId() === profile.id
+                  ? 'color-mix(in srgb, var(--accent) 15%, transparent)'
+                  : 'var(--bg)'
+              "
+              style="border-radius: var(--radius); color: var(--text)"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  (click)="select(profile)"
+                  [attr.aria-pressed]="selectedId() === profile.id"
+                  class="th-display text-left text-sm font-bold uppercase tracking-wider hover:underline"
+                  style="color: var(--accent); background: transparent"
+                >
+                  {{ profile.label }}
+                </button>
+                <div class="flex items-center gap-1.5">
                   @if (activeId() === profile.id) {
                     <span
                       class="th-display text-[9px] font-bold uppercase tracking-widest"
@@ -95,30 +119,43 @@
                       Active
                     </span>
                   }
-                </div>
-                <div
-                  class="mt-0.5 truncate text-[10px] opacity-70"
-                  style="color: var(--text-dim)"
-                  [title]="profile.baseUrl"
-                >
-                  {{ profile.baseUrl }}
-                </div>
-                <div
-                  class="truncate text-[10px] opacity-70"
-                  style="color: var(--text-dim)"
-                >
-                  ws <span style="color: var(--accent)">{{ profile.workspaceId }}</span>
-                  · as <span style="color: var(--accent)">{{ profile.honchoUserName }}</span>
-                </div>
-                @if (testResults()[profile.id]; as r) {
-                  <div
-                    class="mt-1 text-[10px] font-bold uppercase tracking-widest"
-                    [style.color]="r.ok ? 'var(--accent)' : 'var(--danger)'"
+                  <button
+                    type="button"
+                    (click)="openDashboard(profile)"
+                    [attr.data-testid]="'open-dashboard-' + profile.id"
+                    [attr.aria-label]="'Open dashboard for ' + profile.label"
+                    title="Open the dashboard for this connection"
+                    class="th-display border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                    style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
                   >
-                    {{ r.ok ? '● reachable' : '● ' + r.message }}
-                  </div>
-                }
+                    Open &rarr;
+                  </button>
+                </div>
+              </div>
+              <button
+                type="button"
+                (click)="select(profile)"
+                class="mt-0.5 block w-full truncate text-left text-[10px] opacity-70 hover:underline"
+                style="color: var(--text-dim); background: transparent"
+                [title]="profile.baseUrl"
+              >
+                {{ profile.baseUrl }}
               </button>
+              <div
+                class="truncate text-[10px] opacity-70"
+                style="color: var(--text-dim)"
+              >
+                ws <span style="color: var(--accent)">{{ profile.workspaceId }}</span>
+                · as <span style="color: var(--accent)">{{ profile.honchoUserName }}</span>
+              </div>
+              @if (testResults()[profile.id]; as r) {
+                <div
+                  class="mt-1 text-[10px] font-bold uppercase tracking-widest"
+                  [style.color]="r.ok ? 'var(--accent)' : 'var(--danger)'"
+                >
+                  {{ r.ok ? '● reachable' : '● ' + r.message }}
+                </div>
+              }
             </li>
           }
         </ul>
@@ -447,23 +484,54 @@
         </div>
       </div>
     } @else {
-      <!-- Empty state: no profile selected -->
+      <!--
+        Empty state: no profile selected. The wording depends on whether
+        the workspace has zero connections or just hasn't picked one yet.
+        When there are no connections, the empty state is the FIRST thing
+        the operator sees and it has to lead with a primary action (create),
+        not "select" (which is a no-op against an empty list).
+      -->
       <div
         class="mx-auto flex w-full max-w-2xl flex-1 items-center justify-center"
         data-testid="profile-empty-detail"
       >
-        <div
-          class="th-border border-2 p-8 text-center text-sm"
-          style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
-        >
-          <p class="mb-2 text-base font-bold" style="color: var(--accent)">
-            Select a connection
-          </p>
-          <p class="text-xs opacity-80">
-            Pick a connection from the list on the left to see its details, or
-            tap <span style="color: var(--accent)">+ New</span> to add one.
-          </p>
-        </div>
+        @if (list().length === 0) {
+          <div
+            class="th-border border-2 p-8 text-center"
+            style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+          >
+            <p class="mb-2 text-base font-bold" style="color: var(--accent)">
+              Create your first connection
+            </p>
+            <p class="mb-4 text-xs opacity-80">
+              You haven't added any Honcho connections yet. A connection is one
+              Honcho workspace + API key pair that this UI can browse. Add one
+              to start exploring peers, sessions, and messages.
+            </p>
+            <button
+              type="button"
+              (click)="openCreate()"
+              data-testid="empty-state-new-profile"
+              class="th-border border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest"
+              style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
+            >
+              + New Connection
+            </button>
+          </div>
+        } @else {
+          <div
+            class="th-border border-2 p-8 text-center text-sm"
+            style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+          >
+            <p class="mb-2 text-base font-bold" style="color: var(--accent)">
+              Select a connection
+            </p>
+            <p class="text-xs opacity-80">
+              Pick a connection from the list on the left to see its details, or
+              tap <span style="color: var(--accent)">+ New</span> to add another.
+            </p>
+          </div>
+        }
       </div>
     }
   </main>

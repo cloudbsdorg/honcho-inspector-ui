@@ -145,6 +145,28 @@ export class ProfileSelector {
     this.selectedId.set(profile.id);
   }
 
+  /**
+   * Set the active profile to this one and navigate to the dashboard
+   * ('/'). Mirrors the setActive() flow but is wired to a per-row
+   * button in the list so the operator doesn't have to select a row,
+   * then click "Set Active", then click again to go to the dashboard.
+   * One click from the list = active + dashboard.
+   */
+  async openDashboard(profile: Profile): Promise<void> {
+    this.profiles.setActive(profile.id);
+    this.selectedId.set(profile.id);
+    await this.router.navigateByUrl('/');
+  }
+
+  /**
+   * Clear the inline error banner. The banner sticks until the
+   * operator dismisses it (or until the next action that resets
+   * the error state), so they can read it at their own pace.
+   */
+  dismissError(): void {
+    this.error.set(null);
+  }
+
   async validate(): Promise<void> {
     this.validateResult.set(null);
     const value = this.form.value as {
@@ -233,6 +255,13 @@ export class ProfileSelector {
         });
         this.profiles.setActive(created.id);
         this.showCreate.set(false);
+        // Successful create: jump straight to the dashboard for the
+        // newly-active profile. The operator just finished a
+        // "validate + create" flow; staying on the profiles list
+        // would force them to find and click the new row to see
+        // its data. Navigating immediately to '/' renders the
+        // active profile's dashboard (peers / sessions / queue).
+        await this.router.navigateByUrl('/');
       }
     } catch (e) {
       this.error.set(formatError(e));

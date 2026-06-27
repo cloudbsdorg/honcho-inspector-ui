@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { ProfileSelector } from './profile-selector';
 import { ProfileService } from '../../core/profile.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
@@ -197,6 +197,30 @@ describe('ProfileSelector', () => {
     expect(form).toBeTruthy();
   });
 
+  it('empty workspace: shows "Create your first connection" CTA in the right pane', async () => {
+    installFetch((path) => {
+      if (path.startsWith('/api/profiles') && !path.includes('/test') && !path.includes('/reveal')) {
+        return jsonResponse([]);
+      }
+      return jsonResponse({});
+    });
+    await profiles.list();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const listEmpty = root.querySelector('[data-testid="profile-empty-list"]');
+    expect(listEmpty).toBeTruthy();
+    expect(listEmpty?.textContent).toContain('No connections yet');
+    const detailEmpty = root.querySelector('[data-testid="profile-empty-detail"]');
+    expect(detailEmpty).toBeTruthy();
+    expect(detailEmpty?.textContent).toContain('Create your first connection');
+    expect(detailEmpty?.textContent).not.toContain('Select a connection');
+    const cta = root.querySelector('[data-testid="empty-state-new-profile"]');
+    expect(cta).toBeTruthy();
+    (cta as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(component.showCreate()).toBe(true);
+  });
+
   it('openCreate() pre-fills label + honchoUserName from the current user', () => {
     // The operator's username is the natural starting point for the
     // new profile (it maps onto their Honcho MCP peer identifier).
@@ -226,5 +250,70 @@ describe('ProfileSelector', () => {
     expect(component.validateResult()?.error).toBe(
       'API key, Base URL, Honcho user name are required to validate',
     );
+  });
+
+  it('submit() on a successful CREATE navigates to / (dashboard for the new profile)', async () => {
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigateByUrl');
+    installFetch((path, init) => {
+      if (init?.method === 'POST' && path === '/api/profiles') {
+        return jsonResponse({
+          id: 'p-new',
+          label: 'New',
+          baseUrl: 'https://honcho.example',
+          workspaceId: 'default',
+          honchoUserName: 'alice',
+        });
+      }
+      return jsonResponse({});
+    });
+    component.openCreate();
+    component.form.patchValue({ apiKey: 'hc_sk_test', baseUrl: 'https://honcho.example' });
+    await component.submit();
+    expect(navSpy).toHaveBeenCalledWith('/');
+    expect(component.showCreate()).toBe(false);
+  });
+
+  it('submit() on a successful EDIT does NOT navigate (stays on the profiles list)', async () => {
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigateByUrl');
+    installFetch((path, init) => {
+      if (init?.method === 'PUT' && path === '/api/profiles/p-a') {
+        return jsonResponse({ ...PROFILE_A, label: 'renamed' });
+      }
+      return jsonResponse({});
+    });
+    component.openEdit(PROFILE_A);
+    component.form.patchValue({ apiKey: 'hc_sk_test' });
+    await component.submit();
+    expect(navSpy).not.toHaveBeenCalledWith('/');
+  });
+
+  it('openDashboard() sets active, selects the row, and navigates to /', async () => {
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigateByUrl');
+    const profiles = TestBed.inject(ProfileService);
+    component.openDashboard(PROFILE_B);
+    expect(profiles.activeProfileId()).toBe('p-b');
+    expect(component.selectedId()).toBe('p-b');
+    expect(navSpy).toHaveBeenCalledWith('/');
+  });
+
+  it('dismissError() clears the inline error banner', () => {
+    component.error.set('something went wrong');
+    fixture.detectChanges();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="profile-error"]'),
+    ).toBeTruthy();
+    const dismiss = (fixture.nativeElement as HTMLElement).querySelector(
+      '[data-testid="profile-error-dismiss"]',
+    ) as HTMLButtonElement;
+    expect(dismiss).toBeTruthy();
+    dismiss.click();
+    fixture.detectChanges();
+    expect(component.error()).toBeNull();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="profile-error"]'),
+    ).toBeNull();
   });
 });
