@@ -1,6 +1,7 @@
-<div class="flex h-full flex-col" data-testid="chat-panel">
+<div class="flex h-full min-h-0 flex-col" data-testid="chat-panel">
   <div
-    class="th-border flex-1 space-y-3 overflow-y-auto border-2 p-3"
+    #scrollContainer
+    class="th-border min-h-0 flex-1 space-y-3 overflow-y-auto border-2 p-3"
     style="border-radius: var(--radius); background: var(--bg-2)"
   >
     @if (turns().length === 0) {
@@ -31,39 +32,60 @@
         </div>
       </div>
     }
+    <!-- Sentinel: the auto-scroll logic in the component scrolls this
+         into view, which keeps the latest message + the input row above
+         the fold. Without it, new turns push the input off-screen and
+         the operator has to manually scroll to keep typing. -->
+    <div #bottomSentinel aria-hidden="true"></div>
   </div>
 
   @if (error(); as e) {
     <div
-      class="th-border mt-2 border-2 px-3 py-2 text-xs th-pulse"
+      class="th-border mt-2 flex items-start justify-between gap-2 border-2 px-3 py-2 text-xs th-pulse"
       data-testid="chat-error"
-      [style.borderColor]="'var(--danger)'"
-      [style.color]="'var(--danger)'"
       style="
         border-radius: var(--radius);
         background: color-mix(in srgb, var(--danger) 10%, transparent);
       "
     >
-      {{ e }}
+      <span
+        [style.color]="'var(--danger)'"
+        class="flex-1 break-words"
+      >
+        {{ e }}
+      </span>
+      <button
+        type="button"
+        (click)="dismissError()"
+        data-testid="chat-error-dismiss"
+        aria-label="Dismiss error"
+        class="th-border border-2 px-1.5 text-[10px] font-bold uppercase tracking-widest"
+        style="border-radius: var(--radius); color: var(--text); background: var(--surface)"
+      >
+        ✕
+      </button>
     </div>
   }
 
-  <form (ngSubmit)="send()" class="mt-3 flex gap-2" data-testid="chat-form">
-    <input
-      type="text"
+  <form (ngSubmit)="send()" class="mt-3 flex flex-shrink-0 items-end gap-2" data-testid="chat-form">
+    <textarea
+      #inputBox
       [ngModel]="inputValue()"
-      (ngModelChange)="inputValue.set($event)"
+      (ngModelChange)="onInput($event)"
+      (keydown)="onKeydown($event)"
       name="chat-input"
       [disabled]="busy()"
       autocomplete="off"
-      placeholder="Ask {{ peerId }} anything..."
-      class="th-surface th-border flex-1 border-2 px-3 py-2 text-sm outline-none"
-      style="border-radius: var(--radius); color: var(--text)"
-    />
+      rows="1"
+      placeholder="Ask {{ peerId }} anything...  (Enter to send, Shift+Enter for newline)"
+      class="th-surface th-border block w-full resize-none border-2 px-3 py-2 text-sm leading-snug outline-none"
+      style="border-radius: var(--radius); color: var(--text); min-height: 2.5rem; max-height: 12rem"
+      data-testid="chat-input"
+    ></textarea>
     <button
       type="submit"
       [disabled]="!canSend()"
-      class="th-border border-2 px-4 py-2 text-sm font-bold uppercase tracking-widest th-gradient"
+      class="th-border flex-shrink-0 border-2 px-4 py-2 text-sm font-bold uppercase tracking-widest th-gradient"
       style="border-radius: var(--radius); color: var(--bg)"
     >
       @if (busy()) {
