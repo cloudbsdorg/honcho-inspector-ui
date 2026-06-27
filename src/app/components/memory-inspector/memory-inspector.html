@@ -66,10 +66,19 @@
     }
     @if (error(); as e) {
       <div
-        class="th-border mb-3 border-2 px-3 py-2 text-sm"
+        class="th-border mb-3 border-2 px-3 py-2 text-sm flex items-center justify-between gap-2"
         style="border-radius: var(--radius); background: var(--surface); color: var(--danger)"
       >
-        {{ e }}
+        <span>{{ e }}</span>
+        <button
+          type="button"
+          (click)="error.set(null)"
+          aria-label="Dismiss error"
+          class="font-mono text-base opacity-70 hover:opacity-100 cursor-pointer bg-transparent border-0 p-0 leading-none select-none font-bold"
+          style="color: var(--danger)"
+        >
+          ×
+        </button>
       </div>
     }
 
@@ -422,21 +431,17 @@
                   </div>
                   @if (pd.representation) {
                     @if (pd.representation.length > 600) {
-                      <p
-                        class="text-sm leading-relaxed"
-                        style="white-space: pre-wrap"
+                      <app-markdown
+                        class="text-sm leading-relaxed block"
                         data-testid="representation-truncated"
-                      >
-                        {{ truncate(pd.representation, 600) }}
-                      </p>
+                        [source]="truncate(pd.representation, 600)"
+                      />
                     } @else {
-                      <p
-                        class="text-sm leading-relaxed"
-                        style="white-space: pre-wrap"
+                      <app-markdown
+                        class="text-sm leading-relaxed block"
                         data-testid="representation-full"
-                      >
-                        {{ pd.representation }}
-                      </p>
+                        [source]="pd.representation"
+                      />
                     }
                   } @else {
                     <p class="text-xs opacity-60" style="color: var(--text-dim)">
@@ -865,15 +870,7 @@
         style="white-space: pre-wrap; color: var(--text)"
         data-testid="popout-body"
       >
-        @if (p.body.includes('\n- ') || p.body.startsWith('- ')) {
-          <ul class="list-disc space-y-1 pl-6">
-            @for (line of p.body.split('\n').filter((l) => l.startsWith('- ')); track line) {
-              <li>{{ line.slice(2) }}</li>
-            }
-          </ul>
-        } @else {
-          {{ p.body }}
-        }
+        <app-markdown [source]="p.body" />
       </div>
     </div>
   </div>

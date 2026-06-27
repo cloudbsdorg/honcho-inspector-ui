@@ -28,7 +28,7 @@
           <div class="mb-1 text-[10px] font-bold uppercase tracking-widest opacity-70">
             {{ turn.role }}
           </div>
-          <div class="whitespace-pre-wrap break-words">{{ turn.content }}</div>
+          <app-markdown [source]="turn.content" class="md-content" />
         </div>
       </div>
     }

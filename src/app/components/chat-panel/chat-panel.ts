@@ -14,6 +14,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HonchoService } from '../../core/honcho.service';
+import { MarkdownComponent } from '../markdown/markdown.component';
 import { formatError } from '../../core/error-message';
 
 export interface ChatTurn {
@@ -24,7 +25,7 @@ export interface ChatTurn {
 
 @Component({
   selector: 'app-chat-panel',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MarkdownComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './chat-panel.html',
   styleUrl: './chat-panel.css',
@@ -54,7 +55,7 @@ export class ChatPanel implements OnChanges, AfterViewChecked {
    */
   private pendingScroll = false;
 
-  ngOnChanges(_changes: SimpleChanges): void {
+  ngOnChanges(_changes?: SimpleChanges): void {
     // New peer selected: clear conversation + error so the operator
     // starts a fresh thread. We deliberately do NOT clear inputValue
     // here because the input is unbound in this lifecycle (the user

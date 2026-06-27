@@ -25,6 +25,7 @@ import {
 import { TimezoneService } from '../../core/timezone.service';
 import { formatRelative, formatWallClock, formatWallClockTooltip } from '../../core/datetime';
 import { ChatPanel } from '../chat-panel/chat-panel';
+import { MarkdownComponent } from '../markdown/markdown.component';
 
 type TabId = 'workspace' | 'peers' | 'sessions' | 'conclusions' | 'search';
 
@@ -36,7 +37,7 @@ interface Tab {
 
 @Component({
   selector: 'app-memory-inspector',
-  imports: [CommonModule, FormsModule, ChatPanel],
+  imports: [CommonModule, FormsModule, ChatPanel, MarkdownComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './memory-inspector.html',
   styleUrl: './memory-inspector.css',
