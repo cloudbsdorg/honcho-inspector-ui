@@ -57,11 +57,95 @@ export class AdminPanel implements OnInit {
     // only path that triggers the initial fetch. Mirror that here so
     // landing on /admin renders the charts immediately.
     this.setTab(this.tab());
+    void this.loadAllUsers();
   }
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
   readonly overview = signal<AdminDashboardOverview | null>(null);
+  readonly overviewAuditEntries = signal<AdminAuditEntry[]>([]);
+  readonly openInfoLabel = signal<string | null>(null);
+  readonly allUsers = signal<AdminUser[]>([]);
+
+  readonly userMap = computed(() => {
+    const map = new Map<string, AdminUser>();
+    for (const u of this.allUsers()) {
+      map.set(u.id, u);
+    }
+    return map;
+  });
+
+  formatUser(userId: string | null): string {
+    if (!userId) return '—';
+    const u = this.userMap().get(userId);
+    return u ? u.username : userId;
+  }
+
+  formatUserTooltip(userId: string | null): string {
+    if (!userId) return '';
+    const u = this.userMap().get(userId);
+    if (!u) return `ID: ${userId}`;
+    const name = [u.firstname, u.lastname].filter(Boolean).join(' ');
+    const parts = [`ID: ${u.id}`, `Username: ${u.username}`];
+    if (name) parts.push(`Name: ${name}`);
+    if (u.email) parts.push(`Email: ${u.email}`);
+    return parts.join('\n');
+  }
+
+  async loadAllUsers(): Promise<void> {
+    try {
+      const res = await this.admin.listUsers({ pageSize: 'ALL' });
+      this.allUsers.set(res.items);
+    } catch {
+      // ignore
+    }
+  }
+  readonly auditTimeframe = signal<'24h' | '7d' | '30d' | 'all'>('30d');
+  readonly auditTimeframeLabel = computed(() => {
+    switch (this.auditTimeframe()) {
+      case '24h': return 'Last 24 Hours';
+      case '7d': return 'Last 7 Days';
+      case '30d': return 'Last 30 Days';
+      case 'all': return 'All Time';
+    }
+  });
+
+  toggleInfo(label: string): void {
+    this.openInfoLabel.update((current) => (current === label ? null : label));
+  }
+
+  closeInfo(): void {
+    this.openInfoLabel.set(null);
+  }
+
+  setAuditTimeframe(tf: string): void {
+    if (tf === '24h' || tf === '7d' || tf === '30d' || tf === 'all') {
+      this.auditTimeframe.set(tf);
+      void this.reloadOverviewAudit();
+    }
+  }
+
+  async reloadOverviewAudit(): Promise<void> {
+    const tf = this.auditTimeframe();
+    let sinceIso: string | undefined;
+    if (tf === '24h') {
+      sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    } else if (tf === '7d') {
+      sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    } else if (tf === '30d') {
+      sinceIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    }
+
+    try {
+      const auditPage = await this.admin.listAudit({
+        since: sinceIso,
+        pageSize: 'ALL',
+      });
+      this.overviewAuditEntries.set(auditPage.items);
+    } catch {
+      this.overviewAuditEntries.set([]);
+    }
+  }
   readonly overviewCountsChart = computed(() => {
     const o = this.overview();
     if (!o) return null;
@@ -102,13 +186,17 @@ export class AdminPanel implements OnInit {
         ],
       },
       options: {
+        interaction: {
+          mode: 'index' as const,
+          intersect: false,
+        },
         plugins: { legend: { position: 'top' as const } },
         scales: { y: { beginAtZero: true } },
       },
     };
   });
   readonly auditActionChart = computed(() => {
-    const entries = this.audit();
+    const entries = this.overviewAuditEntries();
     if (entries.length === 0) return null;
     const counts = new Map<string, number>();
     for (const e of entries) counts.set(e.action, (counts.get(e.action) ?? 0) + 1);
@@ -197,6 +285,7 @@ export class AdminPanel implements OnInit {
   setTab(tab: Tab): void {
     this.tab.set(tab);
     this.error.set(null);
+    this.closeInfo();
     if (tab === 'overview') this.loadOverview();
     if (tab === 'users' && this.users().length === 0) this.loadUsers();
     if (tab === 'audit' && this.audit().length === 0) this.loadAudit();
@@ -210,7 +299,12 @@ export class AdminPanel implements OnInit {
     this.busy.set(true);
     this.error.set(null);
     try {
-      this.overview.set(await this.admin.overview());
+      const [ov] = await Promise.all([
+        this.admin.overview(),
+        this.reloadOverviewAudit(),
+      ]);
+      this.overview.set(ov);
+      this.auditTotal.set(ov.auditTotal); // Update auditTotal so template knows total count
     } catch (e) {
       this.error.set(formatError(e, 'Failed to load overview'));
     } finally {
@@ -230,6 +324,9 @@ export class AdminPanel implements OnInit {
         : await this.admin.listUsers({ page, pageSize: size });
       this.users.set(result.items);
       this.usersTotal.set(result.total);
+      if (!q) {
+        void this.loadAllUsers();
+      }
     } catch (e) {
       this.error.set(formatError(e, 'Failed to load users'));
     } finally {

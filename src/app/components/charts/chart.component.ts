@@ -13,7 +13,30 @@ import {
 } from '@angular/core';
 import { Chart, type ChartConfiguration, type ChartType, registerables } from 'chart.js';
 
-Chart.register(...registerables);
+const hoverLinePlugin = {
+  id: 'hoverLine',
+  afterDatasetsDraw(chart: any) {
+    if (chart.config.type === 'line' && chart.tooltip?._active?.length) {
+      const activePoint = chart.tooltip._active[0];
+      const ctx = chart.ctx;
+      const x = activePoint.element.x;
+      const topY = chart.chartArea.top;
+      const bottomY = chart.chartArea.bottom;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x, topY);
+      ctx.lineTo(x, bottomY);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
+
+Chart.register(...registerables, hoverLinePlugin);
 
 @Component({
   selector: 'app-chart',

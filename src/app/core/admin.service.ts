@@ -24,7 +24,7 @@ export class AdminService {
         // Backend is zero-indexed; the UI shows 1-indexed page
         // numbers so we subtract 1 here.
         page: Math.max(0, (opts.page ?? 1) - 1),
-        pageSize: opts.pageSize ?? 20,
+        pageSize: opts.pageSize === 'ALL' ? 10000 : (opts.pageSize ?? 20),
       },
     });
   }
@@ -33,7 +33,7 @@ export class AdminService {
     return this.api.request<AdminUserPage>({
       method: 'GET',
       path: '/admin/users/search',
-      query: { q, pageSize },
+      query: { q, pageSize: pageSize === 'ALL' ? 10000 : pageSize },
     });
   }
 
@@ -103,7 +103,7 @@ export class AdminService {
         // Backend is zero-indexed; subtract 1 from the UI's
         // 1-indexed page number.
         page: Math.max(0, (opts.page ?? 1) - 1),
-        pageSize: opts.pageSize ?? 30,
+        pageSize: opts.pageSize === 'ALL' ? 10000 : (opts.pageSize ?? 30),
       },
     });
   }

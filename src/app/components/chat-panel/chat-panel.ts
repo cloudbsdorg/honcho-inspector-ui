@@ -2,15 +2,19 @@ import {
   AfterViewChecked,
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   Input,
+  NgZone,
   OnChanges,
+  OnDestroy,
   SimpleChanges,
   ViewChild,
   computed,
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HonchoService } from '../../core/honcho.service';
@@ -30,8 +34,10 @@ export interface ChatTurn {
   templateUrl: './chat-panel.html',
   styleUrl: './chat-panel.css',
 })
-export class ChatPanel implements OnChanges, AfterViewChecked {
+export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
   private readonly honcho = inject(HonchoService);
+  private readonly zone = inject(NgZone);
+  private readonly destroyRef = inject(DestroyRef);
 
   @Input() peerId: string = '';
 
@@ -44,6 +50,28 @@ export class ChatPanel implements OnChanges, AfterViewChecked {
   readonly turns = signal<ChatTurn[]>([]);
   readonly error = signal<string | null>(null);
 
+  /**
+   * Wall-clock timestamp (ms) of when the current `busy` state
+   * began, or null when idle. The template uses this to render
+   * a "still working…" message after 5 seconds so the operator
+   * knows the request hasn't died — important for Honcho chat
+   * where a single turn can take 10-30 seconds while the
+   * upstream dream/derivation pipeline runs.
+   */
+  readonly busySince = signal<number | null>(null);
+  /**
+   * Live counter that increments once per second while `busy` is
+   * true. Triggers the template's "still working…" re-render
+   * without requiring a full change-detection cycle. Reset to 0
+   * when the request finishes.
+   */
+  readonly busySeconds = signal(0);
+  /**
+   * True after the current `busy` state has lasted >5s. Flipped
+   * back to false when the request finishes.
+   */
+  readonly longWait = computed(() => this.busySeconds() >= 5);
+
   readonly canSend = computed(() => this.inputValue().trim().length > 0 && !this.busy());
 
   /**
@@ -54,6 +82,14 @@ export class ChatPanel implements OnChanges, AfterViewChecked {
    * messages).
    */
   private pendingScroll = false;
+  /**
+   * setInterval handle for the once-per-second ticker that
+   * increments `busySeconds` while a request is in flight. We
+   * use a real timer (not a CSS animation) because the template
+   * needs to react to the elapsed count to flip the
+   * "still working…" message on at the 5-second mark.
+   */
+  private busyTicker: ReturnType<typeof setInterval> | null = null;
 
   ngOnChanges(_changes?: SimpleChanges): void {
     // New peer selected: clear conversation + error so the operator
@@ -63,6 +99,37 @@ export class ChatPanel implements OnChanges, AfterViewChecked {
     this.turns.set([]);
     this.inputValue.set('');
     this.error.set(null);
+  }
+
+  ngOnDestroy(): void {
+    // Make sure no timer keeps firing after the panel is removed
+    // (the chat pop-out closing is the main path here). Without
+    // this, a stale interval would tick every second forever.
+    this.stopBusyTicker();
+  }
+
+  /**
+   * Start the once-per-second ticker. Run outside Angular's zone
+   * so the timer callback doesn't trigger a full change-detection
+   * cycle; the only signal that needs to update is `busySeconds`,
+   * which is read by a computed in the template and re-evaluates
+   * cheaply. Inside the callback, we `run` the signal update so
+   * the template re-renders the elapsed-seconds text.
+   */
+  private startBusyTicker(): void {
+    this.stopBusyTicker();
+    this.zone.runOutsideAngular(() => {
+      this.busyTicker = setInterval(() => {
+        this.zone.run(() => this.busySeconds.update((s) => s + 1));
+      }, 1000);
+    });
+  }
+
+  private stopBusyTicker(): void {
+    if (this.busyTicker != null) {
+      clearInterval(this.busyTicker);
+      this.busyTicker = null;
+    }
   }
 
   ngAfterViewChecked(): void {
@@ -104,6 +171,9 @@ export class ChatPanel implements OnChanges, AfterViewChecked {
     const text = this.inputValue().trim();
     if (!text) return;
     this.busy.set(true);
+    this.busySince.set(Date.now());
+    this.busySeconds.set(0);
+    this.startBusyTicker();
     this.error.set(null);
     this.turns.update((t) => [...t, { role: 'user', content: text, ts: Date.now() }]);
     this.inputValue.set('');
@@ -118,6 +188,9 @@ export class ChatPanel implements OnChanges, AfterViewChecked {
       this.error.set(formatError(e, 'Chat failed'));
     } finally {
       this.busy.set(false);
+      this.busySince.set(null);
+      this.busySeconds.set(0);
+      this.stopBusyTicker();
       this.pendingScroll = true;
     }
   }

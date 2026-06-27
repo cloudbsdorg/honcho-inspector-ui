@@ -32,6 +32,48 @@
         </div>
       </div>
     }
+    <!--
+      In-flight indicator. Shown while a chat request is awaiting
+      a response. The pill lives inside the scroll container so
+      the auto-scroll logic (which targets the bottom sentinel)
+      keeps the input row + the indicator above the fold even
+      on long conversations. The CSS animation on the dots is
+      keyframe-driven (no JS interval needed) so it runs even
+      when OnPush change detection is the only thing triggering
+      renders. The 5-second "still working…" message is a JS
+      computed (`longWait`) backed by the busySeconds signal —
+      that part flips to a different copy at the 5s mark so the
+      operator knows the upstream dream/derivation pipeline
+      hasn't stalled.
+    -->
+    @if (busy()) {
+      <div
+        class="flex justify-start"
+        data-testid="chat-thinking"
+      >
+        <div
+          class="th-border flex items-center gap-2 border-2 px-3 py-2 text-xs"
+          style="
+            border-radius: var(--radius);
+            background: var(--surface);
+            color: var(--text-dim);
+          "
+        >
+          <span class="flex items-center gap-1" aria-hidden="true">
+            <span class="th-dot th-dot-1"></span>
+            <span class="th-dot th-dot-2"></span>
+            <span class="th-dot th-dot-3"></span>
+          </span>
+          @if (longWait()) {
+            <span data-testid="chat-thinking-long">
+              still working… ({{ busySeconds() }}s)
+            </span>
+          } @else {
+            <span data-testid="chat-thinking-fast">thinking…</span>
+          }
+        </div>
+      </div>
+    }
     <!-- Sentinel: the auto-scroll logic in the component scrolls this
          into view, which keeps the latest message + the input row above
          the fold. Without it, new turns push the input off-screen and

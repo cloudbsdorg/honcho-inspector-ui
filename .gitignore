@@ -37,6 +37,7 @@ yarn-error.log
 
 # Miscellaneous
 /.angular/cache
+.run/
 .sass-cache/
 /connect.lock
 /coverage
@@ -52,3 +53,4 @@ Thumbs.db
 # OpenCode / Sisyphus tool state (never commit session files)
 .omo/
 .claude/
+STATE.md

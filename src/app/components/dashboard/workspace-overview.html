@@ -113,29 +113,81 @@
   <!-- CHARTS ROW -->
   <div class="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
     <div
-      class="th-border border-2 p-3 lg:col-span-2"
+      class="th-border relative border-2 p-3 lg:col-span-2"
       style="border-radius: var(--radius); background: var(--surface)"
     >
-      <h3
-        class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
-        style="color: var(--accent)"
-      >
-        Additions over time — {{ granularityLabels[granularity()] }} buckets
-      </h3>
+      <div class="mb-2 flex items-center justify-between gap-1">
+        <h3
+          class="th-display text-xs font-bold uppercase tracking-widest"
+          style="color: var(--accent)"
+        >
+          Additions over time — {{ granularityLabels[granularity()] }} buckets
+        </h3>
+        <button
+          type="button"
+          (click)="toggleInfo('additions-chart')"
+          aria-label="What is additions over time chart?"
+          [attr.aria-expanded]="openInfoLabel() === 'additions-chart'"
+          class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
+          style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
+        >
+          ?
+        </button>
+      </div>
+      @if (openInfoLabel() === 'additions-chart') {
+        <div
+          class="th-border absolute left-3 right-3 top-12 z-10 border-2 p-3 text-[11px] leading-relaxed"
+          style="
+            border-radius: var(--radius);
+            background: var(--bg);
+            color: var(--text);
+            box-shadow: var(--shadow);
+          "
+          role="dialog"
+        >
+          This timeseries graph shows the velocity of resource creation in Honcho. It tracks the number of new Peers added and Sessions created over time, grouped by the selected granularity. It helps operators monitor activity spikes and workspace growth.
+        </div>
+      }
       <div class="h-64">
         <app-chart type="line" [data]="additionsChartData()" [options]="additionsChartOptions()" />
       </div>
     </div>
     <div
-      class="th-border border-2 p-3"
+      class="th-border relative border-2 p-3"
       style="border-radius: var(--radius); background: var(--surface)"
     >
-      <h3
-        class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
-        style="color: var(--accent)"
-      >
-        Queue composition
-      </h3>
+      <div class="mb-2 flex items-center justify-between gap-1">
+        <h3
+          class="th-display text-xs font-bold uppercase tracking-widest"
+          style="color: var(--accent)"
+        >
+          Queue composition
+        </h3>
+        <button
+          type="button"
+          (click)="toggleInfo('queue-chart')"
+          aria-label="What is queue composition?"
+          [attr.aria-expanded]="openInfoLabel() === 'queue-chart'"
+          class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
+          style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
+        >
+          ?
+        </button>
+      </div>
+      @if (openInfoLabel() === 'queue-chart') {
+        <div
+          class="th-border absolute left-3 right-3 top-12 z-10 border-2 p-3 text-[11px] leading-relaxed"
+          style="
+            border-radius: var(--radius);
+            background: var(--bg);
+            color: var(--text);
+            box-shadow: var(--shadow);
+          "
+          role="dialog"
+        >
+          This doughnut chart displays the distribution of tasks in the Honcho background processing queue. It categorizes background work units as Completed (processed), In Progress (currently running), or Pending (waiting in queue). Work units are created to process messages, consolidate memories (dreams), and update representations.
+        </div>
+      }
       <div class="h-64">
         <app-chart type="doughnut" [data]="queueChartData()" [options]="queueChartOptions()" />
       </div>
@@ -145,15 +197,41 @@
   <!-- BOTTOM: top peers + recent activity -->
   <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
     <div
-      class="th-border border-2 p-3"
+      class="th-border relative border-2 p-3"
       style="border-radius: var(--radius); background: var(--surface)"
     >
-      <h3
-        class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
-        style="color: var(--accent)"
-      >
-        Top 10 peers by sessions
-      </h3>
+      <div class="mb-2 flex items-center justify-between gap-1">
+        <h3
+          class="th-display text-xs font-bold uppercase tracking-widest"
+          style="color: var(--accent)"
+        >
+          Top 10 peers by sessions
+        </h3>
+        <button
+          type="button"
+          (click)="toggleInfo('top-peers')"
+          aria-label="What is top 10 peers?"
+          [attr.aria-expanded]="openInfoLabel() === 'top-peers'"
+          class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
+          style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
+        >
+          ?
+        </button>
+      </div>
+      @if (openInfoLabel() === 'top-peers') {
+        <div
+          class="th-border absolute left-3 right-3 top-12 z-10 border-2 p-3 text-[11px] leading-relaxed"
+          style="
+            border-radius: var(--radius);
+            background: var(--bg);
+            color: var(--text);
+            box-shadow: var(--shadow);
+          "
+          role="dialog"
+        >
+          This lists the most active Peers in the workspace, ranked by the number of sessions they participate in. An active peer with many sessions represents a heavily utilized persona, agent, or user tracking complex contextual memory.
+        </div>
+      }
       @if (topPeers().length === 0) {
         <p class="text-xs opacity-60">No peers with sessions yet.</p>
       } @else {
@@ -177,15 +255,41 @@
       }
     </div>
     <div
-      class="th-border border-2 p-3"
+      class="th-border relative border-2 p-3"
       style="border-radius: var(--radius); background: var(--surface)"
     >
-      <h3
-        class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
-        style="color: var(--accent)"
-      >
-        Recent activity
-      </h3>
+      <div class="mb-2 flex items-center justify-between gap-1">
+        <h3
+          class="th-display text-xs font-bold uppercase tracking-widest"
+          style="color: var(--accent)"
+        >
+          Recent activity
+        </h3>
+        <button
+          type="button"
+          (click)="toggleInfo('recent-activity')"
+          aria-label="What is recent activity?"
+          [attr.aria-expanded]="openInfoLabel() === 'recent-activity'"
+          class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
+          style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
+        >
+          ?
+        </button>
+      </div>
+      @if (openInfoLabel() === 'recent-activity') {
+        <div
+          class="th-border absolute left-3 right-3 top-12 z-10 border-2 p-3 text-[11px] leading-relaxed"
+          style="
+            border-radius: var(--radius);
+            background: var(--bg);
+            color: var(--text);
+            box-shadow: var(--shadow);
+          "
+          role="dialog"
+        >
+          This feed lists the most recent events in the workspace chronologically, including new peer additions and session creation times. It provides real-time visibility into incoming data flows.
+        </div>
+      }
       @if (recentActivity().length === 0) {
         <p class="text-xs opacity-60">No recent activity.</p>
       } @else {

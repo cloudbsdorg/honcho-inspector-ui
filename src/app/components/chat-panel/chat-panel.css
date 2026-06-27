@@ -2,3 +2,30 @@
   display: block;
   height: 100%;
 }
+
+/*
+  Thinking-dots animation. Three small circles pulse in sequence
+  to indicate the chat request is in flight. The animation is
+  pure CSS (no JS interval) so it runs continuously under OnPush
+  change detection without any performance overhead, and the
+  timing of the wave (1.4s, 0.16s stagger between dots) gives
+  a clear "this is alive and waiting" signal without being
+  distracting. The dots use currentColor so they pick up the
+  parent pill's text color (var(--text-dim) in this template).
+*/
+.th-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: th-dot-pulse 1.4s ease-in-out infinite;
+  opacity: 0.4;
+}
+.th-dot-2 { animation-delay: 0.16s; }
+.th-dot-3 { animation-delay: 0.32s; }
+
+@keyframes th-dot-pulse {
+  0%, 60%, 100% { opacity: 0.4; transform: scale(1); }
+  30%           { opacity: 1.0; transform: scale(1.4); }
+}

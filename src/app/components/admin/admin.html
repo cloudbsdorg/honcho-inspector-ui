@@ -38,7 +38,7 @@
 
   @if (error(); as e) {
     <div
-      class="mb-4 border-2 px-3 py-2 text-sm th-pulse"
+      class="mb-4 border-2 px-3 py-2 text-sm th-pulse flex items-center justify-between gap-2"
       data-testid="admin-error"
       [style.borderColor]="'var(--danger)'"
       [style.color]="'var(--danger)'"
@@ -47,7 +47,16 @@
         background: color-mix(in srgb, var(--danger) 10%, transparent);
       "
     >
-      {{ e }}
+      <span>{{ e }}</span>
+      <button
+        type="button"
+        (click)="error.set(null)"
+        aria-label="Dismiss error"
+        class="font-mono text-base opacity-70 hover:opacity-100 cursor-pointer bg-transparent border-0 p-0 leading-none select-none font-bold"
+        style="color: var(--danger)"
+      >
+        ×
+      </button>
     </div>
   }
 
@@ -55,8 +64,35 @@
     @switch (tab()) {
       @case ('overview') {
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2" data-testid="admin-overview">
-          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
-            <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">Counts</h2>
+
+          <div class="th-border relative border-2 p-4" style="border-radius: var(--radius)">
+            <div class="mb-2 flex items-center justify-between gap-1">
+              <h2 class="text-xs font-bold uppercase tracking-widest opacity-80">Counts</h2>
+              <button
+                type="button"
+                (click)="toggleInfo('counts')"
+                aria-label="What is Counts?"
+                [attr.aria-expanded]="openInfoLabel() === 'counts'"
+                class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
+                style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
+              >
+                ?
+              </button>
+            </div>
+            @if (openInfoLabel() === 'counts') {
+              <div
+                class="th-border absolute left-4 right-4 top-12 z-10 border-2 p-3 text-[11px] leading-relaxed"
+                style="
+                  border-radius: var(--radius);
+                  background: var(--bg);
+                  color: var(--text);
+                  box-shadow: var(--shadow);
+                "
+                role="dialog"
+              >
+                This bar chart displays the total number of Users, Administrators, Profiles, and Audit rows currently stored in the database. It provides an overview of the system's size and resource usage.
+              </div>
+            }
             <div class="h-72">
               @if (overviewCountsChart(); as cfg) {
                 <app-chart type="bar" [data]="cfg.data" [options]="cfg.options"></app-chart>
@@ -81,10 +117,36 @@
               }
             </div>
           </div>
-          <div class="th-border border-2 p-4" style="border-radius: var(--radius)">
-            <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">
-              Growth (7d vs 30d)
-            </h2>
+          <div class="th-border relative border-2 p-4" style="border-radius: var(--radius)">
+            <div class="mb-2 flex items-center justify-between gap-1">
+              <h2 class="text-xs font-bold uppercase tracking-widest opacity-80">
+                Growth (7d vs 30d)
+              </h2>
+              <button
+                type="button"
+                (click)="toggleInfo('growth')"
+                aria-label="What is Growth?"
+                [attr.aria-expanded]="openInfoLabel() === 'growth'"
+                class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
+                style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
+              >
+                ?
+              </button>
+            </div>
+            @if (openInfoLabel() === 'growth') {
+              <div
+                class="th-border absolute left-4 right-4 top-12 z-10 border-2 p-3 text-[11px] leading-relaxed"
+                style="
+                  border-radius: var(--radius);
+                  background: var(--bg);
+                  color: var(--text);
+                  box-shadow: var(--shadow);
+                "
+                role="dialog"
+              >
+                This line chart visualizes the growth metrics of the system, comparing the number of new users registered in the last 7 days and 30 days, along with the volume of audit events logged in the last 30 days. It helps track adoption and activity velocity.
+              </div>
+            }
             <div class="h-72">
               @if (overviewGrowthChart(); as cfg) {
                 <app-chart type="line" [data]="cfg.data" [options]="cfg.options"></app-chart>
@@ -109,10 +171,52 @@
               }
             </div>
           </div>
-          <div class="th-border border-2 p-4 lg:col-span-2" style="border-radius: var(--radius)">
-            <h2 class="mb-2 text-xs font-bold uppercase tracking-widest opacity-80">
-              Recent audit activity by action
-            </h2>
+          <div class="th-border relative border-2 p-4 lg:col-span-2" style="border-radius: var(--radius)">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-3 border-b-2 pb-2 th-border">
+              <div class="flex items-center gap-2">
+                <h2 class="text-xs font-bold uppercase tracking-widest opacity-80">
+                  Recent audit activity — {{ auditTimeframeLabel() }}
+                </h2>
+                <button
+                  type="button"
+                  (click)="toggleInfo('recent-audit')"
+                  aria-label="What is Recent audit activity?"
+                  [attr.aria-expanded]="openInfoLabel() === 'recent-audit'"
+                  class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
+                  style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
+                >
+                  ?
+                </button>
+              </div>
+              <div class="flex flex-wrap items-center gap-1">
+                @for (tf of ['24h', '7d', '30d', 'all']; track tf) {
+                  <button
+                    type="button"
+                    (click)="setAuditTimeframe(tf)"
+                    [style.background]="auditTimeframe() === tf ? 'var(--accent)' : 'var(--surface)'"
+                    [style.color]="auditTimeframe() === tf ? 'var(--bg)' : 'var(--text-dim)'"
+                    class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer"
+                    style="border-radius: var(--radius)"
+                  >
+                    {{ tf === '24h' ? 'Last 24h' : tf === '7d' ? 'Last 7d' : tf === '30d' ? 'Last 30d' : 'All time' }}
+                  </button>
+                }
+              </div>
+            </div>
+            @if (openInfoLabel() === 'recent-audit') {
+              <div
+                class="th-border absolute left-4 right-4 top-12 z-10 border-2 p-3 text-[11px] leading-relaxed"
+                style="
+                  border-radius: var(--radius);
+                  background: var(--bg);
+                  color: var(--text);
+                  box-shadow: var(--shadow);
+                "
+                role="dialog"
+              >
+                This doughnut chart shows the breakdown of audit events by action type (e.g. user creation, password resets, session revocations) within the selected timeframe ({{ auditTimeframeLabel() }}). It helps administrators monitor recent system events and operational patterns at a glance.
+              </div>
+            }
             <div class="mx-auto h-72 max-w-md">
               @if (auditActionChart(); as cfg) {
                 <app-chart type="doughnut" [data]="cfg.data" [options]="cfg.options"></app-chart>
@@ -122,7 +226,7 @@
                     No audit events yet. Create a user, change a password, or trigger another
                     auditable action to populate this chart.
                   } @else {
-                    Open the Audit tab to view the underlying events.
+                    Loading...
                   }
                 </div>
               }
@@ -369,8 +473,12 @@
                         e.action
                       }}</code>
                     </td>
-                    <td class="py-2 font-mono text-xs">{{ e.actorUserId ?? '—' }}</td>
-                    <td class="py-2 font-mono text-xs">{{ e.targetUserId ?? '—' }}</td>
+                    <td class="py-2 font-mono text-xs" [title]="formatUserTooltip(e.actorUserId)">
+                      {{ formatUser(e.actorUserId) }}
+                    </td>
+                    <td class="py-2 font-mono text-xs" [title]="formatUserTooltip(e.targetUserId)">
+                      {{ formatUser(e.targetUserId) }}
+                    </td>
                     <td class="py-2 font-mono text-xs opacity-70">{{ e.ip ?? '—' }}</td>
                     <td class="py-2 font-mono text-xs opacity-70">
                       {{ formatMetadata(e.metadata) }}

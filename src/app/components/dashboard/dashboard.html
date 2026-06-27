@@ -154,22 +154,77 @@
             </div>
             <div class="text-[10px] opacity-70">Honcho peer · live memory + dialectic chat</div>
           </div>
-          @if (loadingPeer()) {
-            <span class="th-display text-xs" style="color: var(--accent)">loading...</span>
-          }
+          <div class="flex flex-shrink-0 items-center gap-2">
+            @if (loadingPeer()) {
+              <span class="th-display text-xs" style="color: var(--accent)">loading...</span>
+            }
+            <button
+              type="button"
+              (click)="openChatPopOut()"
+              data-testid="open-chat-popout"
+              title="Open chat in a pop-out window"
+              class="th-border border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
+              style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
+            >
+              Chat ↗
+            </button>
+          </div>
         </div>
 
         <div class="grid flex-shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
           <section
-            class="th-border border-2 p-3"
+            class="th-border relative border-2 p-3"
             style="border-radius: var(--radius); background: var(--surface)"
           >
-            <h3
-              class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
-              style="color: var(--accent-2)"
-            >
-              Peer Card
-            </h3>
+            <div class="mb-2 flex items-center justify-between gap-1">
+              <h3
+                class="th-display text-xs font-bold uppercase tracking-widest"
+                style="color: var(--accent-2)"
+              >
+                Peer Card
+                @if (peerCard().length > 0) {
+                  <span class="ml-1 opacity-60">({{ peerCard().length }})</span>
+                }
+              </h3>
+              <div class="flex flex-shrink-0 items-center gap-1">
+                @if (peerCard().length > 0) {
+                  <button
+                    type="button"
+                    (click)="openPopOut('Peer Card — ' + pid, cardAsString(peerCard()))"
+                    [attr.data-testid]="'popout-peer-card'"
+                    title="Open all card facts in a pop-out window"
+                    class="th-border border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                    style="border-radius: var(--radius); color: var(--accent-2); background: var(--bg)"
+                  >
+                    ⤴
+                  </button>
+                }
+                <button
+                  type="button"
+                  (click)="toggleInfo('peer-card')"
+                  aria-label="What is Peer Card?"
+                  [attr.aria-expanded]="openInfoLabel() === 'peer-card'"
+                  class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
+                  style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
+                >
+                  ?
+                </button>
+              </div>
+            </div>
+            @if (openInfoLabel() === 'peer-card') {
+              <div
+                class="th-border absolute left-3 right-3 top-12 z-10 border-2 p-3 text-[11px] leading-relaxed"
+                style="
+                  border-radius: var(--radius);
+                  background: var(--bg);
+                  color: var(--text);
+                  box-shadow: var(--shadow);
+                "
+                role="dialog"
+              >
+                The Peer Card is a structured collection of key facts, preferences, and details extracted from this peer's conversation history. These facts are derived automatically by background consolidation tasks ("dreams") to provide a persistent memory profile for the agent or user.
+              </div>
+            }
             @if (peerCard().length === 0) {
               <p class="text-xs opacity-60" style="color: var(--text-dim)">
                 no card yet — feed {{ pid }} some messages.
@@ -187,19 +242,69 @@
           </section>
 
           <section
-            class="th-border border-2 p-3"
+            class="th-border relative border-2 p-3"
             style="border-radius: var(--radius); background: var(--surface)"
           >
-            <h3
-              class="th-display mb-2 text-xs font-bold uppercase tracking-widest"
-              style="color: var(--accent-3)"
-            >
-              Representation
-            </h3>
+            <div class="mb-2 flex items-center justify-between gap-1">
+              <h3
+                class="th-display text-xs font-bold uppercase tracking-widest"
+                style="color: var(--accent-3)"
+              >
+                Representation
+              </h3>
+              <div class="flex flex-shrink-0 items-center gap-1">
+                @if (peerRepresentation()) {
+                  <button
+                    type="button"
+                    (click)="openPopOut('Representation — ' + pid, peerRepresentation())"
+                    [attr.data-testid]="'popout-representation'"
+                    title="Open the full representation in a pop-out window"
+                    class="th-border border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                    style="border-radius: var(--radius); color: var(--accent-3); background: var(--bg)"
+                  >
+                    ⤴
+                  </button>
+                }
+                <button
+                  type="button"
+                  (click)="toggleInfo('representation')"
+                  aria-label="What is Representation?"
+                  [attr.aria-expanded]="openInfoLabel() === 'representation'"
+                  class="th-border flex h-4 w-4 flex-shrink-0 items-center justify-center border-2 text-[10px] font-bold leading-none opacity-50 hover:opacity-100 focus:opacity-100"
+                  style="border-radius: var(--radius); color: var(--text-dim); background: transparent"
+                >
+                  ?
+                </button>
+              </div>
+            </div>
+            @if (openInfoLabel() === 'representation') {
+              <div
+                class="th-border absolute left-3 right-3 top-12 z-10 border-2 p-3 text-[11px] leading-relaxed"
+                style="
+                  border-radius: var(--radius);
+                  background: var(--bg);
+                  color: var(--text);
+                  box-shadow: var(--shadow);
+                "
+                role="dialog"
+              >
+                The Representation is a dynamic, summarized natural language description of the peer, also generated/updated by background memory consolidation ("dreams") based on the peer's session history. It captures their current state, personality, or behavioral guidelines.
+              </div>
+            }
             @if (peerRepresentation()) {
-              <p class="text-sm leading-relaxed" style="color: var(--text); white-space: pre-wrap">
-                {{ peerRepresentation() }}
-              </p>
+              @if (peerRepresentation()!.length > 600) {
+                <app-markdown
+                  class="text-sm leading-relaxed block"
+                  data-testid="representation-truncated"
+                  [source]="truncate(peerRepresentation(), 600)"
+                />
+              } @else {
+                <app-markdown
+                  class="text-sm leading-relaxed block"
+                  data-testid="representation-full"
+                  [source]="peerRepresentation()"
+                />
+              }
             } @else {
               <p class="text-xs opacity-60" style="color: var(--text-dim)">
                 no representation yet.
@@ -253,3 +358,120 @@
     }
   </main>
 </div>
+
+<!--
+  Text pop-out. Triggered by the ⤴ button on the Peer Card
+  header (cardAsString formats the array as a bulleted list for
+  the Markdown component) and the Representation header (the
+  full markdown body is rendered by <app-markdown> so headings,
+  code spans, and lists show as formatted HTML, not as raw
+  markdown text). The overlay stops click propagation so clicking
+  the body doesn't close the modal — only the dimmed backdrop
+  and the ✕ button do.
+-->
+@if (poppedOut(); as p) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style="background: color-mix(in srgb, var(--bg) 70%, transparent)"
+    (click)="closePopOut()"
+    data-testid="popout-overlay"
+  >
+    <div
+      class="th-surface th-border flex max-h-[85vh] w-full max-w-3xl flex-col border-2"
+      style="border-radius: var(--radius)"
+      (click)="$event.stopPropagation()"
+      data-testid="popout-modal"
+    >
+      <div
+        class="th-border flex flex-shrink-0 items-center justify-between border-b-2 px-4 py-3"
+        style="background: var(--surface)"
+      >
+        <h2
+          class="th-display text-sm font-bold uppercase tracking-widest"
+          style="color: var(--accent)"
+        >
+          {{ p.title }}
+        </h2>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            (click)="copyPoppedOut()"
+            data-testid="popout-copy"
+            title="Copy full text to clipboard"
+            class="th-border border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
+            style="border-radius: var(--radius); color: var(--accent); background: var(--bg)"
+          >
+            Copy
+          </button>
+          <button
+            type="button"
+            (click)="closePopOut()"
+            data-testid="popout-close"
+            title="Close (Esc)"
+            class="th-border border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
+            style="border-radius: var(--radius); color: var(--text); background: var(--surface)"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      <div
+        class="flex-1 overflow-y-auto p-4 text-sm leading-relaxed"
+        style="color: var(--text)"
+        data-testid="popout-body"
+      >
+        <app-markdown [source]="p.body" />
+      </div>
+    </div>
+  </div>
+}
+
+<!--
+  Chat pop-out. Same overlay shell as the text pop-out but
+  hosts the full <app-chat-panel> component (the chat has
+  a textarea + history + send button, so a static body
+  wouldn't work). The chat's own scroll/auto-grow handles
+  its own layout inside the modal; the modal's outer shell
+  just sets the viewport size and the close-on-overlay-click
+  contract.
+-->
+@if (chatPoppedOut()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style="background: color-mix(in srgb, var(--bg) 70%, transparent)"
+    (click)="closeChatPopOut()"
+    data-testid="chat-popout-overlay"
+  >
+    <div
+      class="th-surface th-border flex h-[85vh] w-full max-w-3xl flex-col border-2"
+      style="border-radius: var(--radius)"
+      (click)="$event.stopPropagation()"
+      data-testid="chat-popout-modal"
+    >
+      <div
+        class="th-border flex flex-shrink-0 items-center justify-between border-b-2 px-4 py-3"
+        style="background: var(--surface)"
+      >
+        <h2
+          class="th-display text-sm font-bold uppercase tracking-widest"
+          style="color: var(--accent)"
+        >
+          Chat with {{ selectedPeerId() }}
+        </h2>
+        <button
+          type="button"
+          (click)="closeChatPopOut()"
+          data-testid="chat-popout-close"
+          title="Close (Esc)"
+          class="th-border border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
+          style="border-radius: var(--radius); color: var(--text); background: var(--surface)"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="flex-1 min-h-0 overflow-hidden">
+        <app-chat-panel [peerId]="selectedPeerId()!" />
+      </div>
+    </div>
+  </div>
+}

@@ -247,6 +247,10 @@ export class WorkspaceOverview {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: {
+          mode: 'index' as const,
+          intersect: false,
+        },
         plugins: {
           legend: { labels: { color: '#fff0ff' } },
         },

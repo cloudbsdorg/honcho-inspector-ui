@@ -96,18 +96,32 @@ export class ApiClient {
     try {
       res = await fetch(url, { method: opts.method, headers, body });
     } catch (e) {
-      // Network error: status 0 distinguishes "cannot reach backend"
-      // from HTTP 5xx (server reached but errored).
       const msg = e instanceof Error ? e.message : String(e);
       throw new ApiError(msg, 0);
     }
     if (res.status === 204) return undefined as T;
+    // Always parse the body as JSON. The backend wraps every controller
+    // success in a uniform `{data, error, meta}` envelope; failure
+    // bodies are `{error, body}` (HonchoCallException 5xx/4xx) or
+    // `{data: {error}}` (ErrorResponse record from the controller's
+    // 400/401/404 paths). All three shapes funnel through one unwrap.
+    const parsed = (await res.json().catch(() => ({}))) as
+      | { data?: unknown; error?: string; body?: string; meta?: unknown }
+      | undefined;
     if (!res.ok) {
-      const errBody = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new ApiError(errBody.error ?? `Backend error ${res.status}`, res.status);
+      const msg =
+        (parsed && (parsed as { error?: string }).error) ??
+        (parsed && (parsed as { data?: { error?: string } }).data?.error) ??
+        `Backend error ${res.status}`;
+      throw new ApiError(msg, res.status);
     }
     if (res.headers.get('content-length') === '0') return undefined as T;
-    return snakeToCamel(await res.json()) as T;
+    // Success: pull the envelope's `data` field if present, otherwise
+    // return the parsed body as-is (so endpoints that live outside the
+    // `controller` package — health, auth, admin, profiles — still
+    // work without the wrapper).
+    const unwrapped = parsed && 'data' in parsed ? parsed.data : parsed;
+    return snakeToCamel(unwrapped) as T;
   }
 
   private buildPath(path: string, query?: RequestOptions['query'], pathPrefix?: string): string {

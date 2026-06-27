@@ -117,19 +117,15 @@ export class HonchoService {
   async inspectPeer(peerId: string): Promise<HonchoPeerInspect> {
     return this.runOrThrow(async () => {
       const [card, rep, conclusions, sessionCount] = await Promise.all([
-        // Honcho v3 GET /card returns { peer_card: [...] }; we extract
-        // the inner string array (the previous cast-as-string[] made
-        // every card facts panel render empty).
-        this.call<{ peer_card?: string[] }>({
+        // Honcho v3 GET /card returns { peer_card: [...] }; the registry unwraps it to string[]
+        this.call<string[] | null>({
           method: 'GET',
           path: `/peers/${encodeURIComponent(peerId)}/card`,
         }),
         // Honcho v3 disallows GET on /representation (returns 405); the
         // backend now exposes this as POST with an empty {} body. The
-        // response is { representation: "..." }; we extract the inner
-        // string (the previous cast-as-string made the inspector
-        // render "[object Object]").
-        this.call<{ representation?: string }>({
+        // registry unwraps it to string.
+        this.call<string | null>({
           method: 'POST',
           path: `/peers/${encodeURIComponent(peerId)}/representation`,
           body: {},
@@ -150,8 +146,8 @@ export class HonchoService {
       ]);
       return {
         id: peerId,
-        card: card?.peer_card ?? [],
-        representation: rep?.representation ?? '',
+        card: card ?? [],
+        representation: rep ?? '',
         configuration: null,
         sessionCount: sessionCount.items?.length ?? 0,
         conclusionCount: conclusions.items.length,
@@ -207,21 +203,21 @@ export class HonchoService {
   }
 
   async getPeerRepresentation(peerId: string): Promise<string> {
-    // Honcho v3 disallows GET on /representation (returns 405); use POST
-    // with an empty body instead.
-    //
-    // The Honcho v3 response shape is { representation: "..." }; earlier
-    // we cast the whole envelope as string, which made Angular render
+    // Honcho v3 disallows GET on /representation (returns 405); use
+    // POST with an empty body instead. The unwrapper on the proxy
+    // extracts the `{representation: "..."}` field; the advice
+    // wraps the bare string as {data:"...", error:null, meta:null};
+    // the api-client unwraps `data` and returns the bare string.
+    // Earlier the raw `{representation: "..."}` envelope was
+    // returned through unchanged, which made Angular render
     // "[object Object]" in the dashboard's Representation panel.
-    // Extract the inner string explicitly so the template binding
-    // (which calls {{ peerRepresentation() }} interpolated) gets the
-    // text, not the wrapper object.
-    const envelope = await this.call<{ representation?: string }>({
-      method: 'POST',
-      path: `/peers/${encodeURIComponent(peerId)}/representation`,
-      body: {},
-    });
-    return envelope?.representation ?? '';
+    return (
+      (await this.call<string>({
+        method: 'POST',
+        path: `/peers/${encodeURIComponent(peerId)}/representation`,
+        body: {},
+      })) ?? ''
+    );
   }
 
   async chat(peerId: string, query: string, target?: string): Promise<string> {
