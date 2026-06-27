@@ -9,6 +9,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { HonchoService } from '../../core/honcho.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { ProfileService } from '../../core/profile.service';
@@ -20,7 +21,7 @@ import { MetricsService } from '../../core/metrics.service';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [CommonModule, FormsModule, WorkspaceOverview],
+  imports: [CommonModule, FormsModule, ScrollingModule, WorkspaceOverview],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
@@ -102,6 +103,13 @@ export class Dashboard implements OnInit {
     if (!id) return null;
     this.selectedPeerId.set(id);
     return id;
+  }
+
+  // Identity function used by cdk-virtual-scroll to track peers
+  // across re-renders. Returning the id (a primitive) is enough;
+  // the full object isn't needed for diff detection.
+  trackPeerId(_index: number, peer: { id: string }): string {
+    return peer.id;
   }
 
   async selectPeer(id: string): Promise<void> {
