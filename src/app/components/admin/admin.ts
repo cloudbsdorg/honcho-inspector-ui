@@ -17,6 +17,7 @@ import {
 } from '../../core/models';
 import { ChartComponent } from '../charts/chart.component';
 import { UserCreateWizard } from './user-create-wizard';
+import { ChangePasswordModal } from './change-password-modal';
 import { describeCron } from '../../core/cron';
 import { TimezoneService } from '../../core/timezone.service';
 import {
@@ -26,7 +27,7 @@ import {
 } from '../../core/datetime';
 import { DiagnosticsService } from '../../core/diagnostics.service';
 
-type Tab = 'overview' | 'users' | 'audit' | 'maintenance' | 'diagnostics';
+type Tab = 'overview' | 'users' | 'audit' | 'maintenance' | 'diagnostics' | 'password';
 type PageSizeUi = 10 | 20 | 30;
 
 const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
@@ -37,7 +38,7 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
 
 @Component({
   selector: 'app-admin',
-  imports: [ChartComponent, DecimalPipe, JsonPipe, UserCreateWizard],
+  imports: [ChartComponent, DecimalPipe, JsonPipe, UserCreateWizard, ChangePasswordModal],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin.html',
   styleUrl: './admin.css',
@@ -51,6 +52,19 @@ export class AdminPanel implements OnInit {
   readonly formatWallClockTooltip = formatWallClockTooltip;
 
   readonly tab = signal<Tab>('overview');
+
+  // Password-change modal state. The modal lives at the root of
+  // the admin template so its fixed-position overlay covers the
+  // full viewport. The parent stays the source of truth: open
+  // is bound from here, and the modal emits 'changed' or
+  // 'dismissed' which we translate to either refreshing the user
+  // list (admin-reset) or logging the caller out (self).
+  readonly passwordModal = signal<{
+    open: boolean;
+    mode: 'self' | 'admin-reset';
+    targetUserId: string | null;
+    targetUsername: string | null;
+  } | null>(null);
 
   ngOnInit(): void {
     // The default tab is `overview` (set above) but setTab() is the
@@ -425,23 +439,64 @@ export class AdminPanel implements OnInit {
     }
   }
 
-  async resetPassword(u: AdminUser): Promise<void> {
-    const newPassword = prompt(`New password for ${u.username} (8+ chars):`);
-    if (!newPassword) return;
-    if (newPassword.length < 8) {
-      this.error.set('Password must be at least 8 characters');
+  /**
+   * Open the password-change modal in self-service mode. Reachable
+   * from the new "password" tab on the admin nav. The new-password
+   * field validation and post-submit session-revoke behavior is
+   * enforced server-side; the modal just collects input and
+   * dispatches.
+   */
+  openSelfPasswordChange(): void {
+    this.passwordModal.set({
+      open: true,
+      mode: 'self',
+      targetUserId: null,
+      targetUsername: null,
+    });
+  }
+
+  /**
+   * Open the password-change modal in admin-reset mode for a
+   * specific user. Reachable from the "Reset pwd" button on each
+   * row of the users table. Replaces the previous native
+   * {@code prompt()} dialog which was a security UX hazard
+   * (password visible in plaintext, no validation feedback,
+   * no confirmation).
+   */
+  openAdminResetPassword(u: AdminUser): void {
+    this.passwordModal.set({
+      open: true,
+      mode: 'admin-reset',
+      targetUserId: u.id,
+      targetUsername: u.username,
+    });
+  }
+
+  closePasswordModal(): void {
+    this.passwordModal.set(null);
+  }
+
+  /**
+   * Handler for the modal's 'changed' event. Self → log the user
+   * out (the backend revoked their session, so the next API call
+   * would 401 anyway, but it's cleaner to show the login screen
+   * immediately). Admin-reset → refresh the user list + audit log
+   * so the operator sees the new state.
+   */
+  async onPasswordChanged(payload: { userId: string; mode: 'self' | 'admin-reset' }): Promise<void> {
+    this.passwordModal.set(null);
+    if (payload.mode === 'self') {
+      // Force a clean re-auth. The session cookie is already
+      // dead on the server, so this is mostly a UX reset (route
+      // back to /login so the operator can re-authenticate with
+      // their new password).
+      try { await this.auth.logout(); } catch { /* already dead */ }
+      window.location.assign('/login');
       return;
     }
-    this.busy.set(true);
-    this.error.set(null);
-    try {
-      await this.admin.resetPassword(u.id, { newPassword });
-      await this.loadAudit();
-    } catch (e) {
-      this.error.set(formatError(e, 'Failed to reset password'));
-    } finally {
-      this.busy.set(false);
-    }
+    // Admin-reset: refresh the user list and audit feed so the
+    // operator sees the password-reset event they just performed.
+    await Promise.all([this.loadUsers(), this.loadAudit()]);
   }
 
   async revokeSessions(u: AdminUser): Promise<void> {

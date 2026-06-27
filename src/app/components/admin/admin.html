@@ -19,7 +19,7 @@
     style="background: var(--bg-2); border-radius: 0"
     role="tablist"
   >
-    @for (t of ['overview', 'users', 'audit', 'maintenance', 'diagnostics']; track t) {
+    @for (t of ['overview', 'users', 'audit', 'maintenance', 'diagnostics', 'password']; track t) {
       <button
         type="button"
         role="tab"
@@ -353,11 +353,12 @@
                         </button>
                         <button
                           type="button"
-                          (click)="resetPassword(u)"
+                          (click)="openAdminResetPassword(u)"
                           [disabled]="busy()"
+                          data-testid="'admin-reset-pwd-' + u.username"
                           class="px-2 py-1 text-xs th-border border-2 th-surface hover:th-glow disabled:opacity-50"
                           style="border-radius: var(--radius)"
-                        >
+        >
                           Reset pwd
                         </button>
                         <button
@@ -831,6 +832,37 @@
           </section>
         </div>
       }
+      @case ('password') {
+        <div class="space-y-4" data-testid="admin-password-tab">
+          <section
+            class="th-border border-2 p-4"
+            style="border-radius: var(--radius); background: var(--surface)"
+          >
+            <h2 class="th-display mb-2 text-sm font-bold uppercase tracking-widest" style="color: var(--accent)">
+              Your account
+            </h2>
+            <p class="mb-3 text-sm">
+              Change the password you use to sign in to Honcho Inspector. All of
+              your active sessions will be signed out, so any other browsers or
+              devices that are signed in will have to re-authenticate.
+            </p>
+            <p class="mb-3 text-xs opacity-70">
+              A fresh install ships with a random bootstrap password in
+              <code style="font-family: ui-monospace, monospace">/etc/honcho-inspector/honcho.bootstrap.admin</code>.
+              Set a real password here before going to production.
+            </p>
+            <button
+              type="button"
+              (click)="openSelfPasswordChange()"
+              data-testid="open-self-password-change"
+              class="th-border border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest th-gradient"
+              style="border-radius: var(--radius); color: var(--bg)"
+            >
+              Change my password
+            </button>
+          </section>
+        </div>
+      }
     }
   </div>
 
@@ -839,4 +871,15 @@
     (completed)="onUserCreateCompleted($event)"
     (dismissed)="onUserCreateDismissed()"
   />
+
+  @if (passwordModal(); as p) {
+    <app-change-password-modal
+      [open]="p.open"
+      [mode]="p.mode"
+      [targetUserId]="p.targetUserId"
+      [targetUsername]="p.targetUsername"
+      (changed)="onPasswordChanged($event)"
+      (dismissed)="closePasswordModal()"
+    />
+  }
 </div>
