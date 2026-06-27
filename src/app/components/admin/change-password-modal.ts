@@ -223,7 +223,7 @@ export class ChangePasswordModal {
           if (r.status === 401) throw new Error('invalid username or password');
           throw new Error(body.error || `password change failed (${r.status})`);
         });
-        this.changed.emit({ userId: this.auth.currentUser()?.id ?? '', mode: 'self' });
+        this.changed.emit({ userId: this.auth.user()?.id ?? '', mode: 'self' });
       } else {
         // Admin-reset path: /api/admin/users/{id}/password. The
         // backend hashes, records the audit, and revokes all

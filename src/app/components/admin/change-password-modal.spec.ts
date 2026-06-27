@@ -29,8 +29,7 @@ describe('ChangePasswordModal', () => {
     ]);
     auth = jasmine.createSpyObj<HonchoAuthService>('HonchoAuthService', [
       'sessionId',
-      'currentUser',
-    ], { currentUser: signal({ id: 'u-self', username: 'admin' } as any) });
+    ], { user: signal({ id: 'u-self', username: 'admin' } as any) });
     // sessionId is a getter, not a method; assign via Object.defineProperty
     Object.defineProperty(auth, 'sessionId', { get: () => 'sess-self' });
     await TestBed.configureTestingModule({
