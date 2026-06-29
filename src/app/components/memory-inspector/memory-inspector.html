@@ -680,31 +680,50 @@
             <h2 class="th-display text-lg font-bold tracking-widest" style="color: var(--accent)">
               Conclusions
             </h2>
-            <select
-              [ngModel]="selectedPeerId() ?? ''"
-              (ngModelChange)="selectedPeerId.set($event); loadConclusions($event)"
-              data-testid="conclusions-peer-select"
-              class="th-surface th-border border-2 px-2 py-1 text-xs"
-              style="border-radius: var(--radius); color: var(--text)"
-            >
-              <option value="">
-                @if (loadingPeersWithConclusions()) {
-                  loading peers with conclusions…
-                } @else if (peersWithConclusions().length === 0) {
-                  — no peers with conclusions —
-                } @else {
-                  — select peer —
-                }
-              </option>
-              @for (p of peersWithConclusions(); track p.id) {
-                <option [value]="p.id">{{ p.id }}</option>
+            <div class="flex items-center gap-2 text-xs">
+              @if (selectedPeerId()) {
+                <span
+                  class="font-mono"
+                  style="color: var(--text-dim)"
+                  data-testid="conclusions-scope"
+                >peer: {{ selectedPeerId() }}</span>
+              } @else if (conclusions().length > 0 || workspaceConclusionsLoaded()) {
+                <span
+                  class="font-mono"
+                  style="color: var(--text-dim)"
+                  data-testid="conclusions-scope"
+                >workspace (latest {{ workspaceConclusionsLimit() }})</span>
               }
-            </select>
+              <select
+                [ngModel]="selectedPeerId() ?? ''"
+                (ngModelChange)="onConclusionsPeerChange($event)"
+                data-testid="conclusions-peer-select"
+                class="th-surface th-border border-2 px-2 py-1 text-xs"
+                style="border-radius: var(--radius); color: var(--text)"
+              >
+                <option value="">
+                  @if (loadingPeersWithConclusions()) {
+                    loading peers with conclusions…
+                  } @else if (peersWithConclusions().length === 0) {
+                    — no peers with conclusions —
+                  } @else {
+                    — latest across workspace —
+                  }
+                </option>
+                @for (p of peersWithConclusions(); track p.id) {
+                  <option [value]="p.id">{{ p.id }}</option>
+                }
+              </select>
+            </div>
           </div>
 
-          @if (conclusions().length === 0) {
+          @if (conclusions().length === 0 && !loading()) {
             <p class="text-sm opacity-60" style="color: var(--text-dim)">
-              No conclusions yet for the selected peer.
+              @if (selectedPeerId()) {
+                No conclusions yet for this peer.
+              } @else {
+                No conclusions yet in this workspace.
+              }
             </p>
           } @else {
             <ul class="space-y-2">

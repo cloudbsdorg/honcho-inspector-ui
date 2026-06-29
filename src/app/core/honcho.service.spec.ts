@@ -308,6 +308,54 @@ describe('HonchoService', () => {
     });
   });
 
+  describe('listWorkspaceConclusions', () => {
+    it('should POST /api/conclusions and slice the items to the requested count', async () => {
+      const spy = installFetch((path) => {
+        if (path === '/api/conclusions') {
+          return jsonResponse({
+            items: Array.from({ length: 50 }, (_, i) => ({
+              id: `wid-${i}`,
+              content: `c-${i}`,
+              observer_id: 'a',
+              observed_id: 'b',
+              created_at: '2026-01-01T00:00:00Z',
+            })),
+            total: 200,
+            page: 1,
+            size: 50,
+          });
+        }
+        return jsonResponse({});
+      });
+      const result = await service.listWorkspaceConclusions(10);
+      expect(result.items.length).toBe(10);
+      expect(result.items[0].id).toBe('wid-0');
+      expect(result.total).toBe(200);
+      // Verify the path hit
+      const hit = spy.mock.calls.some((c) => pathOf(c[0] as RequestInfo) === '/api/conclusions');
+      expect(hit).toBe(true);
+    });
+
+    it('should default to 10 when no limit is given', async () => {
+      installFetch((path) => {
+        if (path === '/api/conclusions') {
+          return jsonResponse({
+            items: Array.from({ length: 50 }, (_, i) => ({
+              id: `x-${i}`,
+              content: '',
+              observer_id: 'a',
+              observed_id: 'b',
+              created_at: '',
+            })),
+          });
+        }
+        return jsonResponse({});
+      });
+      const result = await service.listWorkspaceConclusions();
+      expect(result.items.length).toBe(10);
+    });
+  });
+
   describe('inspectWorkspace', () => {
     it('should call /api/workspace/info and combine with peer/session counts', async () => {
       const spy = installFetch((path) => {

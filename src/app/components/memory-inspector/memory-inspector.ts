@@ -296,6 +296,13 @@ export class MemoryInspector implements OnInit {
     this.error.set(null);
     if (id === 'conclusions') {
       void this.loadPeersWithConclusions();
+      // Default the empty state to the workspace-wide top-N so the page
+      // is never blank when no peer has been chosen yet. The user can
+      // then pick a peer to scope down, or come back here to widen
+      // back to the default.
+      if (!this.workspaceConclusionsLoaded() && this.conclusions().length === 0) {
+        void this.loadLatestConclusions();
+      }
     }
   }
 
@@ -363,6 +370,53 @@ export class MemoryInspector implements OnInit {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  /**
+   * Switch the Conclusions tab to its default workspace-wide view:
+   * the most-recent N conclusions across every peer. Sliced client-side
+   * from the default page Honcho returns (Honcho v3 has no top-N param
+   * on this endpoint, so the page comes back at its capped size and
+   * we trim it to {@link workspaceConclusionsLimit}).
+   *
+   * Sets {@code selectedPeerId} back to null so the UI scope badge flips
+   * from "peer: <id>" to "workspace (latest N)". Used both as the auto
+   * default-load on opening the tab and as the target of switching
+   * back to the empty option from the peer dropdown — the latter was
+   * previously left as a stale peer-scoped list with no way to recover.
+   */
+  readonly workspaceConclusionsLimit = signal(10);
+  readonly workspaceConclusionsLoaded = signal(false);
+  async loadLatestConclusions(): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+    this.selectedPeerId.set(null);
+    try {
+      const page = await this.honcho.listWorkspaceConclusions(this.workspaceConclusionsLimit());
+      this.conclusions.set(page.items);
+      this.workspaceConclusionsLoaded.set(true);
+    } catch (e) {
+      this.error.set(this.honcho.friendlyErrorMessage(e));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  /**
+   * Peer-selector change handler. Empty string means "no peer" (the
+   * "— latest across workspace —" option); previously the empty value
+   * made its way into {@code loadConclusions('')} which fired a 404
+   * against {@code /api/peers//conclusions} and left a stale peer-scoped
+   * list on screen. Now we route empty values to the workspace-wide
+   * loader so the operator always sees a valid result.
+   */
+  async onConclusionsPeerChange(peerId: string): Promise<void> {
+    if (!peerId) {
+      await this.loadLatestConclusions();
+      return;
+    }
+    this.selectedPeerId.set(peerId);
+    await this.loadConclusions(peerId);
   }
 
   /**
@@ -466,7 +520,6 @@ export class MemoryInspector implements OnInit {
     } catch {
         // fall through to the legacy path (e.g. on an insecure
         // http:// origin where the async clipboard API is gated)
-      }
     }
     // Legacy fallback: stage the text in a hidden <textarea>
     // and run the deprecated execCommand('copy'). Survives on

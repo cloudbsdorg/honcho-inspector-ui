@@ -332,4 +332,105 @@ describe('MemoryInspector.metadataEntries', () => {
     expect(out).toContainEqual({ key: 'empty', value: '{}', depth: 0 });
     expect(out).toContainEqual({ key: 'list', value: '[]', depth: 0 });
   });
+
+  // ----- Conclusions tab: workspace-wide default load + switch-back guard -----
+
+  it('auto-loads the workspace top-N when the Conclusions tab opens with no peer', async () => {
+    installFetch((path) => {
+      if (path === '/api/conclusions') {
+        return jsonResponse({
+          items: [
+            { id: 'wc-1', content: 'first', observer_id: 'a', observed_id: 'b', created_at: '2026-01-01T00:00:00Z' },
+            { id: 'wc-2', content: 'second', observer_id: 'a', observed_id: 'b', created_at: '2026-01-02T00:00:00Z' },
+          ],
+          total: 200,
+        });
+      }
+      return jsonResponse({});
+    });
+    await component.loadLatestConclusions();
+    expect(component.selectedPeerId()).toBeNull();
+    expect(component.workspaceConclusionsLoaded()).toBe(true);
+    expect(component.conclusions().map((c) => c.id)).toEqual(['wc-1', 'wc-2']);
+  });
+
+  it('slices the workspace list to the configured limit (default 10)', async () => {
+    const items = Array.from({ length: 50 }, (_, i) => ({
+      id: `wc-${i}`,
+      content: `c-${i}`,
+      observer_id: 'a',
+      observed_id: 'b',
+      created_at: '2026-01-01T00:00:00Z',
+    }));
+    installFetch(() => jsonResponse({ items, total: 200 }));
+    component.workspaceConclusionsLimit.set(10);
+    await component.loadLatestConclusions();
+    expect(component.conclusions().length).toBe(10);
+    expect(component.conclusions()[0].id).toBe('wc-0');
+  });
+
+  it('onConclusionsPeerChange with empty string restores the workspace top-N', async () => {
+    let callsToConclusions = 0;
+    let callsToWorkspace = 0;
+    installFetch((path) => {
+      if (path === '/api/conclusions' && callsToWorkspace++ === 0) {
+        return jsonResponse({
+          items: [{ id: 'wc-1', content: 'wide', observer_id: 'a', observed_id: 'b', created_at: '2026-01-01T00:00:00Z' }],
+          total: 50,
+        });
+      }
+      if (path.includes('/peers/alice/conclusions') && callsToConclusions++ === 0) {
+        return jsonResponse({
+          items: [{ id: 'pc-1', content: 'peer', observer_id: 'a', observed_id: 'a', created_at: '2026-01-01T00:00:00Z' }],
+          total: 5,
+        });
+      }
+      return jsonResponse({ items: [] });
+    });
+    // 1) Pick alice → must hit the per-peer endpoint and populate per-peer conclusions
+    await component.onConclusionsPeerChange('alice');
+    expect(component.selectedPeerId()).toBe('alice');
+    expect(component.conclusions().map((c) => c.id)).toEqual(['pc-1']);
+    // 2) Switch back to "— latest across workspace —" → must reload workspace top-N
+    await component.onConclusionsPeerChange('');
+    expect(component.selectedPeerId()).toBeNull();
+    expect(component.conclusions().map((c) => c.id)).toEqual(['wc-1']);
+  });
+
+  it('onConclusionsPeerChange with a non-empty peer id loads that peer (does not touch workspace endpoint)', async () => {
+    let callsToWorkspace = 0;
+    installFetch((path) => {
+      if (path === '/api/conclusions') {
+        callsToWorkspace++;
+        return jsonResponse({ items: [] });
+      }
+      if (path.includes('/peers/bob/conclusions')) {
+        return jsonResponse({
+          items: [{ id: 'bc-1', content: 'bob', observer_id: 'a', observed_id: 'bob', created_at: '2026-01-01T00:00:00Z' }],
+          total: 5,
+        });
+      }
+      return jsonResponse({ items: [] });
+    });
+    await component.onConclusionsPeerChange('bob');
+    expect(component.selectedPeerId()).toBe('bob');
+    expect(component.conclusions().map((c) => c.id)).toEqual(['bc-1']);
+    expect(callsToWorkspace).toBe(0);
+  });
+
+  it('setTab("conclusions") auto-loads workspace top-N on first open', async () => {
+    let workspaceHits = 0;
+    installFetch((path) => {
+      if (path === '/api/conclusions') {
+        workspaceHits++;
+        return jsonResponse({ items: [], total: 0 });
+      }
+      return jsonResponse({ items: [] });
+    });
+    component.setTab('conclusions');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(workspaceHits).toBeGreaterThanOrEqual(1);
+    expect(component.workspaceConclusionsLoaded()).toBe(true);
+  });
 });

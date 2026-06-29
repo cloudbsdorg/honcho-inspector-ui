@@ -268,6 +268,34 @@ export class HonchoService {
     };
   }
 
+  /**
+   * Workspace-wide conclusions listing (no peer filter).
+   *
+   * <p>Hits the new {@code POST /api/conclusions} endpoint which proxies
+   * Honcho's {@code POST /v3/workspaces/{ws}/conclusions/list} with an
+   * empty filters object; Honcho returns the most recent page of
+   * conclusions across every peer in the workspace. The Honcho v3
+   * endpoint has no top-N {@code size} / {@code limit} parameter, so we
+   * receive whatever default page size Honcho serves (currently 50);
+   * the UI caps the visible list to {@link results} items.
+   */
+  async listWorkspaceConclusions(
+    results = 10,
+  ): Promise<{ items: HonchoConclusion[]; total: number; page: number; size: number }> {
+    const page = await this.call<ApiPage<ApiConclusion>>({
+      method: 'POST',
+      path: '/conclusions',
+      body: { filters: {} },
+    });
+    const items = page.items.slice(0, results).map(toConclusion);
+    return {
+      items,
+      total: page.total ?? 0,
+      page: page.page ?? 1,
+      size: page.size ?? 0,
+    };
+  }
+
   async queryConclusions(
     peerId: string,
     query: string,
