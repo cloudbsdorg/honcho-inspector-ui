@@ -328,82 +328,118 @@ describe('ChatPanel', () => {
       // and `busy()` — so under OnPush change detection the
       // branch never re-rendered as the SSE chunks arrived. The
       // operator saw the assistant turn appear all-at-once when
-      // the stream finished. Fix: append `&& streamingAssistantTurn()
-      // !== null` to the @if so a signal-read dependency is
-      // registered on the condition itself.
+      // the stream finished. Fix: append `&& displayedText()` to
+      // the @if so a signal-read dependency is registered on the
+      // condition itself.
       //
       // Strategy: stub `chatStream` with the existing harness,
       // start a send, push three chunks, and after each chunk
-      // assert that the DOM re-rendered with the new
-      // `streamingAssistantTurn` text — proving the @if branch's
-      // signal-dependency machinery is intact.
-      const harness = new SseHarness();
-      stubStream(harness);
-      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse('unused'));
-      component.inputValue.set('hi alice');
-      const sendPromise = component.send();
-      // Chunk 1.
-      await harness.push('Hello');
-      fixture.detectChanges();
-      expect(component.streamingAssistantTurn()).toBe('Hello');
-      expect(component.busy()).toBe(true);
-      let rendered = fixture.nativeElement.querySelector(
-        '[data-testid="chat-stream-cursor"]',
-      );
-      expect(rendered).not.toBeNull();
-      // The streaming bubble's <app-markdown> must reflect the
-      // current streamingAssistantTurn value, not stale empty
-      // content. Walk to its rendered .md-host and verify the
-      // textContent matches.
-      let streamingHost = findStreamingMarkdownHost(fixture.nativeElement);
-      expect(streamingHost).not.toBeNull();
-      expect(streamingHost!.textContent ?? '').toContain('Hello');
-      // Chunk 2.
-      await harness.push(', world');
-      fixture.detectChanges();
-      expect(component.streamingAssistantTurn()).toBe('Hello, world');
-      streamingHost = findStreamingMarkdownHost(fixture.nativeElement);
-      expect(streamingHost).not.toBeNull();
-      expect(streamingHost!.textContent ?? '').toContain('Hello, world');
-      // Chunk 3.
-      await harness.push('!');
-      fixture.detectChanges();
-      expect(component.streamingAssistantTurn()).toBe('Hello, world!');
-      streamingHost = findStreamingMarkdownHost(fixture.nativeElement);
-      expect(streamingHost).not.toBeNull();
-      expect(streamingHost!.textContent ?? '').toContain('Hello, world!');
-      // End the stream.
-      await harness.push('', true);
-      harness.end();
-      await sendPromise;
-      fixture.detectChanges();
-      // After completion the streaming bubble is gone and the
-      // rendered bubble switches to the committed turn.content.
-      rendered = fixture.nativeElement.querySelector(
-        '[data-testid="chat-stream-cursor"]',
-      );
-      expect(rendered).toBeNull();
+      // advance the typing animation's setTimeout chain so
+      // displayedText catches up to streamingAssistantTurn.
+      // Then assert the [data-testid="chat-streaming-text"]
+      // element reflects the new chunk — proving the @if branch's
+      // signal-dependency machinery is intact. We assert against
+      // the plain-text element (not an <app-markdown> child)
+      // because the in-flight bubble is plain text on purpose:
+      // a mid-stream markdown render of `**bo` shows the literal
+      // asterisks, which looks like raw markdown syntax to the
+      // operator. After [DONE] the placeholder is committed into
+      // `turns()` and the @for block renders it through
+      // <app-markdown> for the fully-rendered view.
+      vi.useFakeTimers();
+      try {
+        const harness = new SseHarness();
+        stubStream(harness);
+        vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse('unused'));
+        component.inputValue.set('hi alice');
+        const sendPromise = component.send();
+        // Chunk 1.
+        await harness.push('Hello');
+        // Advance the typing-animation setTimeout chain enough
+        // times for displayedText to catch up to the full chunk.
+        await flushTypingAnimation();
+        fixture.detectChanges();
+        expect(component.streamingAssistantTurn()).toBe('Hello');
+        expect(component.busy()).toBe(true);
+        let rendered = fixture.nativeElement.querySelector(
+          '[data-testid="chat-stream-cursor"]',
+        );
+        expect(rendered).not.toBeNull();
+        // The streaming bubble is plain text; assert the textContent
+        // of the streaming-text element reflects the current chunk.
+        let streamingText = findStreamingText(fixture.nativeElement);
+        expect(streamingText).not.toBeNull();
+        expect(streamingText!.textContent ?? '').toContain('Hello');
+        // Chunk 2.
+        await harness.push(', world');
+        await flushTypingAnimation();
+        fixture.detectChanges();
+        expect(component.streamingAssistantTurn()).toBe('Hello, world');
+        streamingText = findStreamingText(fixture.nativeElement);
+        expect(streamingText).not.toBeNull();
+        expect(streamingText!.textContent ?? '').toContain('Hello, world');
+        // Chunk 3.
+        await harness.push('!');
+        await flushTypingAnimation();
+        fixture.detectChanges();
+        expect(component.streamingAssistantTurn()).toBe('Hello, world!');
+        streamingText = findStreamingText(fixture.nativeElement);
+        expect(streamingText).not.toBeNull();
+        expect(streamingText!.textContent ?? '').toContain('Hello, world!');
+        // End the stream.
+        await harness.push('', true);
+        harness.end();
+        await sendPromise;
+        fixture.detectChanges();
+        // After completion the streaming bubble is gone and the
+        // rendered bubble switches to the committed turn.content
+        // through the @for loop's <app-markdown>.
+        rendered = fixture.nativeElement.querySelector(
+          '[data-testid="chat-stream-cursor"]',
+        );
+        expect(rendered).toBeNull();
+        // The committed turn is in the @for list and renders
+        // through <app-markdown>; the test only checks the signal
+        // value, not the rendered markdown (the markdown
+        // component is unit-tested independently).
+        expect(component.turns()[1]!.content).toBe('Hello, world!');
+      } finally {
+        vi.useRealTimers();
+      }
     });
+
+    /**
+     * Advance the chat panel's typing-animation setTimeout chain
+     * far enough that `displayedText` catches up to
+     * `streamingAssistantTurn`. Each typing step schedules a 30ms
+     * timer; the test's fake-timer clock is bumped 50ms at a
+     * time and we re-render between bumps so Angular's change
+     * detection flushes the signal updates. The loop terminates
+     * when the displayed text equals the target (or after 200
+     * bumps as a safety net).
+     */
+    async function flushTypingAnimation(): Promise<void> {
+      for (let i = 0; i < 200; i++) {
+        fixture.detectChanges();
+        const t = component.streamingAssistantTurn();
+        if (!t || component.displayedText() === t) return;
+        await vi.advanceTimersByTimeAsync(50);
+      }
+    }
   });
 });
 
 /**
- * Return the `.md-host` element rendered by the in-flight
- * `<app-markdown>` inside the streaming assistant bubble — i.e.
- * the markdown whose `[source]` is bound to
- * `streamingAssistantTurn()`. The streaming bubble always lives
- * inside the most recent `.flex.justify-start` turn, paired with
- * a `data-testid="chat-stream-cursor"` sibling that confirms this
- * is the in-flight branch (the committed branch has no cursor).
+ * Return the plain-text `[data-testid="chat-streaming-text"]`
+ * element inside the in-flight assistant bubble. The bubble is
+ * plain text on purpose (no <app-markdown>); a mid-stream markdown
+ * render of `**bo` would show the literal asterisks. After [DONE]
+ * the placeholder is committed into `turns()` and the @for block
+ * renders it through <app-markdown> for the fully-rendered view.
  *
- * Returns null if the cursor isn't present (no stream in flight).
+ * Returns null if the in-flight bubble is not present (no stream
+ * in flight, or the stream has been committed).
  */
-function findStreamingMarkdownHost(root: HTMLElement): HTMLElement | null {
-  const cursor = root.querySelector('[data-testid="chat-stream-cursor"]');
-  if (!cursor) return null;
-  // The cursor sits in the same bubble as the streaming markdown;
-  // walk up to that bubble's .md-host.
-  const bubble = cursor.closest('.th-border');
-  if (!bubble) return null;
-  return bubble.querySelector('.md-host');
+function findStreamingText(root: HTMLElement): HTMLElement | null {
+  return root.querySelector('[data-testid="chat-streaming-text"]');
 }

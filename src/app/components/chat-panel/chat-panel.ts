@@ -221,19 +221,30 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
     const step = (): void => {
       const t = this.streamingAssistantTurn();
       const d = this.displayedText();
-      if (this.streamingDone() || d === t) {
+      if (this.streamingDone()) {
+        // Snap to the final text on [DONE]. Without this the
+        // typing loop bails at whatever character it had reached,
+        // and the operator sees a truncated in-flight bubble
+        // momentarily before the placeholder turn is committed
+        // and re-rendered as <app-markdown>. Snapping keeps the
+        // visual transition smooth.
+        this.displayedText.set(t);
         this.stopTyping();
         return;
       }
-        if (d.length < t.length) {
-          const nextLen = Math.min(t.length, d.length + 1);
-          let snapped = t.slice(0, nextLen);
-          if (nextLen < t.length && !/\s/.test(t[nextLen - 1] ?? '')) {
-            const nextSpace = t.indexOf(' ', nextLen);
-            if (nextSpace > 0) snapped = t.slice(0, nextSpace);
-          }
-          this.displayedText.set(snapped);
+      if (d === t) {
+        this.stopTyping();
+        return;
+      }
+      if (d.length < t.length) {
+        const nextLen = Math.min(t.length, d.length + 1);
+        let snapped = t.slice(0, nextLen);
+        if (nextLen < t.length && !/\s/.test(t[nextLen - 1] ?? '')) {
+          const nextSpace = t.indexOf(' ', nextLen);
+          if (nextSpace > 0) snapped = t.slice(0, nextSpace);
         }
+        this.displayedText.set(snapped);
+      }
       this.typingTimer = setTimeout(step, 30);
     };
     step();

@@ -37,9 +37,16 @@
          doubly-embedded view whose [source] binding silently failed
          to re-evaluate when streamingAssistantTurn updated — tokens
          would only appear after the stream ended. At the top level
-         the signal read in [source]="streamingAssistantTurn()" is
-         tracked by the parent view and reliably fires ngOnChanges
-         on the <app-markdown> child per chunk. Do not re-merge. -->
+         the signal read here reliably fires per chunk.
+
+         We render the body as plain text (not <app-markdown>) during
+         streaming. A mid-stream markdown render of `**bo` shows the
+         literal asterisks, which looks like raw markdown syntax to
+         the operator. Once the stream ends, the typing animation
+         snaps displayedText() to the final text and the placeholder
+         assistant turn gets committed into turns() with the full
+         content; the @for block then renders it through <app-markdown>
+         for the post-stream, fully-rendered view. -->
     @if (isLastAssistantStreaming() && displayedText()) {
       <div class="flex justify-start">
         <div
@@ -49,7 +56,9 @@
           <div class="mb-1 text-[10px] font-bold uppercase tracking-widest opacity-70">
             assistant
           </div>
-          <app-markdown [source]="displayedText()" class="md-content" />
+          <div class="md-content whitespace-pre-wrap" data-testid="chat-streaming-text">
+            {{ displayedText() }}
+          </div>
           <span
             class="th-stream-cursor ml-0.5 inline-block h-3 w-1.5 align-middle"
             aria-hidden="true"
