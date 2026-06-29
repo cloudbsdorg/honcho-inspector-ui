@@ -1,4 +1,5 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal, Injector, runInInjectionContext } from '@angular/core';
+import { Subject } from 'rxjs';
 import { ApiClient, ApiError } from './api-client';
 import { FirstAdminInput, HonchoCredentials, User } from './models';
 
@@ -20,6 +21,20 @@ export class HonchoAuthService {
   readonly isAuthenticated = computed(() => this._credentials() !== null);
   readonly user = computed(() => this._credentials()?.user ?? null);
   readonly isAdmin = computed(() => this._credentials()?.user.isAdmin ?? false);
+
+  /**
+   * Fires when the api-client detects that a 401 came back from a
+   * non-anonymous call (the local session is dead and the server
+   * has revoked it). The App component subscribes to navigate
+   * the user to /login?reason=expired with a clear message.
+   *
+   * Why a Subject (not a callback injected into ApiClient):
+   * the api-client is router-agnostic — it must remain usable in
+   * non-component contexts (service workers, tests, future SSR).
+   * Subscribing in a component context keeps Router access
+   * cleanly inside the framework's normal lifecycle.
+   */
+  readonly sessionExpiredSignal = new Subject<void>();
 
   constructor() {
     this._credentials.set(this.loadFromStorage());

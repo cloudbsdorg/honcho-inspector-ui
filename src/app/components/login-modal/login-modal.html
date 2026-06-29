@@ -25,6 +25,19 @@
         </div>
       </div>
 
+      @if (banner(); as b) {
+        <div
+          class="border-2 px-3 py-2 text-sm flex items-center justify-between gap-2 mb-3"
+          data-testid="login-banner"
+          [attr.data-testid-banner-tone]="b.tone"
+          [style.borderColor]="b.tone === 'warn' ? 'var(--danger)' : 'var(--accent)'"
+          [style.color]="b.tone === 'warn' ? 'var(--danger)' : 'var(--accent)'"
+          style="border-radius: var(--radius); background: color-mix(in srgb, currentColor 10%, transparent);"
+        >
+          <span>{{ b.text }}</span>
+        </div>
+      }
+
       <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4" data-testid="login-form">
         <label class="block">
           <span class="mb-1 block text-xs font-bold uppercase tracking-widest opacity-80">

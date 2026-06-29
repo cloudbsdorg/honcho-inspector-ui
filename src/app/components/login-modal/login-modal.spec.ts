@@ -116,3 +116,62 @@ describe('LoginModal', () => {
     expect(component.form.value.password).toBe('');
   });
 });
+
+describe('LoginModal banner (session-expired flow)', () => {
+  // The App component routes the user to /login?reason=expired when
+  // the api-client sees a 401 from a non-anonymous call. The
+  // banner is what makes the redirect feel like a real logout
+  // instead of a glitch.
+  let fixture: ComponentFixture<LoginModal>;
+  let component: LoginModal;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [LoginModal],
+      providers: [
+        provideRouter([{ path: 'profiles', redirectTo: '' }]),
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(LoginModal);
+    component = fixture.componentInstance;
+    component.open = true;
+    fixture.detectChanges();
+  });
+
+  afterEach(() => localStorage.clear());
+
+  it('should not render the banner when no reason param is set', () => {
+    fixture.detectChanges();
+    expect(component.banner()).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="login-banner"]')).toBeNull();
+  });
+
+  it('should render the expired-session banner when ?reason=expired is in the URL', async () => {
+    // Re-create the component under a router state with the query
+    // param set, so the ActivatedRoute observable fires the banner.
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [LoginModal],
+      providers: [
+        provideRouter([
+          { path: 'login', component: LoginModal, data: { reason: 'expired' } },
+        ]),
+      ],
+    }).compileComponents();
+    // Navigate the router to /login?reason=expired, then re-render.
+    const router = TestBed.inject(Router);
+    await router.navigate(['/login'], { queryParams: { reason: 'expired' } });
+    fixture = TestBed.createComponent(LoginModal);
+    component = fixture.componentInstance;
+    component.open = true;
+    fixture.detectChanges();
+    expect(component.banner()).toBeTruthy();
+    expect(component.banner()?.tone).toBe('warn');
+    expect(component.banner()?.text).toContain('session expired');
+    const banner = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="login-banner"]');
+    expect(banner).not.toBeNull();
+    expect(banner?.getAttribute('data-testid-banner-tone')).toBe('warn');
+  });
+});

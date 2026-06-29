@@ -113,7 +113,26 @@ export class ApiClient {
         (parsed && (parsed as { error?: string }).error) ??
         (parsed && (parsed as { data?: { error?: string } }).data?.error) ??
         `Backend error ${res.status}`;
-      throw new ApiError(msg, res.status);
+      const err = new ApiError(msg, res.status);
+      // When an authenticated call returns 401, the local session
+      // is dead (the server revoked it via admin reset, password
+      // change, or the workspace restart). The component layer can't
+      // catch this uniformly because errors propagate up the call
+      // chain; centralize the response here so EVERY 401 triggers
+      // the same redirect-to-login-with-message flow. We deliberately
+      // skip anonymous calls (the login form itself returns 401 on
+      // bad credentials) and skip /api/auth/logout (the response
+      // after logout is 200; a 401 from a stale session just means
+      // the local cookie is gone too, which is fine to ignore).
+      if (res.status === 401 && !opts.anonymous && !opts.path.startsWith('/auth/logout')) {
+        auth.localLogout();
+        // Dispatch an event so the App component can route the user
+        // to /login?reason=expired. The api-client is router-agnostic
+        // (it must remain usable in non-component contexts like
+        // service workers); the App component subscribes and reacts.
+        auth.sessionExpiredSignal.next();
+      }
+      throw err;
     }
     if (res.headers.get('content-length') === '0') return undefined as T;
     // Success: pull the envelope's `data` field if present, otherwise
