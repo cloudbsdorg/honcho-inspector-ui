@@ -1,0 +1,89 @@
+<div
+  data-testid="confirm-destructive-overlay"
+  class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+  style="background: color-mix(in srgb, var(--bg) 70%, transparent)"
+  (click)="onBackdrop()"
+>
+  <div
+    class="th-surface th-shadow w-full max-w-md th-border border-2 p-6"
+    style="border-radius: var(--radius)"
+    (click)="onPanelClick($event)"
+    data-testid="confirm-destructive-card"
+    role="alertdialog"
+    aria-modal="true"
+    [attr.aria-labelledby]="'confirm-destructive-title'"
+  >
+    <h2
+      [id]="'confirm-destructive-title'"
+      class="th-display mb-3 text-lg font-bold uppercase tracking-wider"
+      [style.color]="confirmColor()"
+      data-testid="confirm-destructive-title"
+    >
+      {{ title }}
+    </h2>
+    @if (description) {
+      <p
+        class="mb-4 text-sm opacity-90"
+        data-testid="confirm-destructive-description"
+      >
+        {{ description }}
+      </p>
+    }
+    @if (typedConfirmation !== null) {
+      <label class="mb-4 block">
+        <span
+          class="th-display mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-70"
+          data-testid="confirm-destructive-typed-label"
+        >
+          Type
+          <code
+            class="font-mono"
+            style="color: var(--danger)"
+            data-testid="confirm-destructive-typed-required"
+          >{{ typedConfirmation }}</code>
+          to confirm
+        </span>
+        <input
+          #typedInputEl
+          type="text"
+          (input)="onTypedInput($event)"
+          autocomplete="off"
+          spellcheck="false"
+          data-testid="confirm-destructive-typed-input"
+          class="th-surface th-border w-full border-2 px-3 py-2 font-mono text-sm outline-none"
+          style="border-radius: var(--radius); color: var(--text)"
+          [attr.aria-describedby]="'confirm-destructive-typed-required'"
+        />
+      </label>
+    }
+    <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
+      <button
+        type="button"
+        (click)="cancelled.emit()"
+        data-testid="confirm-destructive-cancel"
+        class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+        style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        (click)="onConfirm()"
+        [disabled]="!canConfirm()"
+        [attr.data-testid]="
+          dangerLevel === 'high'
+            ? 'confirm-destructive-confirm-high'
+            : dangerLevel === 'medium'
+              ? 'confirm-destructive-confirm-medium'
+              : 'confirm-destructive-confirm-low'
+        "
+        class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+        style="border-radius: var(--radius); background: var(--bg); color: var(--bg)"
+        [style.background]="confirmColor()"
+        [style.color]="'var(--bg)'"
+      >
+        {{ resolvedLabel() }}
+      </button>
+    </div>
+  </div>
+</div>

@@ -408,6 +408,94 @@ export class HonchoService {
     };
   }
 
+  /**
+   * Create a single conclusion by proxying the backend batch endpoint.
+   * Wraps the input in the `{conclusions: [...]}` envelope the registry
+   * expects and unwraps the first created item back to a conclusion.
+   */
+  async createConclusion(
+    content: string,
+    observerId: string,
+    observedId: string,
+    sessionId?: string | null,
+  ): Promise<HonchoConclusion> {
+    const item: Record<string, unknown> = {
+      content,
+      observer_id: observerId,
+      observed_id: observedId,
+    };
+    if (sessionId) item['session_id'] = sessionId;
+    const body = { conclusions: [item] };
+    const items = await this.call<ApiConclusion[]>({
+      method: 'POST',
+      path: '/conclusions/create',
+      body,
+    });
+    return toConclusion(items[0]);
+  }
+
+  /** Delete a single conclusion by id. */
+  async deleteConclusion(conclusionId: string): Promise<void> {
+    await this.call<unknown>({
+      method: 'DELETE',
+      path: `/conclusions/${encodeURIComponent(conclusionId)}`,
+    });
+  }
+
+  /** Update a peer's metadata (and optionally configuration). */
+  async updatePeer(
+    peerId: string,
+    body: { metadata?: Record<string, unknown>; configuration?: Record<string, unknown> },
+  ): Promise<void> {
+    await this.call<unknown>({
+      method: 'PUT',
+      path: `/peers/${encodeURIComponent(peerId)}`,
+      body,
+    });
+  }
+
+  /** Replace a peer's entire peer card. */
+  async updatePeerCard(peerId: string, facts: string[]): Promise<void> {
+    await this.call<unknown>({
+      method: 'PUT',
+      path: `/peers/${encodeURIComponent(peerId)}/card`,
+      body: { peer_card: facts },
+    });
+  }
+
+  /** Update a session's metadata (and optionally its configuration). */
+  async updateSession(
+    sessionId: string,
+    body: { metadata?: Record<string, unknown>; configuration?: Record<string, unknown> },
+  ): Promise<void> {
+    await this.call<unknown>({
+      method: 'PUT',
+      path: `/sessions/${encodeURIComponent(sessionId)}`,
+      body,
+    });
+  }
+
+  /** Delete an entire session and all of its messages. */
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.call<unknown>({
+      method: 'DELETE',
+      path: `/sessions/${encodeURIComponent(sessionId)}`,
+    });
+  }
+
+  /** Update a single message's content and/or metadata. */
+  async updateMessage(
+    sessionId: string,
+    messageId: string,
+    body: { content?: string; metadata?: Record<string, unknown> },
+  ): Promise<void> {
+    await this.call<unknown>({
+      method: 'PUT',
+      path: `/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}`,
+      body,
+    });
+  }
+
   private requireSession() {
     const c = this.auth.credentials();
     if (!c) throw new ApiError('Not authenticated', 401);

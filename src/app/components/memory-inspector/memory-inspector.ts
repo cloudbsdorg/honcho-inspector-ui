@@ -26,6 +26,7 @@ import { TimezoneService } from '../../core/timezone.service';
 import { formatRelative, formatWallClock, formatWallClockTooltip } from '../../core/datetime';
 import { ChatPanel } from '../chat-panel/chat-panel';
 import { MarkdownComponent } from '../markdown/markdown.component';
+import { ConfirmDestructiveDialog } from '../shared/confirm-destructive-dialog/confirm-destructive-dialog';
 
 type TabId = 'workspace' | 'peers' | 'sessions' | 'conclusions' | 'search';
 
@@ -37,7 +38,13 @@ interface Tab {
 
 @Component({
   selector: 'app-memory-inspector',
-  imports: [CommonModule, FormsModule, ChatPanel, MarkdownComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ChatPanel,
+    MarkdownComponent,
+    ConfirmDestructiveDialog,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './memory-inspector.html',
   styleUrl: './memory-inspector.css',
@@ -539,5 +546,587 @@ export class MemoryInspector implements OnInit {
     } finally {
       document.body.removeChild(ta);
     }
+  }
+
+  // ── Edit / delete / bulk operations ──────────────────────────────
+
+  readonly selectedConclusionIds = signal<Set<string>>(new Set());
+  readonly selectedSessionIds = signal<Set<string>>(new Set());
+  readonly selectedMessageIds = signal<Set<string>>(new Set());
+
+  readonly editingMessageId = signal<string | null>(null);
+  readonly messageDraft = signal('');
+
+  readonly peerCardDraft = signal<string[] | null>(null);
+  readonly peerCardDirty = computed(() => {
+    const draft = this.peerCardDraft();
+    if (draft == null) return false;
+    const server = this.peerDetail()?.card ?? [];
+    if (draft.length !== server.length) return true;
+    for (let i = 0; i < draft.length; i++) if (draft[i] !== server[i]) return true;
+    return false;
+  });
+
+  readonly editSessionMetadataOpen = signal(false);
+  readonly sessionMetadataDraft = signal<Record<string, string>>({});
+  readonly sessionMetadataJson = signal('');
+  readonly sessionMetadataJsonError = signal<string | null>(null);
+
+  readonly sessionMenuOpen = signal(false);
+
+  readonly createConclusionOpen = signal(false);
+  readonly createConclusionContent = signal('');
+  readonly createConclusionObserver = signal('');
+  readonly createConclusionObserved = signal('');
+  readonly createConclusionSession = signal('');
+  readonly createConclusionSubmitting = signal(false);
+  readonly createConclusionError = signal<string | null>(null);
+
+  readonly sessionMessages = signal<HonchoMessage[]>([]);
+  readonly sessionMessagesLoading = signal(false);
+
+  readonly destructiveDialog = signal<
+    | {
+        title: string;
+        description: string;
+        confirmButtonText: string;
+        dangerLevel: 'low' | 'medium' | 'high';
+        typedConfirmation: string | null;
+        onConfirm: () => void | Promise<void>;
+      }
+    | null
+  >(null);
+
+  askDestructive(opts: {
+    title: string;
+    description: string;
+    confirmButtonText: string;
+    dangerLevel: 'low' | 'medium' | 'high';
+    typedConfirmation: string | null;
+    onConfirm: () => void | Promise<void>;
+  }): void {
+    this.destructiveDialog.set(opts);
+  }
+
+  onDestructiveConfirmed(): void {
+    const cfg = this.destructiveDialog();
+    if (!cfg) return;
+    this.destructiveDialog.set(null);
+    void cfg.onConfirm();
+  }
+
+  onDestructiveCancelled(): void {
+    this.destructiveDialog.set(null);
+  }
+
+  // Conclusions tab: bulk + create
+
+  isConclusionSelected(id: string): boolean {
+    return this.selectedConclusionIds().has(id);
+  }
+
+  toggleConclusionSelect(id: string): void {
+    const next = new Set(this.selectedConclusionIds());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.selectedConclusionIds.set(next);
+  }
+
+  selectAllConclusions(): void {
+    this.selectedConclusionIds.set(new Set(this.conclusions().map((c) => c.id)));
+  }
+
+  clearConclusionSelections(): void {
+    this.selectedConclusionIds.set(new Set());
+  }
+
+  private refreshCurrentConclusions(): Promise<void> {
+    const peerId = this.selectedPeerId();
+    if (peerId) return this.loadConclusions(peerId);
+    return this.loadLatestConclusions();
+  }
+
+  deleteOneConclusion(id: string): void {
+    this.askDestructive({
+      title: 'Delete this conclusion?',
+      description: 'The derived fact will be removed from Honcho permanently. This affects the observer view.',
+      confirmButtonText: 'Delete conclusion',
+      dangerLevel: 'medium',
+      typedConfirmation: 'delete conclusion',
+      onConfirm: async () => {
+        this.loading.set(true);
+        this.error.set(null);
+        try {
+          await this.honcho.deleteConclusion(id);
+          await this.refreshCurrentConclusions();
+          const next = new Set(this.selectedConclusionIds());
+          next.delete(id);
+          this.selectedConclusionIds.set(next);
+        } catch (e) {
+          this.error.set(this.honcho.friendlyErrorMessage(e));
+        } finally {
+          this.loading.set(false);
+        }
+      },
+    });
+  }
+
+  bulkDeleteConclusions(): void {
+    const ids = [...this.selectedConclusionIds()];
+    if (ids.length === 0) return;
+    this.askDestructive({
+      title: `Delete ${ids.length} conclusion${ids.length === 1 ? '' : 's'}?`,
+      description: `Honcho will permanently remove ${ids.length} conclusions. This affects the observer's representation.`,
+      confirmButtonText: `Delete ${ids.length} conclusions`,
+      dangerLevel: 'high',
+      typedConfirmation: `delete ${ids.length} conclusion${ids.length === 1 ? '' : 's'}`,
+      onConfirm: async () => {
+        this.loading.set(true);
+        this.error.set(null);
+        try {
+          for (const id of ids) {
+            await this.honcho.deleteConclusion(id).catch((e) => {
+              throw new Error(`failed at ${id}: ${this.honcho.friendlyErrorMessage(e)}`);
+            });
+          }
+          this.selectedConclusionIds.set(new Set());
+          await this.refreshCurrentConclusions();
+        } catch (e) {
+          this.error.set(this.honcho.friendlyErrorMessage(e));
+        } finally {
+          this.loading.set(false);
+        }
+      },
+    });
+  }
+
+  openCreateConclusion(): void {
+    this.createConclusionContent.set('');
+    this.createConclusionObserver.set(this.selectedPeerId() ?? '');
+    this.createConclusionObserved.set('');
+    this.createConclusionSession.set('');
+    this.createConclusionError.set(null);
+    this.createConclusionOpen.set(true);
+  }
+
+  closeCreateConclusion(): void {
+    this.createConclusionOpen.set(false);
+  }
+
+  async submitCreateConclusion(): Promise<void> {
+    const content = this.createConclusionContent().trim();
+    const observer = this.createConclusionObserver().trim();
+    const observed = this.createConclusionObserved().trim();
+    const session = this.createConclusionSession().trim();
+    if (!content || !observer || !observed) {
+      this.createConclusionError.set('content, observer, and observed are required');
+      return;
+    }
+    this.createConclusionSubmitting.set(true);
+    this.createConclusionError.set(null);
+    try {
+      await this.honcho.createConclusion(content, observer, observed, session || null);
+      this.createConclusionOpen.set(false);
+      await this.refreshCurrentConclusions();
+    } catch (e) {
+      this.createConclusionError.set(this.honcho.friendlyErrorMessage(e));
+    } finally {
+      this.createConclusionSubmitting.set(false);
+    }
+  }
+
+  // Peer card inline edit
+
+  startPeerCardEdit(): void {
+    const card = this.peerDetail()?.card ?? [];
+    this.peerCardDraft.set([...card]);
+  }
+
+  addPeerCardRow(): void {
+    const draft = this.peerCardDraft();
+    if (draft == null) return;
+    this.peerCardDraft.set([...draft, '']);
+  }
+
+  removePeerCardRow(i: number): void {
+    const draft = this.peerCardDraft();
+    if (draft == null) return;
+    const next = draft.filter((_, idx) => idx !== i);
+    this.peerCardDraft.set(next);
+  }
+
+  updatePeerCardRow(i: number, value: string): void {
+    const draft = this.peerCardDraft();
+    if (draft == null) return;
+    const next = draft.slice();
+    next[i] = value;
+    this.peerCardDraft.set(next);
+  }
+
+  cancelPeerCardEdit(): void {
+    this.peerCardDraft.set(null);
+  }
+
+  async savePeerCard(): Promise<void> {
+    const draft = this.peerCardDraft();
+    const peerId = this.selectedPeerId();
+    if (draft == null || !peerId) return;
+    const facts = draft.map((s) => s.trim()).filter((s) => s.length > 0);
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await this.honcho.updatePeerCard(peerId, facts);
+      await this.selectPeer(peerId);
+      this.peerCardDraft.set(null);
+    } catch (e) {
+      this.error.set(this.honcho.friendlyErrorMessage(e));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  // Session metadata edit + delete
+
+  toggleSessionMenu(): void {
+    this.sessionMenuOpen.set(!this.sessionMenuOpen());
+  }
+
+  closeSessionMenu(): void {
+    this.sessionMenuOpen.set(false);
+  }
+
+  openEditSessionMetadata(): void {
+    this.closeSessionMenu();
+    const sessionId = this.selectedSessionId();
+    if (!sessionId) return;
+    this.sessionMetadataDraft.set({});
+    this.sessionMetadataJson.set('{}');
+    this.sessionMetadataJsonError.set(null);
+    this.editSessionMetadataOpen.set(true);
+  }
+
+  closeEditSessionMetadata(): void {
+    this.editSessionMetadataOpen.set(false);
+  }
+
+  addMetadataKey(): void {
+    const next = { ...this.sessionMetadataDraft(), '': '' };
+    this.sessionMetadataDraft.set(next);
+  }
+
+  removeMetadataKey(key: string): void {
+    const next = { ...this.sessionMetadataDraft() };
+    delete next[key];
+    this.sessionMetadataDraft.set(next);
+  }
+
+  updateMetadataKey(oldKey: string, newKey: string): void {
+    const draft = this.sessionMetadataDraft();
+    const next: Record<string, string> = {};
+    for (const [k, v] of Object.entries(draft)) {
+      next[k === oldKey ? newKey : k] = v;
+    }
+    this.sessionMetadataDraft.set(next);
+  }
+
+  updateMetadataValue(key: string, value: string): void {
+    this.sessionMetadataDraft.set({ ...this.sessionMetadataDraft(), [key]: value });
+  }
+
+  onSessionMetadataJsonChange(value: string): void {
+    this.sessionMetadataJson.set(value);
+    const trimmed = value.trim();
+    if (!trimmed) {
+      this.sessionMetadataDraft.set({});
+      this.sessionMetadataJsonError.set(null);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const flat: Record<string, string> = {};
+        for (const [k, v] of Object.entries(parsed)) flat[k] = String(v);
+        this.sessionMetadataDraft.set(flat);
+        this.sessionMetadataJsonError.set(null);
+      } else {
+        this.sessionMetadataJsonError.set('Must be a JSON object');
+      }
+    } catch (e) {
+      this.sessionMetadataJsonError.set(`invalid JSON: ${(e as Error).message}`);
+    }
+  }
+
+  async saveSessionMetadata(): Promise<void> {
+    const sessionId = this.selectedSessionId();
+    if (!sessionId) return;
+    const metadata: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(this.sessionMetadataDraft())) {
+      if (k.length === 0) continue;
+      metadata[k] = v;
+    }
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await this.honcho.updateSession(sessionId, { metadata });
+      this.editSessionMetadataOpen.set(false);
+      await this.selectSession(sessionId);
+    } catch (e) {
+      this.error.set(this.honcho.friendlyErrorMessage(e));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  deleteCurrentSession(): void {
+    const sessionId = this.selectedSessionId();
+    if (!sessionId) return;
+    this.closeSessionMenu();
+    this.askDestructive({
+      title: `Delete session "${sessionId}"?`,
+      description:
+        'Honcho will permanently remove this session and every message inside it. This cannot be undone.',
+      confirmButtonText: 'Delete session',
+      dangerLevel: 'high',
+      typedConfirmation: `delete session ${sessionId}`,
+      onConfirm: async () => {
+        this.loading.set(true);
+        this.error.set(null);
+        try {
+          await this.honcho.deleteSession(sessionId);
+          this.selectedSessionId.set(null);
+          this.sessionDetail.set(null);
+          this.sessionMessages.set([]);
+          await this.honcho.refreshSessions();
+        } catch (e) {
+          this.error.set(this.honcho.friendlyErrorMessage(e));
+        } finally {
+          this.loading.set(false);
+        }
+      },
+    });
+  }
+
+  // Messages: edit / delete / bulk
+
+  isMessageSelected(id: string): boolean {
+    return this.selectedMessageIds().has(id);
+  }
+
+  toggleMessageSelect(id: string): void {
+    const next = new Set(this.selectedMessageIds());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.selectedMessageIds.set(next);
+  }
+
+  clearMessageSelections(): void {
+    this.selectedMessageIds.set(new Set());
+  }
+
+  startEditMessage(msg: HonchoMessage): void {
+    this.editingMessageId.set(msg.id);
+    this.messageDraft.set(msg.content);
+  }
+
+  cancelEditMessage(): void {
+    this.editingMessageId.set(null);
+    this.messageDraft.set('');
+  }
+
+  async saveEditMessage(): Promise<void> {
+    const sessionId = this.selectedSessionId();
+    const id = this.editingMessageId();
+    const content = this.messageDraft();
+    if (!sessionId || !id) return;
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await this.honcho.updateMessage(sessionId, id, { content });
+      this.cancelEditMessage();
+      await this.loadSessionMessages();
+    } catch (e) {
+      this.error.set(this.honcho.friendlyErrorMessage(e));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  deleteOneMessage(msg: HonchoMessage): void {
+    this.askDestructive({
+      title: 'Delete this message?',
+      description: `Honcho will remove message ${msg.id} from session ${msg.sessionId}.`,
+      confirmButtonText: 'Delete message',
+      dangerLevel: 'medium',
+      typedConfirmation: 'delete message',
+      onConfirm: async () => {
+        const sessionId = this.selectedSessionId();
+        if (!sessionId) return;
+        this.loading.set(true);
+        this.error.set(null);
+        try {
+          await this.honcho.updateMessage(sessionId, msg.id, { content: '' });
+          this.selectedMessageIds.update((s) => {
+            const next = new Set(s);
+            next.delete(msg.id);
+            return next;
+          });
+          await this.loadSessionMessages();
+        } catch (e) {
+          this.error.set(this.honcho.friendlyErrorMessage(e));
+        } finally {
+          this.loading.set(false);
+        }
+      },
+    });
+  }
+
+  bulkDeleteMessages(): void {
+    const ids = [...this.selectedMessageIds()];
+    if (ids.length === 0) return;
+    this.askDestructive({
+      title: `Delete ${ids.length} message${ids.length === 1 ? '' : 's'}?`,
+      description: `Honcho will blank the content of ${ids.length} messages in this session.`,
+      confirmButtonText: `Delete ${ids.length} messages`,
+      dangerLevel: 'high',
+      typedConfirmation: `delete ${ids.length} message${ids.length === 1 ? '' : 's'}`,
+      onConfirm: async () => {
+        const sessionId = this.selectedSessionId();
+        if (!sessionId) return;
+        this.loading.set(true);
+        this.error.set(null);
+        try {
+          for (const id of ids) {
+            await this.honcho
+              .updateMessage(sessionId, id, { content: '' })
+              .catch((e) => {
+                throw new Error(`failed at ${id}: ${this.honcho.friendlyErrorMessage(e)}`);
+              });
+          }
+          this.selectedMessageIds.set(new Set());
+          await this.loadSessionMessages();
+        } catch (e) {
+          this.error.set(this.honcho.friendlyErrorMessage(e));
+        } finally {
+          this.loading.set(false);
+        }
+      },
+    });
+  }
+
+  // Sessions list: bulk + per-row delete
+
+  isSessionSelected(id: string): boolean {
+    return this.selectedSessionIds().has(id);
+  }
+
+  toggleSessionSelect(id: string): void {
+    const next = new Set(this.selectedSessionIds());
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this.selectedSessionIds.set(next);
+  }
+
+  clearSessionSelections(): void {
+    this.selectedSessionIds.set(new Set());
+  }
+
+  selectAllSessions(): void {
+    this.selectedSessionIds.set(new Set(this.honcho.sessions().map((s) => s.id)));
+  }
+
+  deleteOneSession(id: string): void {
+    this.askDestructive({
+      title: `Delete session "${id}"?`,
+      description:
+        'Honcho will permanently remove this session and every message inside it. This cannot be undone.',
+      confirmButtonText: 'Delete session',
+      dangerLevel: 'high',
+      typedConfirmation: `delete session ${id}`,
+      onConfirm: async () => {
+        this.loading.set(true);
+        this.error.set(null);
+        try {
+          await this.honcho.deleteSession(id);
+          if (this.selectedSessionId() === id) {
+            this.selectedSessionId.set(null);
+            this.sessionDetail.set(null);
+            this.sessionMessages.set([]);
+          }
+          this.selectedSessionIds.update((s) => {
+            const next = new Set(s);
+            next.delete(id);
+            return next;
+          });
+          await this.honcho.refreshSessions();
+        } catch (e) {
+          this.error.set(this.honcho.friendlyErrorMessage(e));
+        } finally {
+          this.loading.set(false);
+        }
+      },
+    });
+  }
+
+  bulkDeleteSessions(): void {
+    const ids = [...this.selectedSessionIds()];
+    if (ids.length === 0) return;
+    this.askDestructive({
+      title: `Delete ${ids.length} session${ids.length === 1 ? '' : 's'}?`,
+      description: `Honcho will permanently remove ${ids.length} sessions. This cannot be undone.`,
+      confirmButtonText: `Delete ${ids.length} sessions`,
+      dangerLevel: 'high',
+      typedConfirmation: `delete ${ids.length} session${ids.length === 1 ? '' : 's'}`,
+      onConfirm: async () => {
+        this.loading.set(true);
+        this.error.set(null);
+        try {
+          for (const id of ids) {
+            await this.honcho.deleteSession(id).catch((e) => {
+              throw new Error(`failed at ${id}: ${this.honcho.friendlyErrorMessage(e)}`);
+            });
+          }
+          this.selectedSessionIds.set(new Set());
+          if (this.selectedSessionId() && ids.includes(this.selectedSessionId()!)) {
+            this.selectedSessionId.set(null);
+            this.sessionDetail.set(null);
+            this.sessionMessages.set([]);
+          }
+          await this.honcho.refreshSessions();
+        } catch (e) {
+          this.error.set(this.honcho.friendlyErrorMessage(e));
+        } finally {
+          this.loading.set(false);
+        }
+      },
+    });
+  }
+
+  // Session messages loader
+
+  async loadSessionMessages(): Promise<void> {
+    const sessionId = this.selectedSessionId();
+    if (!sessionId) {
+      this.sessionMessages.set([]);
+      return;
+    }
+    this.sessionMessagesLoading.set(true);
+    try {
+      const result = await this.honcho.listSessionMessages(sessionId, { size: 100 });
+      this.sessionMessages.set(result.items);
+    } catch (e) {
+      this.error.set(this.honcho.friendlyErrorMessage(e));
+    } finally {
+      this.sessionMessagesLoading.set(false);
+    }
+  }
+
+  async selectSessionWithMessages(id: string): Promise<void> {
+    await this.selectSession(id);
+    await this.loadSessionMessages();
+  }
+
+  /** Iterate an object as a list of {key,value} pairs (template @for). */
+  objectEntries(obj: Record<string, string>): { key: string; value: string }[] {
+    return Object.entries(obj).map(([key, value]) => ({ key, value }));
   }
 }

@@ -434,3 +434,163 @@ describe('MemoryInspector.metadataEntries', () => {
     expect(component.workspaceConclusionsLoaded()).toBe(true);
   });
 });
+
+describe('MemoryInspector bulk + edit state', () => {
+  let fixture: ComponentFixture<MemoryInspector>;
+  let component: MemoryInspector;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    await bootstrapSession();
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MemoryInspector],
+      providers: [provideRouter([])],
+    }).compileComponents();
+    TestBed.inject(HonchoService);
+    TestBed.inject(HonchoAuthService);
+    TestBed.inject(ProfileService);
+    TestBed.inject(ThemeService);
+    installFetch(() => jsonResponse({}));
+    fixture = TestBed.createComponent(MemoryInspector);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('toggleConclusionSelect adds and removes ids from the selection set', () => {
+    component.toggleConclusionSelect('c-1');
+    expect(component.isConclusionSelected('c-1')).toBe(true);
+    component.toggleConclusionSelect('c-1');
+    expect(component.isConclusionSelected('c-1')).toBe(false);
+  });
+
+  it('bulk-delete conclusions opens a destructive dialog with the correct typed confirmation', () => {
+    component.selectedConclusionIds.set(new Set(['c-1', 'c-2', 'c-3']));
+    component.bulkDeleteConclusions();
+    const cfg = component.destructiveDialog();
+    expect(cfg).toBeTruthy();
+    expect(cfg?.dangerLevel).toBe('high');
+    expect(cfg?.typedConfirmation).toBe('delete 3 conclusions');
+    expect(cfg?.title).toContain('3');
+  });
+
+  it('delete-one conclusion uses the medium danger level and typed "delete conclusion"', () => {
+    component.deleteOneConclusion('c-1');
+    const cfg = component.destructiveDialog();
+    expect(cfg?.dangerLevel).toBe('medium');
+    expect(cfg?.typedConfirmation).toBe('delete conclusion');
+  });
+
+  it('confirming the destructive dialog clears the dialog payload and runs the callback', async () => {
+    let ran = false;
+    component.askDestructive({
+      title: 'x',
+      description: 'y',
+      confirmButtonText: 'z',
+      dangerLevel: 'low',
+      typedConfirmation: null,
+      onConfirm: () => {
+        ran = true;
+      },
+    });
+    expect(component.destructiveDialog()).not.toBeNull();
+    component.onDestructiveConfirmed();
+    expect(component.destructiveDialog()).toBeNull();
+    expect(ran).toBe(true);
+  });
+
+  it('cancelling the destructive dialog clears the payload without running the callback', () => {
+    let ran = false;
+    component.askDestructive({
+      title: 'x',
+      description: 'y',
+      confirmButtonText: 'z',
+      dangerLevel: 'low',
+      typedConfirmation: null,
+      onConfirm: () => {
+        ran = true;
+      },
+    });
+    component.onDestructiveCancelled();
+    expect(component.destructiveDialog()).toBeNull();
+    expect(ran).toBe(false);
+  });
+
+  it('peerCardDirty is true when a draft row differs from the server, false when identical', async () => {
+    installFetch((path) => {
+      if (path.endsWith('/card')) return jsonResponse(['fact one', 'fact two']);
+      if (path.endsWith('/representation')) return jsonResponse('');
+      if (path.includes('/conclusions')) return jsonResponse({ items: [] });
+      if (path.includes('/sessions')) return jsonResponse({ items: [] });
+      return jsonResponse({});
+    });
+    await component.selectPeer('alice');
+    expect(component.peerCardDirty()).toBe(false);
+    component.startPeerCardEdit();
+    expect(component.peerCardDirty()).toBe(false);
+    component.updatePeerCardRow(0, 'CHANGED');
+    expect(component.peerCardDirty()).toBe(true);
+    component.cancelPeerCardEdit();
+    expect(component.peerCardDirty()).toBe(false);
+  });
+
+  it('message edit lifecycle: startEdit → messageDraft, saveEdit clears the editor', async () => {
+    let putCalls = 0;
+    installFetch((path) => {
+      if (path.endsWith('/card')) return jsonResponse([]);
+      if (path.endsWith('/representation')) return jsonResponse('');
+      if (path.includes('/conclusions')) return jsonResponse({ items: [] });
+      if (path.includes('/sessions')) return jsonResponse({ items: [] });
+      if (path.includes('/sessions/sess-123/messages') && path.includes('/m-1') && !path.includes('?')) {
+        putCalls++;
+        return jsonResponse({});
+      }
+      return jsonResponse({});
+    });
+    await component.selectPeer('alice');
+    component.startEditMessage({
+      id: 'm-1',
+      peerId: 'alice',
+      sessionId: 'sess-123',
+      content: 'orig',
+      createdAt: '',
+    });
+    expect(component.editingMessageId()).toBe('m-1');
+    expect(component.messageDraft()).toBe('orig');
+    component.messageDraft.set('edited');
+    await component.saveEditMessage();
+    expect(putCalls).toBe(1);
+    expect(component.editingMessageId()).toBeNull();
+  });
+
+  it('toggleSessionSelect and bulkDeleteSessions shape the typed confirmation correctly', () => {
+    component.toggleSessionSelect('s1');
+    component.toggleSessionSelect('s2');
+    component.bulkDeleteSessions();
+    const cfg = component.destructiveDialog();
+    expect(cfg?.dangerLevel).toBe('high');
+    expect(cfg?.typedConfirmation).toBe('delete 2 sessions');
+    component.clearSessionSelections();
+    expect(component.selectedSessionIds().size).toBe(0);
+  });
+
+  it('deleteOneSession types the session id into the confirmation prompt', () => {
+    component.deleteOneSession('sess-xyz');
+    const cfg = component.destructiveDialog();
+    expect(cfg?.typedConfirmation).toBe('delete session sess-xyz');
+  });
+
+  it('sessionMetadata JSON parse errors surface in sessionMetadataJsonError', () => {
+    component.openEditSessionMetadata();
+    component.onSessionMetadataJsonChange('not-json');
+    expect(component.sessionMetadataJsonError()).toContain('invalid JSON');
+  });
+
+  it('objectEntries flattens a record to key/value pairs for the template', () => {
+    const out = component.objectEntries({ a: '1', b: '2' });
+    expect(out).toEqual([
+      { key: 'a', value: '1' },
+      { key: 'b', value: '2' },
+    ]);
+  });
+});

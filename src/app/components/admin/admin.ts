@@ -577,48 +577,6 @@ export class AdminPanel implements OnInit {
     }
   }
 
-  readonly testFixtureReport = signal<Record<string, unknown> | null>(null);
-
-  async seedTestFixture(): Promise<void> {
-    if (
-      !confirm(
-        'Seed the regression test fixture? Creates 5 fixture-* peers, 3 fixture-* sessions, 1 message per session, and a 3-fact peer card per peer against the active Honcho profile.',
-      )
-    ) {
-      return;
-    }
-    this.busy.set(true);
-    this.error.set(null);
-    try {
-      const r = await this.admin.seedTestFixture();
-      this.testFixtureReport.set(r.report);
-    } catch (e) {
-      this.error.set(formatError(e, 'Failed to seed test fixture'));
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
-  async cleanupTestFixture(): Promise<void> {
-    if (
-      !confirm(
-        'Tear down the regression test fixture? Deletes all fixture-* sessions. Fixture peers are left in place because Honcho v3 has no DELETE peer endpoint.',
-      )
-    ) {
-      return;
-    }
-    this.busy.set(true);
-    this.error.set(null);
-    try {
-      const r = await this.admin.cleanupTestFixture();
-      this.testFixtureReport.set(r.report);
-    } catch (e) {
-      this.error.set(formatError(e, 'Failed to clean up test fixture'));
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
   formatMetadata(metadata: Record<string, unknown> | undefined | null): string {
     if (!metadata || Object.keys(metadata).length === 0) return '—';
     try {

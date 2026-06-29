@@ -401,4 +401,148 @@ describe('HonchoService', () => {
       expect(spy).toHaveBeenCalled();
     });
   });
+
+  describe('createConclusion', () => {
+    it('should POST /api/conclusions/create with the expected envelope and unwrap the first item', async () => {
+      const spy = installFetch((path, init) => {
+        expect(path).toBe('/api/conclusions/create');
+        expect(init?.method).toBe('POST');
+        const body = JSON.parse(init!.body as string);
+        expect(body.conclusions).toEqual([
+          {
+            content: 'alice likes coffee',
+            observer_id: 'alice',
+            observed_id: 'bob',
+            session_id: 's1',
+          },
+        ]);
+        return jsonResponse({
+          items: [
+            [
+              {
+                id: 'new-1',
+                content: 'alice likes coffee',
+                observer_id: 'alice',
+                observed_id: 'bob',
+                session_id: 's1',
+                created_at: '2026-01-01T00:00:00Z',
+              },
+            ],
+          ],
+        });
+      });
+      const out = await service.createConclusion('alice likes coffee', 'alice', 'bob', 's1');
+      expect(out.id).toBe('new-1');
+      expect(out.observerId).toBe('alice');
+      expect(out.observedId).toBe('bob');
+      expect(out.sessionId).toBe('s1');
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should omit session_id when not provided', async () => {
+      const spy = installFetch((path, init) => {
+        expect(path).toBe('/api/conclusions/create');
+        const body = JSON.parse(init!.body as string);
+        expect(body.conclusions[0].session_id).toBeUndefined();
+        return jsonResponse({
+          items: [
+            [
+              {
+                id: 'new-2',
+                content: 'x',
+                observer_id: 'a',
+                observed_id: 'b',
+                created_at: '',
+              },
+            ],
+          ],
+        });
+      });
+      await service.createConclusion('x', 'a', 'b');
+      expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteConclusion', () => {
+    it('should DELETE /api/conclusions/<id>', async () => {
+      const spy = installFetch((path, init) => {
+        expect(path).toBe('/api/conclusions/c-99');
+        expect(init?.method).toBe('DELETE');
+        return jsonResponse({});
+      });
+      await service.deleteConclusion('c-99');
+      expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  describe('updatePeer', () => {
+    it('should PUT /api/peers/<id> with metadata body', async () => {
+      const spy = installFetch((path, init) => {
+        expect(path).toBe('/api/peers/alice');
+        expect(init?.method).toBe('PUT');
+        const body = JSON.parse(init!.body as string);
+        expect(body).toEqual({ metadata: { foo: 'bar' } });
+        return jsonResponse({});
+      });
+      await service.updatePeer('alice', { metadata: { foo: 'bar' } });
+      expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  describe('updatePeerCard', () => {
+    it('should PUT /api/peers/<id>/card with peer_card body', async () => {
+      const spy = installFetch((path, init) => {
+        expect(path).toBe('/api/peers/alice/card');
+        expect(init?.method).toBe('PUT');
+        const body = JSON.parse(init!.body as string);
+        expect(body).toEqual({ peer_card: ['fact 1', 'fact 2'] });
+        return jsonResponse({});
+      });
+      await service.updatePeerCard('alice', ['fact 1', 'fact 2']);
+      expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateSession', () => {
+    it('should PUT /api/sessions/<id> with metadata body', async () => {
+      const spy = installFetch((path, init) => {
+        expect(path).toBe('/api/sessions/s1');
+        expect(init?.method).toBe('PUT');
+        const body = JSON.parse(init!.body as string);
+        expect(body).toEqual({ metadata: { foo: 'bar' } });
+        return jsonResponse({});
+      });
+      await service.updateSession('s1', { metadata: { foo: 'bar' } });
+      expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteSession', () => {
+    it('should DELETE /api/sessions/<id>', async () => {
+      const spy = installFetch((path, init) => {
+        expect(path).toBe('/api/sessions/s1');
+        expect(init?.method).toBe('DELETE');
+        return jsonResponse({});
+      });
+      await service.deleteSession('s1');
+      expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  describe('updateMessage', () => {
+    it('should PUT /api/sessions/<sid>/messages/<mid> with content body', async () => {
+      const spy = installFetch((path, init) => {
+        expect(path).toBe('/api/sessions/s1/messages/m-99');
+        expect(init?.method).toBe('PUT');
+        const body = JSON.parse(init!.body as string);
+        expect(body).toEqual({ content: 'edited', metadata: { tag: 'admin' } });
+        return jsonResponse({});
+      });
+      await service.updateMessage('s1', 'm-99', {
+        content: 'edited',
+        metadata: { tag: 'admin' },
+      });
+      expect(spy).toHaveBeenCalled();
+    });
+  });
 });

@@ -372,24 +372,94 @@
                       style="color: var(--accent-2)"
                     >
                       Peer Card
-                      @if (pd.card && pd.card.length > 0) {
+                      @if (peerCardDraft() == null && pd.card && pd.card.length > 0) {
                         <span class="ml-1 opacity-60">({{ pd.card.length }})</span>
                       }
+                      @if (peerCardDraft() != null) {
+                        <span class="ml-1 opacity-60">(draft)</span>
+                      }
                     </h3>
-                    @if (pd.card && pd.card.length > 0) {
-                      <button
-                        type="button"
-                        (click)="openPopOut('Peer Card — ' + selectedPeerId(), cardAsString(pd.card))"
-                        [attr.data-testid]="'popout-peer-card'"
-                        title="Open all card facts in a pop-out window"
-                        class="th-border border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
-                        style="border-radius: var(--radius); color: var(--accent-2); background: var(--bg)"
-                      >
-                        ⤴
-                      </button>
-                    }
+                    <div class="flex items-center gap-1">
+                      @if (peerCardDraft() == null) {
+                        <button
+                          type="button"
+                          (click)="startPeerCardEdit()"
+                          data-testid="peer-card-edit"
+                          class="th-border border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                          style="border-radius: var(--radius); color: var(--accent-2); background: var(--bg)"
+                        >
+                          ✎ Edit
+                        </button>
+                      } @else {
+                        <button
+                          type="button"
+                          (click)="savePeerCard()"
+                          [disabled]="!peerCardDirty() || loading()"
+                          data-testid="peer-card-save"
+                          class="th-border border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                          style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          (click)="cancelPeerCardEdit()"
+                          [disabled]="loading()"
+                          data-testid="peer-card-cancel"
+                          class="th-border border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                          style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+                        >
+                          Cancel
+                        </button>
+                      }
+                      @if (pd.card && pd.card.length > 0 && peerCardDraft() == null) {
+                        <button
+                          type="button"
+                          (click)="openPopOut('Peer Card — ' + selectedPeerId(), cardAsString(pd.card))"
+                          [attr.data-testid]="'popout-peer-card'"
+                          title="Open all card facts in a pop-out window"
+                          class="th-border border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                          style="border-radius: var(--radius); color: var(--accent-2); background: var(--bg)"
+                        >
+                          ⤴
+                        </button>
+                      }
+                    </div>
                   </div>
-                  @if (pd.card && pd.card.length > 0) {
+
+                  @if (peerCardDraft() != null) {
+                    <ul class="space-y-1 text-sm" data-testid="peer-card-draft-list">
+                      @for (fact of peerCardDraft(); track $index) {
+                        <li class="flex items-center gap-2">
+                          <span style="color: var(--accent)">▸</span>
+                          <input
+                            [value]="fact"
+                            (input)="updatePeerCardRow($index, $any($event.target).value)"
+                            [attr.data-testid]="'peer-card-row-input-' + $index"
+                            class="th-surface th-border flex-1 border-2 px-2 py-1 text-sm outline-none"
+                            style="border-radius: var(--radius); color: var(--text)"
+                          />
+                          <button
+                            type="button"
+                            (click)="removePeerCardRow($index)"
+                            [attr.data-testid]="'peer-card-row-remove-' + $index"
+                            [attr.aria-label]="'Remove fact ' + $index"
+                            class="th-border border px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                            style="border-radius: var(--radius); color: var(--danger); background: var(--bg)"
+                          >🗑</button>
+                        </li>
+                      }
+                    </ul>
+                    <button
+                      type="button"
+                      (click)="addPeerCardRow()"
+                      data-testid="peer-card-add-row"
+                      class="th-border mt-2 border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                      style="border-radius: var(--radius); background: var(--surface); color: var(--accent-2)"
+                    >
+                      + Add fact
+                    </button>
+                  } @else if (pd.card && pd.card.length > 0) {
                     <ul class="space-y-1 text-sm">
                       @for (fact of pd.card; track fact) {
                         <li class="flex gap-2">
@@ -537,15 +607,48 @@
       @case ('sessions') {
         <div data-testid="sessions-pane" class="grid grid-cols-1 gap-3 md:grid-cols-3">
           <aside>
-            <h2
-              class="th-display mb-2 text-lg font-bold tracking-widest"
-              style="color: var(--accent)"
-            >
-              Sessions ({{ honcho.sessions().length }})
-            </h2>
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h2
+                class="th-display text-lg font-bold tracking-widest"
+                style="color: var(--accent)"
+              >
+                Sessions ({{ honcho.sessions().length }})
+              </h2>
+              @if (selectedSessionIds().size > 0) {
+                <button
+                  type="button"
+                  (click)="bulkDeleteSessions()"
+                  data-testid="sessions-bulk-delete"
+                  class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                  style="border-radius: var(--radius); background: var(--danger); color: var(--bg)"
+                >
+                  Delete ({{ selectedSessionIds().size }})
+                </button>
+                <button
+                  type="button"
+                  (click)="clearSessionSelections()"
+                  data-testid="sessions-clear-selection"
+                  class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                  style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+                >
+                  Clear
+                </button>
+              } @else if (honcho.sessions().length > 0) {
+                <button
+                  type="button"
+                  (click)="selectAllSessions()"
+                  data-testid="sessions-select-all"
+                  class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                  style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+                >
+                  Select all
+                </button>
+              }
+            </div>
+
             <select
               [ngModel]="selectedSessionId() ?? ''"
-              (ngModelChange)="selectSession($event)"
+              (ngModelChange)="selectSessionWithMessages($event)"
               data-testid="inspect-session-select"
               class="th-surface th-border w-full border-2 px-2 py-1 text-xs"
               style="border-radius: var(--radius); color: var(--text)"
@@ -567,17 +670,89 @@
                 </option>
               }
             </select>
+
+            <ul class="mt-3 space-y-1" data-testid="sessions-bulk-list">
+              @for (s of honcho.sessions(); track s.id) {
+                <li
+                  class="th-border flex items-center gap-2 border-2 px-2 py-1 text-xs"
+                  style="border-radius: var(--radius); background: var(--surface)"
+                  [attr.data-testid]="'session-row-' + s.id"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="isSessionSelected(s.id)"
+                    (change)="toggleSessionSelect(s.id)"
+                    [attr.data-testid]="'select-session-' + s.id"
+                    [attr.aria-label]="'Select session ' + s.id"
+                  />
+                  <button
+                    type="button"
+                    (click)="selectSessionWithMessages(s.id)"
+                    class="flex-1 cursor-pointer truncate text-left font-mono"
+                    style="color: var(--accent); background: transparent; border: none; padding: 0"
+                    [style.color]="selectedSessionId() === s.id ? 'var(--accent-3)' : 'var(--accent)'"
+                  >{{ s.id }}</button>
+                  <button
+                    type="button"
+                    (click)="deleteOneSession(s.id)"
+                    [attr.data-testid]="'delete-session-' + s.id"
+                    [attr.aria-label]="'Delete session ' + s.id"
+                    class="th-border border px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                    style="border-radius: var(--radius); color: var(--danger); background: var(--bg)"
+                  >🗑</button>
+                </li>
+              }
+            </ul>
           </aside>
 
           <section class="md:col-span-2">
             @if (sessionDetail(); as sd) {
               <div class="space-y-3">
-                <h2
-                  class="th-display text-2xl font-bold tracking-wider"
-                  style="color: var(--accent)"
-                >
-                  {{ sd.id }}
-                </h2>
+                <div class="flex items-center justify-between gap-2">
+                  <h2
+                    class="th-display text-2xl font-bold tracking-wider"
+                    style="color: var(--accent)"
+                  >
+                    {{ sd.id }}
+                  </h2>
+                  <div class="relative">
+                    <button
+                      type="button"
+                      (click)="toggleSessionMenu()"
+                      data-testid="session-menu-toggle"
+                      [attr.aria-label]="'Open session menu'"
+                      [attr.aria-expanded]="sessionMenuOpen()"
+                      class="th-border border-2 px-2 py-1 text-base font-bold"
+                      style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
+                    >⋯</button>
+                    @if (sessionMenuOpen()) {
+                      <div
+                        class="th-surface th-border absolute right-0 z-10 mt-1 w-56 border-2"
+                        style="border-radius: var(--radius)"
+                        data-testid="session-menu"
+                      >
+                        <button
+                          type="button"
+                          (click)="openEditSessionMetadata()"
+                          data-testid="session-menu-edit-metadata"
+                          class="block w-full px-3 py-2 text-left text-xs hover:opacity-100"
+                          style="color: var(--text); background: transparent; border: 0; border-bottom: 1px solid var(--border)"
+                        >
+                          ✎ Edit metadata
+                        </button>
+                        <button
+                          type="button"
+                          (click)="deleteCurrentSession()"
+                          data-testid="session-menu-delete"
+                          class="block w-full px-3 py-2 text-left text-xs"
+                          style="color: var(--danger); background: transparent; border: 0"
+                        >
+                          🗑 Delete session
+                        </button>
+                      </div>
+                    }
+                  </div>
+                </div>
 
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div
@@ -662,6 +837,140 @@
                     </p>
                   }
                 </section>
+
+                <section
+                  class="th-border border-2 p-3"
+                  style="border-radius: var(--radius); background: var(--surface)"
+                  data-testid="session-messages-section"
+                >
+                  <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3
+                      class="th-display text-xs font-bold uppercase tracking-widest"
+                      style="color: var(--accent-2)"
+                    >
+                      Messages ({{ sessionMessages().length }})
+                    </h3>
+                    <div class="flex items-center gap-1">
+                      @if (selectedMessageIds().size > 0) {
+                        <button
+                          type="button"
+                          (click)="bulkDeleteMessages()"
+                          data-testid="session-messages-bulk-delete"
+                          class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                          style="border-radius: var(--radius); background: var(--danger); color: var(--bg)"
+                        >
+                          Delete ({{ selectedMessageIds().size }})
+                        </button>
+                        <button
+                          type="button"
+                          (click)="clearMessageSelections()"
+                          data-testid="session-messages-clear-selection"
+                          class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                          style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+                        >
+                          Clear
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        (click)="loadSessionMessages()"
+                        data-testid="session-messages-refresh"
+                        class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                        style="border-radius: var(--radius); background: var(--surface); color: var(--accent-2)"
+                      >
+                        ↻ Refresh
+                      </button>
+                    </div>
+                  </div>
+
+                  @if (sessionMessagesLoading()) {
+                    <p class="text-xs opacity-60">loading messages…</p>
+                  } @else if (sessionMessages().length === 0) {
+                    <p class="text-xs opacity-60" style="color: var(--text-dim)">
+                      no messages
+                    </p>
+                  } @else {
+                    <ul class="space-y-2" data-testid="session-messages-list">
+                      @for (m of sessionMessages(); track m.id) {
+                        <li
+                          class="th-border border-2 px-3 py-2 text-xs"
+                          style="border-radius: var(--radius); background: var(--bg)"
+                          [attr.data-testid]="'session-message-row-' + m.id"
+                        >
+                          <div class="flex items-start gap-2">
+                            <input
+                              type="checkbox"
+                              [checked]="isMessageSelected(m.id)"
+                              (change)="toggleMessageSelect(m.id)"
+                              [attr.data-testid]="'select-message-' + m.id"
+                              [attr.aria-label]="'Select message ' + m.id"
+                              class="mt-1"
+                            />
+                            <div class="flex-1">
+                              @if (editingMessageId() === m.id) {
+                                <textarea
+                                  [value]="messageDraft()"
+                                  (input)="messageDraft.set($any($event.target).value)"
+                                  rows="3"
+                                  [attr.data-testid]="'edit-message-textarea-' + m.id"
+                                  class="th-surface th-border w-full border-2 px-2 py-1 text-sm outline-none"
+                                  style="border-radius: var(--radius); color: var(--text)"
+                                ></textarea>
+                                <div class="mt-1 flex gap-1">
+                                  <button
+                                    type="button"
+                                    (click)="saveEditMessage()"
+                                    [attr.data-testid]="'save-message-' + m.id"
+                                    class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase"
+                                    style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
+                                  >Save</button>
+                                  <button
+                                    type="button"
+                                    (click)="cancelEditMessage()"
+                                    [attr.data-testid]="'cancel-message-' + m.id"
+                                    class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase"
+                                    style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+                                  >Cancel</button>
+                                </div>
+                              } @else {
+                                <p class="text-sm leading-snug">{{ m.content }}</p>
+                              }
+                              <div class="mt-1 text-[10px] opacity-60" style="color: var(--text-dim)">
+                                <span class="font-mono">{{ m.peerId }}</span>
+                                ·
+                                <span
+                                  [title]="formatWallClockTooltip(m.createdAt, { timeZone: tz.effectiveTimezone() })"
+                                >{{ formatWallClock(m.createdAt, 'short', { timeZone: tz.effectiveTimezone() }) }}</span>
+                                ·
+                                <span class="font-mono">{{ m.id }}</span>
+                              </div>
+                            </div>
+                            @if (editingMessageId() !== m.id) {
+                              <div class="flex shrink-0 gap-1">
+                                <button
+                                  type="button"
+                                  (click)="startEditMessage(m)"
+                                  [attr.data-testid]="'edit-message-' + m.id"
+                                  [attr.aria-label]="'Edit message ' + m.id"
+                                  class="th-border border px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                                  style="border-radius: var(--radius); color: var(--accent); background: var(--bg)"
+                                >✎</button>
+                                <button
+                                  type="button"
+                                  (click)="deleteOneMessage(m)"
+                                  [attr.data-testid]="'delete-message-' + m.id"
+                                  [attr.aria-label]="'Delete message ' + m.id"
+                                  class="th-border border px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                                  style="border-radius: var(--radius); color: var(--danger); background: var(--bg)"
+                                >🗑</button>
+                              </div>
+                            }
+                          </div>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </section>
               </div>
             } @else if (loading()) {
               <p class="text-sm opacity-60">loading...</p>
@@ -676,11 +985,51 @@
 
       @case ('conclusions') {
         <div data-testid="conclusions-pane">
-          <div class="mb-3 flex items-center justify-between gap-2">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 class="th-display text-lg font-bold tracking-widest" style="color: var(--accent)">
               Conclusions
             </h2>
-            <div class="flex items-center gap-2 text-xs">
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              @if (selectedConclusionIds().size > 0) {
+                <button
+                  type="button"
+                  (click)="bulkDeleteConclusions()"
+                  data-testid="conclusions-bulk-delete"
+                  class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                  style="border-radius: var(--radius); background: var(--danger); color: var(--bg)"
+                >
+                  Delete selected ({{ selectedConclusionIds().size }})
+                </button>
+                <button
+                  type="button"
+                  (click)="clearConclusionSelections()"
+                  data-testid="conclusions-clear-selection"
+                  class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                  style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+                >
+                  Clear
+                </button>
+              }
+              @if (conclusions().length > 0 && selectedConclusionIds().size < conclusions().length) {
+                <button
+                  type="button"
+                  (click)="selectAllConclusions()"
+                  data-testid="conclusions-select-all"
+                  class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                  style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+                >
+                  Select all
+                </button>
+              }
+              <button
+                type="button"
+                (click)="openCreateConclusion()"
+                data-testid="conclusions-create-button"
+                class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
+              >
+                + Create conclusion
+              </button>
               @if (selectedPeerId()) {
                 <span
                   class="font-mono"
@@ -731,8 +1080,27 @@
                 <li
                   class="th-border border-2 px-3 py-2"
                   style="border-radius: var(--radius); background: var(--surface)"
+                  [attr.data-testid]="'conclusion-row-' + c.id"
                 >
-                  <div class="text-sm">{{ c.content }}</div>
+                  <div class="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      [checked]="isConclusionSelected(c.id)"
+                      (change)="toggleConclusionSelect(c.id)"
+                      [attr.data-testid]="'select-conclusion-' + c.id"
+                      [attr.aria-label]="'Select conclusion ' + c.id"
+                      class="mt-1"
+                    />
+                    <div class="flex-1 text-sm">{{ c.content }}</div>
+                    <button
+                      type="button"
+                      (click)="deleteOneConclusion(c.id)"
+                      [attr.data-testid]="'delete-conclusion-' + c.id"
+                      [attr.aria-label]="'Delete conclusion ' + c.id"
+                      class="th-border border-2 px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                      style="border-radius: var(--radius); background: var(--bg); color: var(--danger)"
+                    >🗑</button>
+                  </div>
                   <div class="mt-1 flex items-start justify-between gap-2 text-[10px] opacity-60" style="color: var(--text-dim)">
                     <div class="flex-1">
                       observer: <span style="color: var(--accent)">{{ c.observerId }}</span> ·
@@ -957,6 +1325,273 @@
       </div>
       <div class="flex-1 min-h-0 overflow-hidden">
         <app-chat-panel [peerId]="selectedPeerId()!" />
+      </div>
+    </div>
+  </div>
+}
+
+<!--
+  Universal destructive-confirm dialog. Driven by the destructiveDialog
+  signal; the children of this component decide what to do on confirm.
+-->
+@if (destructiveDialog(); as cfg) {
+  <app-confirm-destructive-dialog
+    [open]="true"
+    [title]="cfg.title"
+    [description]="cfg.description"
+    [confirmButtonText]="cfg.confirmButtonText"
+    [dangerLevel]="cfg.dangerLevel"
+    [typedConfirmation]="cfg.typedConfirmation"
+    (confirmed)="onDestructiveConfirmed()"
+    (cancelled)="onDestructiveCancelled()"
+  />
+}
+
+<!--
+  Edit session metadata modal. Two parallel editors — a raw JSON
+  textarea (for power users) and a flattened key/value table — both
+  bound to the same draft signal.
+-->
+@if (editSessionMetadataOpen()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+    style="background: color-mix(in srgb, var(--bg) 70%, transparent)"
+    (click)="closeEditSessionMetadata()"
+    data-testid="session-metadata-overlay"
+  >
+    <div
+      class="th-surface th-border w-full max-w-xl border-2 p-6"
+      style="border-radius: var(--radius)"
+      (click)="$event.stopPropagation()"
+      data-testid="session-metadata-modal"
+    >
+      <h2
+        class="th-display mb-3 text-lg font-bold uppercase tracking-wider"
+        style="color: var(--accent)"
+        data-testid="session-metadata-title"
+      >
+        Edit session metadata
+      </h2>
+      <p class="mb-3 text-xs opacity-70">
+        Edit key/value pairs or paste a raw JSON object. Empty keys are skipped on save.
+      </p>
+
+      <div class="mb-3">
+        <h3 class="th-display mb-1 text-[10px] font-bold uppercase tracking-widest opacity-70">
+          Raw JSON
+        </h3>
+        <textarea
+          rows="4"
+          [value]="sessionMetadataJson()"
+          (input)="onSessionMetadataJsonChange($any($event.target).value)"
+          data-testid="session-metadata-json"
+          spellcheck="false"
+          class="th-surface th-border w-full border-2 px-2 py-1 font-mono text-xs outline-none"
+          style="border-radius: var(--radius); color: var(--text)"
+        ></textarea>
+        @if (sessionMetadataJsonError(); as err) {
+          <p class="mt-1 text-[10px]" style="color: var(--danger)" data-testid="session-metadata-json-error">
+            {{ err }}
+          </p>
+        }
+      </div>
+
+      <div class="mb-3">
+        <h3 class="th-display mb-1 text-[10px] font-bold uppercase tracking-widest opacity-70">
+          Key / value
+        </h3>
+        <ul class="space-y-1" data-testid="session-metadata-kv-list">
+          @for (entry of objectEntries(sessionMetadataDraft()); track entry.key) {
+            <li class="flex items-center gap-1">
+              <input
+                [value]="entry.key"
+                (input)="updateMetadataKey(entry.key, $any($event.target).value)"
+                [attr.data-testid]="'session-metadata-key-' + entry.key"
+                placeholder="key"
+                class="th-surface th-border flex-1 border-2 px-2 py-1 font-mono text-xs outline-none"
+                style="border-radius: var(--radius); color: var(--text)"
+              />
+              <input
+                [value]="entry.value"
+                (input)="updateMetadataValue(entry.key, $any($event.target).value)"
+                [attr.data-testid]="'session-metadata-value-' + entry.key"
+                placeholder="value"
+                class="th-surface th-border flex-1 border-2 px-2 py-1 font-mono text-xs outline-none"
+                style="border-radius: var(--radius); color: var(--text)"
+              />
+              <button
+                type="button"
+                (click)="removeMetadataKey(entry.key)"
+                [attr.data-testid]="'session-metadata-remove-' + entry.key"
+                class="th-border border-2 px-2 py-1 text-[10px]"
+                style="border-radius: var(--radius); color: var(--danger); background: var(--bg)"
+              >🗑</button>
+            </li>
+          }
+        </ul>
+        <button
+          type="button"
+          (click)="addMetadataKey()"
+          data-testid="session-metadata-add-key"
+          class="th-border mt-2 border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+          style="border-radius: var(--radius); background: var(--surface); color: var(--accent-2)"
+        >
+          + Add key
+        </button>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          (click)="closeEditSessionMetadata()"
+          data-testid="session-metadata-cancel"
+          class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+          style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          (click)="saveSessionMetadata()"
+          [disabled]="loading() || sessionMetadataJsonError() !== null"
+          data-testid="session-metadata-save"
+          class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+          style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!--
+  Create conclusion modal. Single-shot form that posts one
+  conclusion via the batch endpoint and refreshes the conclusions list.
+-->
+@if (createConclusionOpen()) {
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+    style="background: color-mix(in srgb, var(--bg) 70%, transparent)"
+    (click)="closeCreateConclusion()"
+    data-testid="create-conclusion-overlay"
+  >
+    <div
+      class="th-surface th-border w-full max-w-xl border-2 p-6"
+      style="border-radius: var(--radius)"
+      (click)="$event.stopPropagation()"
+      data-testid="create-conclusion-modal"
+    >
+      <h2
+        class="th-display mb-3 text-lg font-bold uppercase tracking-wider"
+        style="color: var(--accent)"
+        data-testid="create-conclusion-title"
+      >
+        Create conclusion
+      </h2>
+
+      <label class="mb-2 block">
+        <span class="th-display mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-70">
+          Content
+        </span>
+        <textarea
+          rows="3"
+          [value]="createConclusionContent()"
+          (input)="createConclusionContent.set($any($event.target).value)"
+          data-testid="create-conclusion-content"
+          class="th-surface th-border w-full border-2 px-2 py-1 text-sm outline-none"
+          style="border-radius: var(--radius); color: var(--text)"
+        ></textarea>
+      </label>
+
+      <div class="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <label class="block">
+          <span class="th-display mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-70">
+            Observer (peer)
+          </span>
+          <select
+            [value]="createConclusionObserver()"
+            (change)="createConclusionObserver.set($any($event.target).value)"
+            data-testid="create-conclusion-observer"
+            class="th-surface th-border w-full border-2 px-2 py-1 text-xs"
+            style="border-radius: var(--radius); color: var(--text)"
+          >
+            <option value="">— pick a peer —</option>
+            @for (p of honcho.peers(); track p.id) {
+              <option [value]="p.id">{{ p.id }}</option>
+            }
+          </select>
+        </label>
+        <label class="block">
+          <span class="th-display mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-70">
+            Observed (peer)
+          </span>
+          <select
+            [value]="createConclusionObserved()"
+            (change)="createConclusionObserved.set($any($event.target).value)"
+            data-testid="create-conclusion-observed"
+            class="th-surface th-border w-full border-2 px-2 py-1 text-xs"
+            style="border-radius: var(--radius); color: var(--text)"
+          >
+            <option value="">— pick a peer —</option>
+            @for (p of honcho.peers(); track p.id) {
+              <option [value]="p.id">{{ p.id }}</option>
+            }
+          </select>
+        </label>
+        <label class="block">
+          <span class="th-display mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-70">
+            Session (optional)
+          </span>
+          <select
+            [value]="createConclusionSession()"
+            (change)="createConclusionSession.set($any($event.target).value)"
+            data-testid="create-conclusion-session"
+            class="th-surface th-border w-full border-2 px-2 py-1 text-xs"
+            style="border-radius: var(--radius); color: var(--text)"
+          >
+            <option value="">— none (global) —</option>
+            @for (s of honcho.sessions(); track s.id) {
+              <option [value]="s.id">{{ s.id }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      @if (createConclusionError(); as e) {
+        <p
+          class="mb-2 text-xs"
+          style="color: var(--danger)"
+          data-testid="create-conclusion-error"
+        >
+          {{ e }}
+        </p>
+      }
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          (click)="closeCreateConclusion()"
+          data-testid="create-conclusion-cancel"
+          class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+          style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          (click)="submitCreateConclusion()"
+          [disabled]="createConclusionSubmitting()"
+          data-testid="create-conclusion-submit"
+          class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+          style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
+        >
+          @if (createConclusionSubmitting()) {
+            Creating…
+          } @else {
+            Create
+          }
+        </button>
       </div>
     </div>
   </div>

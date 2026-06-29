@@ -598,45 +598,6 @@
               }
             </div>
           </div>
-          <div class="th-border mt-4 border-2 p-4" style="border-radius: var(--radius)">
-            <h2 class="mb-1 text-xs font-bold uppercase tracking-widest opacity-80">
-              Test fixture (regression)
-            </h2>
-            <p class="mb-3 text-[11px] opacity-70" style="color: var(--text-dim)">
-              Seeds or tears down a deterministic set of
-              <code>fixture-*</code> peers, sessions, messages, and peer cards on the
-              upstream Honcho so the regression matrix has stable data to render against.
-            </p>
-            <div class="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                (click)="seedTestFixture()"
-                [disabled]="busy()"
-                data-testid="admin-test-seed"
-                class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
-                style="border-radius: var(--radius)"
-              >
-                Seed fixture
-              </button>
-              <button
-                type="button"
-                (click)="cleanupTestFixture()"
-                [disabled]="busy()"
-                data-testid="admin-test-cleanup"
-                class="px-4 py-2 th-border border-2 th-surface hover:th-glow disabled:opacity-50"
-                style="border-radius: var(--radius)"
-              >
-                Clean up fixture
-              </button>
-            </div>
-            @if (testFixtureReport(); as report) {
-              <pre
-                class="th-surface mt-3 max-h-48 overflow-auto border p-2 text-[10px]"
-                style="border-radius: var(--radius)"
-                data-testid="admin-test-fixture-report"
-              >{{ report | json }}</pre>
-            }
-          </div>
         </div>
       }
 
