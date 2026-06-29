@@ -58,6 +58,7 @@ BACKEND_DIR  = ../honcho-self-backend
         start-backend stop-backend \
         dev-full \
         deb deb-clean \
+        packages packages-all packages-debian packages-rocky packages-suse packages-alpine packages-arch packages-void packages-clean \
         clean distclean
 
 # === Default goal ===
@@ -253,11 +254,70 @@ deb-clean: ## Remove the deb build artifacts
 	@rm -f dist/*.deb
 	@printf "removed dist/*.deb\n"
 
+# === Linux packages (multi-distro, via container) ===
+# Each distro has a Containerfile + entrypoint.sh under
+# packaging/build/<distro>/ that knows how to build a *native*
+# package (deb / rpm / apk / pkg.tar.zst / xbps) for that
+# distribution. The wrapper script detects podman (preferred) or
+# docker (fallback), builds the per-distro image, and writes the
+# artifact to <repo>/dist/packages/<distro>/. Per-distro subdirs
+# avoid the collision between the .deb/.rpm output and Angular's
+# `ng build` output (which lands at dist/honcho-inspector-ui/).
+#
+# Targets:
+#   make packages-debian     build only the Debian .deb
+#   make packages-rocky      build only the Rocky .rpm
+#   make packages-suse       build only the openSUSE .rpm
+#   make packages-alpine     build only the Alpine .apk
+#   make packages-arch       build only the Arch .pkg.tar.zst
+#   make packages-void       build only the Void .xbps
+#   make packages-all        build all of the above, in order
+#   make packages            alias for packages-all
+BUILD_PACKAGE_SCRIPT = packaging/scripts/build-package.sh
+BUILD_PACKAGE_REPO_NAME = honcho-inspector-ui
+
+packages: packages-all ## Alias for packages-all (default for convenience)
+
+packages-all: ## Build a native package for every supported Linux distro
+	@for d in debian rocky suse alpine arch void; do \
+		printf "\n=========================================================\n"; \
+		printf "  building for: %s\n" "$$d"; \
+		printf "=========================================================\n"; \
+		"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" "$$d" $(BUILD_PACKAGE_EXTRA_ARGS) || exit $$?; \
+	done
+	@printf "\nall distro packages built; output under: %s/\n" "dist/packages"
+
+packages-debian: ## Build the Debian .deb (debian 13 / trixie)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" debian $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-rocky: ## Build the Rocky Linux .rpm (rocky 10)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" rocky $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-suse: ## Build the openSUSE .rpm (leap 16)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" suse $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-alpine: ## Build the Alpine .apk (alpine 3.23)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" alpine $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-arch: ## Build the Arch Linux .pkg.tar.zst (rolling)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" arch $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-void: ## Build the Void Linux .xbps (glibc, rolling)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" void $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-clean: ## Remove dist/packages/ (Linux package output)
+	@if [ -d dist/packages ]; then \
+		rm -rf dist/packages; \
+		printf "removed dist/packages/\n"; \
+	else \
+		printf "no dist/packages/ -- nothing to do\n"; \
+	fi
+
 # === Cleanup ===
 clean: ## Remove build artifacts and caches
 	@rm -rf "$(DIST_DIR)" "$(NG_CACHE)" node_modules/.cache
 	@printf "removed %s/ %s/ node_modules/.cache\n" "$(DIST_DIR)" "$(NG_CACHE)"
 
-distclean: clean deb-clean ## Also remove node_modules (full reset)
+distclean: clean deb-clean packages-clean ## Also remove node_modules (full reset)
 	@rm -rf node_modules
 	@printf "removed node_modules -- run 'make install' to restore\n"
