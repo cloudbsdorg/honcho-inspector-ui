@@ -573,14 +573,17 @@ describe('HonchoService', () => {
         expect(path).toBe('/api/peers/alice/chat/stream');
         expect(init?.method).toBe('POST');
         expect(JSON.parse(init!.body as string)).toEqual({ query: 'hello' });
-        return sseResponse('data: {"data":{"text":"hi"},"meta":{"done":true}}\n\n');
+        return sseResponse('data: hi\n\ndata: [DONE]\n\n');
       });
       const chunks: { text: string; done: boolean }[] = [];
       for await (const c of service.chatStream('alice', 'hello')) {
         chunks.push(c);
       }
       expect(spy).toHaveBeenCalledTimes(1);
-      expect(chunks).toEqual([{ text: 'hi', done: true }]);
+      expect(chunks).toEqual([
+        { text: 'hi', done: false },
+        { text: '', done: true },
+      ]);
     });
 
     it('should send Content-Type: application/json and Accept: text/event-stream', async () => {
@@ -588,7 +591,7 @@ describe('HonchoService', () => {
         const headers = init?.headers as Record<string, string>;
         expect(headers['Content-Type']).toBe('application/json');
         expect(headers['Accept']).toBe('text/event-stream');
-        return sseResponse('data: {"data":{"text":"ok"},"meta":{"done":true}}\n\n');
+        return sseResponse('data: ok\n\ndata: [DONE]\n\n');
       });
       for await (const _c of service.chatStream('alice', 'ping')) {
         /* drain */
@@ -600,7 +603,7 @@ describe('HonchoService', () => {
         const headers = init?.headers as Record<string, string>;
         expect(headers['X-Session-Id']).toBe('sess-abc');
         expect(headers['X-Honcho-Profile-Id']).toBe('profile-1');
-        return sseResponse('data: {"data":{"text":"ok"},"meta":{"done":true}}\n\n');
+        return sseResponse('data: ok\n\ndata: [DONE]\n\n');
       });
       for await (const _c of service.chatStream('alice', 'ping')) {
         /* drain */
@@ -609,10 +612,10 @@ describe('HonchoService', () => {
 
     it('should yield a chunk per data: line and assemble text incrementally', async () => {
       const payload = [
-        'data: {"data":{"text":"Hello"},"meta":{"done":false}}\n\n',
-        'data: {"data":{"text":", world"},"meta":{"done":false}}\n\n',
-        'data: {"data":{"text":"!"},"meta":{"done":false}}\n\n',
-        'data: {"data":{"text":""},"meta":{"done":true}}\n\n',
+        'data: Hello\n\n',
+        'data: , world\n\n',
+        'data: !\n\n',
+        'data: [DONE]\n\n',
       ].join('');
       installFetch(() => sseResponse(payload));
       const chunks: { text: string; done: boolean }[] = [];
@@ -625,16 +628,16 @@ describe('HonchoService', () => {
         { text: '!', done: false },
         { text: '', done: true },
       ]);
-      // The final done chunk ends the loop; we should not consume
-      // past it even if the underlying stream stayed open.
+      // The final [DONE] chunk ends the loop; we should not
+      // consume past it even if the underlying stream stayed open.
       expect(chunks.length).toBe(4);
     });
 
-    it('should stop yielding after the done:true sentinel', async () => {
+    it('should stop yielding after the [DONE] sentinel', async () => {
       const payload = [
-        'data: {"data":{"text":"a"},"meta":{"done":false}}\n\n',
-        'data: {"data":{"text":""},"meta":{"done":true}}\n\n',
-        'data: {"data":{"text":"LEAKED"},"meta":{"done":false}}\n\n',
+        'data: a\n\n',
+        'data: [DONE]\n\n',
+        'data: LEAKED\n\n',
       ].join('');
       installFetch(() => sseResponse(payload));
       const chunks: { text: string; done: boolean }[] = [];
@@ -667,7 +670,7 @@ describe('HonchoService', () => {
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           controller.enqueue(
-            encoder.encode('data: {"data":{"text":"first"},"meta":{"done":false}}\n\n'),
+            encoder.encode('data: first\n\n'),
           );
           // Do not close — the consumer must cancel us.
         },
@@ -740,12 +743,12 @@ describe('HonchoService', () => {
           start(controller) {
             controller.enqueue(
               encoder.encode(
-                'data: {"data":{"text":"first"},"meta":{"done":false}}\n\n',
+                'data: first\n\n',
               ),
             );
             controller.enqueue(
               encoder.encode(
-                'data: {"data":{"text":""},"meta":{"done":true}}\n\n',
+                'data: [DONE]\n\n',
               ),
             );
             controller.close();

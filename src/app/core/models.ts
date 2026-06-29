@@ -268,10 +268,10 @@ export interface HonchoWorkspaceMetadata {
 /**
  * One server-sent chunk from `POST /api/peers/{peerId}/chat/stream`.
  *
- * <p>The backend emits SSE envelopes of the shape
- * {@code {data:{text:"<chunk>"}, meta:{done:false}}} per chunk and a
- * final {@code {data:{text:""}, meta:{done:true}}} sentinel that
- * closes the stream. The frontend parses each envelope and yields a
+ * <p>The backend forwards Honcho's native SSE wire format: a
+ * {@code data: <visible-text>\n\n} line per chunk and a final
+ * {@code data: [DONE]\n\n} sentinel that closes the stream. The
+ * frontend parses each data line and yields a
  * {@link HonchoChatChunk} to the consumer (the chat popout) which
  * appends {@link text} to the in-flight assistant turn. When
  * {@link done} is {@code true} the consumer stops the loop and

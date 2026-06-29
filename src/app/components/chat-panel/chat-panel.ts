@@ -59,6 +59,8 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
   readonly streamingAssistantTurn = signal('');
   /** True once the backend's `meta.done` envelope is received. */
   readonly streamingDone = signal(false);
+  displayedText = signal('');
+  private typingTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Wall-clock timestamp (ms) of when the current `busy` state
@@ -153,6 +155,8 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
     this.activeAbort = null;
     this.streamingAssistantTurn.set('');
     this.streamingDone.set(false);
+    this.displayedText.set('');
+    this.stopTyping();
     // New peer selected: clear conversation + error so the operator
     // starts a fresh thread. We deliberately do NOT clear inputValue
     // here because the input is unbound in this lifecycle (the user
@@ -172,6 +176,7 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
     // (the chat pop-out closing is the main path here). Without
     // this, a stale interval would tick every second forever.
     this.stopBusyTicker();
+    this.stopTyping();
   }
 
   /**
@@ -196,6 +201,42 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
       clearInterval(this.busyTicker);
       this.busyTicker = null;
     }
+  }
+
+  private stopTyping(): void {
+    if (this.typingTimer !== null) {
+      clearTimeout(this.typingTimer);
+      this.typingTimer = null;
+    }
+  }
+
+  private startTyping(): void {
+    this.stopTyping();
+    const target = this.streamingAssistantTurn();
+    if (!target) {
+      this.displayedText.set('');
+      return;
+    }
+    if (this.displayedText() === target) return;
+    const step = (): void => {
+      const t = this.streamingAssistantTurn();
+      const d = this.displayedText();
+      if (this.streamingDone() || d === t) {
+        this.stopTyping();
+        return;
+      }
+        if (d.length < t.length) {
+          const nextLen = Math.min(t.length, d.length + 1);
+          let snapped = t.slice(0, nextLen);
+          if (nextLen < t.length && !/\s/.test(t[nextLen - 1] ?? '')) {
+            const nextSpace = t.indexOf(' ', nextLen);
+            if (nextSpace > 0) snapped = t.slice(0, nextSpace);
+          }
+          this.displayedText.set(snapped);
+        }
+      this.typingTimer = setTimeout(step, 30);
+    };
+    step();
   }
 
   ngAfterViewChecked(): void {
@@ -262,6 +303,7 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
         if (myAbort.signal.aborted) break;
         if (chunk.text) {
           this.streamingAssistantTurn.update((s) => s + chunk.text);
+          this.startTyping();
         }
         if (chunk.done) {
           this.streamingDone.set(true);
@@ -299,6 +341,8 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
       this.busySeconds.set(0);
       this.streamingAssistantTurn.set('');
       this.streamingDone.set(false);
+      this.displayedText.set('');
+      this.stopTyping();
       this.activeAbort = null;
       this.stopBusyTicker();
       this.pendingScroll = true;

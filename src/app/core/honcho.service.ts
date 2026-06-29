@@ -236,9 +236,10 @@ export class HonchoService {
   /**
    * Stream a Honcho chat response as an async iterable of text
    * chunks. Hits `POST /api/peers/{peerId}/chat/stream` which
-   * returns Server-Sent Events; each event carries the project's
-   * `{data, error, meta}` envelope and is unwrapped into a
-   * {@link HonchoChatChunk}.
+   * returns Server-Sent Events; each outbound `data:` line carries
+   * raw visible text and the terminal `data: [DONE]` line closes
+   * the stream. No JSON envelope is parsed — the chunks are
+   * forwarded verbatim from Honcho's native wire format.
    *
    * <p>Coexists with {@link chat} (the non-streaming JSON path);
    * the chat popout wires both. The popout passes its own
@@ -363,15 +364,8 @@ export class HonchoService {
           } else if (line.startsWith('data:')) {
             const payload = line.slice(5).trimStart();
             if (payload === '') continue;
-            let parsed: { data?: { text?: unknown }; meta?: { done?: unknown } };
-            try {
-              parsed = JSON.parse(payload) as typeof parsed;
-            } catch (e) {
-              console.warn('chatStream: dropping malformed SSE payload', e);
-              continue;
-            }
-            const text = typeof parsed.data?.text === 'string' ? parsed.data.text : '';
-            const isDone = parsed.meta?.done === true;
+            const isDone = payload === '[DONE]';
+            const text = isDone ? '' : payload;
             if (!gotFirstChunk && (text.length > 0 || isDone)) gotFirstChunk = true;
             yield { text, done: isDone };
             if (isDone) return;
@@ -379,22 +373,14 @@ export class HonchoService {
           newlineIdx = buffer.indexOf('\n');
         }
       }
-      // Trailing partial line (no terminating newline).
+      // Trailing partial line (no terminating newline). Treat as
+      // a final data: payload if present.
       const tail = buffer.trim();
       if (tail.startsWith('data:')) {
         const payload = tail.slice(5).trimStart();
         if (payload !== '') {
-          try {
-            const parsed = JSON.parse(payload) as {
-              data?: { text?: unknown };
-              meta?: { done?: unknown };
-            };
-            const text = typeof parsed.data?.text === 'string' ? parsed.data.text : '';
-            const isDone = parsed.meta?.done === true;
-            yield { text, done: isDone };
-          } catch {
-            /* ignore trailing junk */
-          }
+          const isDone = payload === '[DONE]';
+          yield { text: isDone ? '' : payload, done: isDone };
         }
       }
     } catch (e) {
