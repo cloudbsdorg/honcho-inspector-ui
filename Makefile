@@ -59,6 +59,8 @@ BACKEND_DIR  = ../honcho-self-backend
         dev-full \
         deb deb-clean \
         packages packages-all packages-debian packages-rocky packages-suse packages-alpine packages-arch packages-void packages-clean \
+        image-build image-build-ui-only image-build-clean \
+        image-push image-push-ui-only \
         clean distclean
 
 # === Default goal ===
@@ -313,11 +315,59 @@ packages-clean: ## Remove dist/packages/ (Linux package output)
 		printf "no dist/packages/ -- nothing to do\n"; \
 	fi
 
+# === Container image ===
+#
+# Multi-arch (linux/amd64 + linux/arm64) container build + push.
+# Cross-compilation to arm64 on an amd64 host needs qemu-user-static +
+# binfmt-support (Debian/Ubuntu: `apt install qemu-user qemu-user-binfmt`).
+#
+# The UI repo ships one runtime Containerfile:
+#   - packaging/container/Containerfile  -- Alpine + Node 22 + the
+#                                            Angular dev server tree,
+#                                            exposed on :4200. Operators
+#                                            who want to bundle the UI
+#                                            inside the backend should
+#                                            use the backend repo's
+#                                            Containerfile.all-in-one,
+#                                            not this one.
+#
+# The script (packaging/scripts/build-image.sh) handles per-arch build
+# + manifest list creation + registry push. Override RUNTIME_REPO,
+# RUNTIME_VER, PLATFORMS via env or `make VAR=...` syntax.
+
+IMAGE_NAME      = honcho-inspector-ui
+IMAGE_BUILD_SCRIPT = packaging/scripts/build-image.sh
+
+image-build: image-build-ui-only ## Build the standalone UI runtime, multi-arch (no push)
+
+image-build-ui-only: ## Build the standalone UI runtime for every PLATFORM (no push)
+	$(IMAGE_BUILD_SCRIPT) $(IMAGE_NAME) ui-only build
+
+image-build-clean: ## Drop locally-built per-arch images + the local manifest list
+	@if command -v podman >/dev/null 2>&1; then \
+		RT=podman; \
+	elif command -v docker >/dev/null 2>&1; then \
+		RT=docker; \
+	else \
+		printf "no container runtime found\n" >&2; exit 1; \
+	fi; \
+	"$$RT" image rm -f \
+		localhost/$(IMAGE_NAME):dev-amd64-ui-only \
+		localhost/$(IMAGE_NAME):dev-arm64-ui-only \
+		2>/dev/null || true; \
+	"$$RT" manifest rm $(IMAGE_NAME):dev-ui-only 2>/dev/null || true; \
+	printf "ok: image-build-clean\n"
+
+image-push: image-push-ui-only ## Build + push the UI runtime, multi-arch
+
+image-push-ui-only: image-build-ui-only ## Build + push the UI manifest list
+	$(IMAGE_BUILD_SCRIPT) $(IMAGE_NAME) ui-only push
+
 # === Cleanup ===
 clean: ## Remove build artifacts and caches
 	@rm -rf "$(DIST_DIR)" "$(NG_CACHE)" node_modules/.cache
 	@printf "removed %s/ %s/ node_modules/.cache\n" "$(DIST_DIR)" "$(NG_CACHE)"
 
-distclean: clean deb-clean packages-clean ## Also remove node_modules (full reset)
+distclean: clean deb-clean packages-clean image-build-clean ## Also remove node_modules (full reset)
 	@rm -rf node_modules
 	@printf "removed node_modules -- run 'make install' to restore\n"
