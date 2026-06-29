@@ -58,6 +58,9 @@ BACKEND_DIR  = ../honcho-self-backend
         start-backend stop-backend \
         dev-full \
         deb deb-clean \
+        packages packages-all packages-debian packages-rocky packages-suse packages-alpine packages-arch packages-void packages-clean \
+        image-build image-build-ui-only image-build-clean \
+        image-push image-push-ui-only \
         clean distclean
 
 # === Default goal ===
@@ -253,11 +256,118 @@ deb-clean: ## Remove the deb build artifacts
 	@rm -f dist/*.deb
 	@printf "removed dist/*.deb\n"
 
+# === Linux packages (multi-distro, via container) ===
+# Each distro has a Containerfile + entrypoint.sh under
+# packaging/build/<distro>/ that knows how to build a *native*
+# package (deb / rpm / apk / pkg.tar.zst / xbps) for that
+# distribution. The wrapper script detects podman (preferred) or
+# docker (fallback), builds the per-distro image, and writes the
+# artifact to <repo>/dist/packages/<distro>/. Per-distro subdirs
+# avoid the collision between the .deb/.rpm output and Angular's
+# `ng build` output (which lands at dist/honcho-inspector-ui/).
+#
+# Targets:
+#   make packages-debian     build only the Debian .deb
+#   make packages-rocky      build only the Rocky .rpm
+#   make packages-suse       build only the openSUSE .rpm
+#   make packages-alpine     build only the Alpine .apk
+#   make packages-arch       build only the Arch .pkg.tar.zst
+#   make packages-void       build only the Void .xbps
+#   make packages-all        build all of the above, in order
+#   make packages            alias for packages-all
+BUILD_PACKAGE_SCRIPT = packaging/scripts/build-package.sh
+BUILD_PACKAGE_REPO_NAME = honcho-inspector-ui
+
+packages: packages-all ## Alias for packages-all (default for convenience)
+
+packages-all: ## Build a native package for every supported Linux distro
+	@for d in debian rocky suse alpine arch void; do \
+		printf "\n=========================================================\n"; \
+		printf "  building for: %s\n" "$$d"; \
+		printf "=========================================================\n"; \
+		"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" "$$d" $(BUILD_PACKAGE_EXTRA_ARGS) || exit $$?; \
+	done
+	@printf "\nall distro packages built; output under: %s/\n" "dist/packages"
+
+packages-debian: ## Build the Debian .deb (debian 13 / trixie)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" debian $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-rocky: ## Build the Rocky Linux .rpm (rocky 10)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" rocky $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-suse: ## Build the openSUSE .rpm (leap 16)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" suse $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-alpine: ## Build the Alpine .apk (alpine 3.23)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" alpine $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-arch: ## Build the Arch Linux .pkg.tar.zst (rolling)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" arch $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-void: ## Build the Void Linux .xbps (glibc, rolling)
+	"$(BUILD_PACKAGE_SCRIPT)" "$(BUILD_PACKAGE_REPO_NAME)" void $(BUILD_PACKAGE_EXTRA_ARGS)
+
+packages-clean: ## Remove dist/packages/ (Linux package output)
+	@if [ -d dist/packages ]; then \
+		rm -rf dist/packages; \
+		printf "removed dist/packages/\n"; \
+	else \
+		printf "no dist/packages/ -- nothing to do\n"; \
+	fi
+
+# === Container image ===
+#
+# Multi-arch (linux/amd64 + linux/arm64) container build + push.
+# Cross-compilation to arm64 on an amd64 host needs qemu-user-static +
+# binfmt-support (Debian/Ubuntu: `apt install qemu-user qemu-user-binfmt`).
+#
+# The UI repo ships one runtime Containerfile:
+#   - packaging/container/Containerfile  -- Alpine + Node 22 + the
+#                                            Angular dev server tree,
+#                                            exposed on :4200. Operators
+#                                            who want to bundle the UI
+#                                            inside the backend should
+#                                            use the backend repo's
+#                                            Containerfile.all-in-one,
+#                                            not this one.
+#
+# The script (packaging/scripts/build-image.sh) handles per-arch build
+# + manifest list creation + registry push. Override RUNTIME_REPO,
+# RUNTIME_VER, PLATFORMS via env or `make VAR=...` syntax.
+
+IMAGE_NAME      = honcho-inspector-ui
+IMAGE_BUILD_SCRIPT = packaging/scripts/build-image.sh
+
+image-build: image-build-ui-only ## Build the standalone UI runtime, multi-arch (no push)
+
+image-build-ui-only: ## Build the standalone UI runtime for every PLATFORM (no push)
+	$(IMAGE_BUILD_SCRIPT) $(IMAGE_NAME) ui-only build
+
+image-build-clean: ## Drop locally-built per-arch images + the local manifest list
+	@if command -v podman >/dev/null 2>&1; then \
+		RT=podman; \
+	elif command -v docker >/dev/null 2>&1; then \
+		RT=docker; \
+	else \
+		printf "no container runtime found\n" >&2; exit 1; \
+	fi; \
+	"$$RT" image rm -f \
+		localhost/$(IMAGE_NAME):dev-amd64-ui-only \
+		localhost/$(IMAGE_NAME):dev-arm64-ui-only \
+		2>/dev/null || true; \
+	"$$RT" manifest rm $(IMAGE_NAME):dev-ui-only 2>/dev/null || true; \
+	printf "ok: image-build-clean\n"
+
+image-push: image-push-ui-only ## Build + push the UI runtime, multi-arch
+
+image-push-ui-only: image-build-ui-only ## Build + push the UI manifest list
+	$(IMAGE_BUILD_SCRIPT) $(IMAGE_NAME) ui-only push
+
 # === Cleanup ===
 clean: ## Remove build artifacts and caches
 	@rm -rf "$(DIST_DIR)" "$(NG_CACHE)" node_modules/.cache
 	@printf "removed %s/ %s/ node_modules/.cache\n" "$(DIST_DIR)" "$(NG_CACHE)"
 
-distclean: clean deb-clean ## Also remove node_modules (full reset)
+distclean: clean deb-clean packages-clean image-build-clean ## Also remove node_modules (full reset)
 	@rm -rf node_modules
 	@printf "removed node_modules -- run 'make install' to restore\n"
