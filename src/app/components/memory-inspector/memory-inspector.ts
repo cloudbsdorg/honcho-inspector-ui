@@ -2,10 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   HostListener,
   inject,
   OnInit,
   signal,
+  untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -186,6 +188,73 @@ export class MemoryInspector implements OnInit {
   readonly selectedPeerId = signal<string | null>(null);
   readonly selectedSessionId = signal<string | null>(null);
 
+  readonly peerSearchInput = signal('');
+  readonly peerPageSize = signal(25);
+  readonly peerCurrentPage = signal(1);
+
+  readonly filteredPeers = computed<HonchoPeerSummary[]>(() => {
+    const q = this.peerSearchInput().trim().toLowerCase();
+    const all = this.honcho.peers();
+    if (!q) return all;
+    return all.filter((p) => p.id.toLowerCase().includes(q));
+  });
+
+  readonly peerTotalPages = computed(() => {
+    const total = this.filteredPeers().length;
+    return Math.max(1, Math.ceil(total / this.peerPageSize()));
+  });
+
+  readonly pagedPeers = computed<HonchoPeerSummary[]>(() => {
+    const all = this.filteredPeers();
+    const pageSize = this.peerPageSize();
+    const totalPages = Math.max(1, Math.ceil(all.length / pageSize));
+    const currentPage = Math.min(Math.max(1, this.peerCurrentPage()), totalPages);
+    if (currentPage !== this.peerCurrentPage()) {
+      untracked(() => this.peerCurrentPage.set(currentPage));
+    }
+    const start = (currentPage - 1) * pageSize;
+    return all.slice(start, start + pageSize);
+  });
+
+  readonly sessionSearchInput = signal('');
+  readonly sessionPageSize = signal(25);
+  readonly sessionCurrentPage = signal(1);
+
+  readonly filteredSessions = computed<HonchoSessionSummary[]>(() => {
+    const q = this.sessionSearchInput().trim().toLowerCase();
+    const all = this.honcho.sessions();
+    if (!q) return all;
+    return all.filter((s) => s.id.toLowerCase().includes(q));
+  });
+
+  readonly sessionTotalPages = computed(() => {
+    const total = this.filteredSessions().length;
+    return Math.max(1, Math.ceil(total / this.sessionPageSize()));
+  });
+
+  readonly pagedSessions = computed<HonchoSessionSummary[]>(() => {
+    const all = this.filteredSessions();
+    const pageSize = this.sessionPageSize();
+    const totalPages = Math.max(1, Math.ceil(all.length / pageSize));
+    const currentPage = Math.min(Math.max(1, this.sessionCurrentPage()), totalPages);
+    if (currentPage !== this.sessionCurrentPage()) {
+      untracked(() => this.sessionCurrentPage.set(currentPage));
+    }
+    const start = (currentPage - 1) * pageSize;
+    return all.slice(start, start + pageSize);
+  });
+
+  constructor() {
+    effect(() => {
+      this.peerSearchInput();
+      untracked(() => this.peerCurrentPage.set(1));
+    });
+    effect(() => {
+      this.sessionSearchInput();
+      untracked(() => this.sessionCurrentPage.set(1));
+    });
+  }
+
   // Pop-out modal state. When set, renders a full-screen overlay
   // with the full text + copy / close controls. The trigger lives
   // in the Peer Card / Representation sections of the right pane;
@@ -333,7 +402,24 @@ export class MemoryInspector implements OnInit {
     }
   }
 
+  /**
+   * Peer-selector change handler. Empty string means "no peer" (the
+   * "— select peer —" option); previously the empty value made its
+   * way into {@code inspectPeer("")} which fired a 404 against
+   * {@code /api/peers//card} and surfaced that error to the user.
+   * Now we clear the peer-scoped state and bail without touching
+   * the network.
+   */
   async selectPeer(id: string): Promise<void> {
+    if (!id) {
+      this.selectedPeerId.set(null);
+      this.selectedSessionId.set(null);
+      this.peerDetail.set(null);
+      this.conclusions.set([]);
+      this.loading.set(false);
+      this.error.set(null);
+      return;
+    }
     this.selectedPeerId.set(id);
     this.selectedSessionId.set(null);
     this.peerDetail.set(null);
@@ -1120,7 +1206,23 @@ export class MemoryInspector implements OnInit {
     }
   }
 
+  /**
+   * Session-selector change handler. Empty string means "no session"
+   * (the "— select session —" option); previously the empty value
+   * made its way through {@code selectSession("")} → 404 against
+   * {@code /api/sessions//} and surfaced that error to the user.
+   * Now we clear the session-scoped state and bail without touching
+   * the network.
+   */
   async selectSessionWithMessages(id: string): Promise<void> {
+    if (!id) {
+      this.selectedSessionId.set(null);
+      this.sessionDetail.set(null);
+      this.sessionMessages.set([]);
+      this.loading.set(false);
+      this.error.set(null);
+      return;
+    }
     await this.selectSession(id);
     await this.loadSessionMessages();
   }

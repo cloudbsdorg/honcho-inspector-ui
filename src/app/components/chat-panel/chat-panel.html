@@ -13,7 +13,7 @@
         </p>
       </div>
     }
-    @for (turn of turns(); track turn.ts) {
+    @for (turn of turns(); track turn.ts; let isLast = $last) {
       <div
         class="flex"
         [class.justify-end]="turn.role === 'user'"
@@ -28,7 +28,21 @@
           <div class="mb-1 text-[10px] font-bold uppercase tracking-widest opacity-70">
             {{ turn.role }}
           </div>
-          <app-markdown [source]="turn.content" class="md-content" />
+          @if (isLast && turn.role === 'assistant' && busy()) {
+            <!-- In-flight assistant bubble. Reads from the streaming
+                 signal so the operator sees tokens appear in place;
+                 the <app-markdown> re-render cost is acceptable for
+                 the typical 10-50 chunks a turn produces. A
+                 blinking caret marks the cursor. -->
+            <app-markdown [source]="streamingAssistantTurn()" class="md-content" />
+            <span
+              class="th-stream-cursor ml-0.5 inline-block h-3 w-1.5 align-middle"
+              aria-hidden="true"
+              data-testid="chat-stream-cursor"
+            ></span>
+          } @else {
+            <app-markdown [source]="turn.content" class="md-content" />
+          }
         </div>
       </div>
     }
@@ -124,17 +138,31 @@
       style="border-radius: var(--radius); color: var(--text); min-height: 2.5rem; max-height: 12rem"
       data-testid="chat-input"
     ></textarea>
-    <button
-      type="submit"
-      [disabled]="!canSend()"
-      class="th-border flex-shrink-0 border-2 px-4 py-2 text-sm font-bold uppercase tracking-widest th-gradient"
-      style="border-radius: var(--radius); color: var(--bg)"
-    >
-      @if (busy()) {
-        <span class="th-display">...</span>
-      } @else {
+    @if (busy()) {
+      <button
+        type="button"
+        (click)="cancel()"
+        data-testid="chat-cancel"
+        aria-label="Cancel in-flight chat"
+        class="th-border flex-shrink-0 border-2 px-3 py-2 text-xs font-bold uppercase tracking-widest"
+        style="
+          border-radius: var(--radius);
+          background: var(--surface);
+          color: var(--danger);
+        "
+      >
+        Cancel
+      </button>
+    } @else {
+      <button
+        type="submit"
+        [disabled]="!canSend()"
+        data-testid="chat-send"
+        class="th-border flex-shrink-0 border-2 px-4 py-2 text-sm font-bold uppercase tracking-widest th-gradient"
+        style="border-radius: var(--radius); color: var(--bg)"
+      >
         Send
-      }
-    </button>
+      </button>
+    }
   </form>
 </div>

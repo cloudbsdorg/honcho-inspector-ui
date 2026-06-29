@@ -3,6 +3,7 @@ import { ApiClient, ApiError } from './api-client';
 import { HonchoAuthService } from './honcho-auth.service';
 import { ProfileService } from './profile.service';
 import {
+  HonchoChatChunk,
   HonchoConclusion,
   HonchoMessage,
   HonchoPeerInspect,
@@ -230,6 +231,186 @@ export class HonchoService {
         body,
       })) ?? ''
     );
+  }
+
+  /**
+   * Stream a Honcho chat response as an async iterable of text
+   * chunks. Hits `POST /api/peers/{peerId}/chat/stream` which
+   * returns Server-Sent Events; each event carries the project's
+   * `{data, error, meta}` envelope and is unwrapped into a
+   * {@link HonchoChatChunk}.
+   *
+   * <p>Coexists with {@link chat} (the non-streaming JSON path);
+   * the chat popout wires both. The popout passes its own
+   * `AbortController.signal` so a Cancel button can interrupt the
+   * stream mid-flight; once the underlying `fetch()` is aborted the
+   * reader loop exits cleanly.
+   *
+   * @param peerId Honcho peer to chat with.
+   * @param query  Natural-language question.
+   * @param signal Optional `AbortSignal` to cancel the stream.
+   */
+  async *chatStream(
+    peerId: string,
+    query: string,
+    options?: { target?: string; signal?: AbortSignal },
+  ): AsyncGenerator<HonchoChatChunk> {
+    this.requireSession();
+    this.requireProfile();
+    const path = `/peers/${encodeURIComponent(peerId)}/chat/stream`;
+    const body: Record<string, unknown> = { query };
+    if (options?.target) body['target'] = options.target;
+    const init = this.buildSessionRequest(path, body, {
+      Accept: 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    });
+    if (options?.signal) {
+      init.signal = options.signal;
+    }
+    let res: Response;
+    try {
+      res = await fetch(init.url!, init);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        return;
+      }
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new ApiError(msg, 0);
+    }
+    if (!res.ok) {
+      // Drain the body so the socket can be reused, then surface
+      // a readable message from the standard envelope.
+      const parsed = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        data?: { error?: string };
+      };
+      const msg =
+        parsed?.error ??
+        parsed?.data?.error ??
+        `Backend error ${res.status}`;
+      throw new ApiError(msg, res.status);
+    }
+    if (!res.body) {
+      throw new ApiError('Chat stream: empty response body', 0);
+    }
+    yield* this.parseSseStream(res.body);
+  }
+
+  /**
+   * Build the request init (URL + headers + serialized body) for an
+   * authenticated Honcho call. Mirrors the header/url-build logic
+   * of {@link call} so the streaming path can reuse the same
+   * `X-Session-Id` and `X-Honcho-Profile-Id` semantics without
+   * going through {@link ApiClient.request} (which awaits the full
+   * body as JSON — incompatible with SSE).
+   */
+  private buildSessionRequest(
+    path: string,
+    body: unknown,
+    extraHeaders: Record<string, string> = {},
+  ): RequestInit & { url: string } {
+    const profileId = this.profile.activeProfileId();
+    const session = this.auth.credentials();
+    if (!session) throw new ApiError('Not authenticated', 401);
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Session-Id': session.sessionId,
+      ...extraHeaders,
+    };
+    if (profileId) headers['X-Honcho-Profile-Id'] = profileId;
+    const url = '/api' + path;
+    const init: RequestInit & { url: string } = {
+      url,
+      method: 'POST',
+      headers,
+      body: body === undefined || body === null ? undefined : JSON.stringify(body),
+    };
+    return init;
+  }
+
+  /**
+   * Read a {@code text/event-stream} body as UTF-8 lines, parse
+   * each {@code data: ...} line as the standard `{data, error,
+   * meta}` envelope, and yield chunks. Stops after the first
+   * `meta.done === true` envelope or when the reader is done.
+   *
+   * <p>Lines are buffered across chunk boundaries so a payload
+   * split mid-line in the underlying transport still reassembles.
+   * Heartbeat comments (`:` lines) and empty lines are skipped per
+   * the SSE spec.
+   *
+   * @param stream The response body as a byte stream.
+   */
+  private async *parseSseStream(
+    stream: ReadableStream<Uint8Array>,
+  ): AsyncGenerator<HonchoChatChunk> {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    let gotFirstChunk = false;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let newlineIdx = buffer.indexOf('\n');
+        while (newlineIdx !== -1) {
+          const rawLine = buffer.slice(0, newlineIdx);
+          buffer = buffer.slice(newlineIdx + 1);
+          const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+          if (line.startsWith(':')) {
+            // SSE comment / heartbeat — ignore.
+          } else if (line.startsWith('data:')) {
+            const payload = line.slice(5).trimStart();
+            if (payload === '') continue;
+            let parsed: { data?: { text?: unknown }; meta?: { done?: unknown } };
+            try {
+              parsed = JSON.parse(payload) as typeof parsed;
+            } catch (e) {
+              console.warn('chatStream: dropping malformed SSE payload', e);
+              continue;
+            }
+            const text = typeof parsed.data?.text === 'string' ? parsed.data.text : '';
+            const isDone = parsed.meta?.done === true;
+            if (!gotFirstChunk && (text.length > 0 || isDone)) gotFirstChunk = true;
+            yield { text, done: isDone };
+            if (isDone) return;
+          }
+          newlineIdx = buffer.indexOf('\n');
+        }
+      }
+      // Trailing partial line (no terminating newline).
+      const tail = buffer.trim();
+      if (tail.startsWith('data:')) {
+        const payload = tail.slice(5).trimStart();
+        if (payload !== '') {
+          try {
+            const parsed = JSON.parse(payload) as {
+              data?: { text?: unknown };
+              meta?: { done?: unknown };
+            };
+            const text = typeof parsed.data?.text === 'string' ? parsed.data.text : '';
+            const isDone = parsed.meta?.done === true;
+            yield { text, done: isDone };
+          } catch {
+            /* ignore trailing junk */
+          }
+        }
+      }
+    } catch (e) {
+      if (!gotFirstChunk) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new ApiError(`Chat stream interrupted: ${msg}`, 0);
+      }
+      console.warn('chatStream: error after first chunk, ending gracefully', e);
+    } finally {
+      try {
+        await reader.cancel().catch(() => undefined);
+        reader.releaseLock();
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   async getOrCreatePeer(peerId: string): Promise<void> {

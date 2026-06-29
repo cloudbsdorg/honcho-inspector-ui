@@ -172,4 +172,81 @@ describe('ConfirmDestructiveDialog', () => {
     fixture.detectChanges();
     expect(component.typedInput()).toBe('');
   });
+
+  /** Regression guards for the typed-confirmation gating. */
+
+  function typeInto(text: string): void {
+    const inputEl = fixture.nativeElement.querySelector(
+      '[data-testid="confirm-destructive-typed-input"]',
+    ) as HTMLInputElement;
+    inputEl.value = text;
+    inputEl.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  it('disables the confirm button when typed input is empty', () => {
+    renderWith({ typedConfirmation: 'delete conclusion' });
+    const confirmBtn = fixture.nativeElement.querySelector(
+      '[data-testid="confirm-destructive-confirm-medium"]',
+    ) as HTMLButtonElement;
+    expect(confirmBtn).toBeTruthy();
+    expect(confirmBtn.disabled).toBe(true);
+  });
+
+  it('does not emit confirmed when typed input is empty (button is clickable but guarded)', () => {
+    renderWith({ typedConfirmation: 'delete conclusion' });
+    const emitSpy = vi.spyOn(component.confirmed, 'emit');
+    // jsdom suppresses click events on <button disabled>, so drive
+    // the handler directly to verify the in-component guard.
+    component.onConfirm();
+    expect(emitSpy).not.toHaveBeenCalled();
+  });
+
+  it('enables the confirm button when typed input matches exactly', () => {
+    renderWith({ typedConfirmation: 'delete conclusion' });
+    typeInto('delete conclusion');
+    const confirmBtn = fixture.nativeElement.querySelector(
+      '[data-testid="confirm-destructive-confirm-medium"]',
+    ) as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(false);
+    const emitSpy = vi.spyOn(component.confirmed, 'emit');
+    confirmBtn.click();
+    expect(emitSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT enable the confirm button when typed input case-differs', () => {
+    renderWith({ typedConfirmation: 'delete conclusion' });
+    typeInto('Delete Conclusion');
+    const confirmBtn = fixture.nativeElement.querySelector(
+      '[data-testid="confirm-destructive-confirm-medium"]',
+    ) as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+    expect(component.canConfirm()).toBe(false);
+  });
+
+  it('does NOT enable the confirm button when typed input differs by punctuation / whitespace', () => {
+    renderWith({ typedConfirmation: 'delete conclusion' });
+    typeInto(' Delete Conclusion');
+    expect(
+      (fixture.nativeElement.querySelector(
+        '[data-testid="confirm-destructive-confirm-medium"]',
+      ) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    typeInto('delete conclusion ');
+    expect(
+      (fixture.nativeElement.querySelector(
+        '[data-testid="confirm-destructive-confirm-medium"]',
+      ) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it('typing past the exact match then deleting down leaves the button disabled', () => {
+    renderWith({ typedConfirmation: 'delete conclusion' });
+    typeInto('delete conclusion extra');
+    expect(component.canConfirm()).toBe(false);
+    typeInto('delete conclusion');
+    expect(component.canConfirm()).toBe(true);
+    typeInto('delete conclusio');
+    expect(component.canConfirm()).toBe(false);
+  });
 });

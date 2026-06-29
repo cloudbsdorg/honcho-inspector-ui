@@ -593,4 +593,417 @@ describe('MemoryInspector bulk + edit state', () => {
       { key: 'b', value: '2' },
     ]);
   });
+
+  it('deletes a single conclusion and removes it from the live conclusions signal', async () => {
+    let deleteCalls = 0;
+    let refreshCalls = 0;
+    const refreshedItems = [
+      { id: 'c-2', content: 'keep', observer_id: 'a', observed_id: 'b', created_at: '2026-01-02T00:00:00Z' },
+    ];
+    installFetch((path, init) => {
+      if (path === '/api/conclusions/c-1' && init?.method === 'DELETE') {
+        deleteCalls++;
+        return jsonResponse({ data: null, error: null, meta: null });
+      }
+      if (path === '/api/conclusions' && init?.method !== 'DELETE') {
+        refreshCalls++;
+        return jsonResponse({ items: refreshedItems, total: 1 });
+      }
+      return jsonResponse({ items: [] });
+    });
+    component.conclusions.set([
+      { id: 'c-1', content: 'gone', observerId: 'a', observedId: 'b', sessionId: null, createdAt: '2026-01-01T00:00:00Z' },
+      { id: 'c-2', content: 'keep', observerId: 'a', observedId: 'b', sessionId: null, createdAt: '2026-01-02T00:00:00Z' },
+    ]);
+    component.deleteOneConclusion('c-1');
+    expect(component.destructiveDialog()?.typedConfirmation).toBe('delete conclusion');
+    await component.onDestructiveConfirmed();
+    // The onConfirm closure is fire-and-forget inside the dialog
+    // handler, so let any pending microtasks settle.
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+    expect(deleteCalls).toBe(1);
+    expect(refreshCalls).toBeGreaterThanOrEqual(1);
+    expect(component.conclusions().map((c) => c.id)).toEqual(['c-2']);
+    expect(component.destructiveDialog()).toBeNull();
+    expect(component.error()).toBeNull();
+  });
+
+  it('deleteOneConclusion surfaces backend errors via the error signal (does not throw)', async () => {
+    installFetch((path, init) => {
+      if (path === '/api/conclusions/c-1' && init?.method === 'DELETE') {
+        // 4xx (other than 401/403/404/429) — the api-client surfaces
+        // the wrapped `error` field verbatim via ApiError.friendlyMessage.
+        return jsonResponse({ error: 'cannot delete derived fact' }, 400);
+      }
+      return jsonResponse({ items: [] });
+    });
+    component.conclusions.set([
+      { id: 'c-1', content: 'x', observerId: 'a', observedId: 'b', sessionId: null, createdAt: '' },
+    ]);
+    component.deleteOneConclusion('c-1');
+    await component.onDestructiveConfirmed();
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+    expect(component.error()).toContain('cannot delete derived fact');
+    // Still in the list because the delete didn't succeed.
+    expect(component.conclusions().map((c) => c.id)).toEqual(['c-1']);
+  });
+});
+
+// ── Dropdown empty-string guards ─────────────────────────────
+//
+// The Peers and Sessions tab dropdowns both have a leading
+// "— select peer/session —" placeholder whose value is the empty
+// string. Before these guards, picking that option fired an API
+// call with an empty id (e.g. /api/peers//card), which 404'd and
+// surfaced as a user-visible error in the inspector pane.
+//
+// These specs verify both halves of the fix:
+//   - empty input clears state and never reaches the network
+//   - non-empty input still does the original fetch + store
+
+describe('MemoryInspector dropdown empty-string guards', () => {
+  let fixture: ComponentFixture<MemoryInspector>;
+  let component: MemoryInspector;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    await bootstrapSession();
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MemoryInspector],
+      providers: [provideRouter([])],
+    }).compileComponents();
+    TestBed.inject(HonchoService);
+    TestBed.inject(HonchoAuthService);
+    TestBed.inject(ProfileService);
+    TestBed.inject(ThemeService);
+    fixture = TestBed.createComponent(MemoryInspector);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('selectPeer("") clears state without calling the API', async () => {
+    const fetchSpy = installFetch((path) => {
+      if (path.endsWith('/card')) return jsonResponse(['fact about alice']);
+      if (path.endsWith('/representation')) return jsonResponse('rep about alice');
+      if (path.includes('/conclusions')) return jsonResponse({ items: [] });
+      if (path.includes('/sessions')) return jsonResponse({ items: [] });
+      return jsonResponse({});
+    });
+
+    // Seed state by picking alice — exercises the happy path and
+    // proves the seed actually populated peerDetail.
+    await component.selectPeer('alice');
+    const callsAfterAlice = fetchSpy.mock.calls.length;
+    expect(component.selectedPeerId()).toBe('alice');
+    expect(component.peerDetail()?.id).toBe('alice');
+
+    // Now pick the empty placeholder — must clear state and must
+    // NOT issue any new fetch calls.
+    await component.selectPeer('');
+    expect(component.selectedPeerId()).toBeNull();
+    expect(component.peerDetail()).toBeNull();
+    expect(component.error()).toBeNull();
+    expect(fetchSpy.mock.calls.length).toBe(callsAfterAlice);
+  });
+
+  it('selectPeer("alice") still calls inspectPeer and stores detail', async () => {
+    let inspectPeerCalls = 0;
+    installFetch((path) => {
+      if (path.endsWith('/card')) return jsonResponse(['fact about alice']);
+      if (path.endsWith('/representation')) return jsonResponse('rep about alice');
+      if (path.includes('/conclusions')) return jsonResponse({ items: [] });
+      if (path.includes('/sessions')) return jsonResponse({ items: [] });
+      // Anything that touches /peers/alice/ counts as part of the
+      // inspectPeer fan-out — track it so we can assert ≥ 1 call.
+      if (path.includes('/peers/alice/')) inspectPeerCalls++;
+      return jsonResponse({});
+    });
+
+    await component.selectPeer('alice');
+    expect(component.selectedPeerId()).toBe('alice');
+    expect(component.peerDetail()?.id).toBe('alice');
+    expect(component.peerDetail()?.card).toEqual(['fact about alice']);
+    expect(component.peerDetail()?.representation).toBe('rep about alice');
+    expect(inspectPeerCalls).toBeGreaterThan(0);
+    expect(component.error()).toBeNull();
+  });
+
+  it('selectSessionWithMessages("") clears state without calling the API', async () => {
+    const fetchSpy = installFetch((path) => {
+      if (path === '/api/sessions/foo') return jsonResponse({ id: 'foo' });
+      if (path.includes('/sessions/foo/peers')) return jsonResponse(['alice']);
+      if (path.includes('/sessions/foo/summaries')) return jsonResponse({});
+      if (path.includes('/sessions/foo/messages')) return jsonResponse({ items: [] });
+      return jsonResponse({});
+    });
+
+    // Seed state by picking foo — exercises inspectSession + listSessionMessages.
+    await component.selectSessionWithMessages('foo');
+    const callsAfterFoo = fetchSpy.mock.calls.length;
+    expect(component.selectedSessionId()).toBe('foo');
+    expect(component.sessionDetail()?.id).toBe('foo');
+
+    // Now pick the empty placeholder — must clear state and must
+    // NOT issue any new fetch calls.
+    await component.selectSessionWithMessages('');
+    expect(component.selectedSessionId()).toBeNull();
+    expect(component.sessionDetail()).toBeNull();
+    expect(component.sessionMessages()).toEqual([]);
+    expect(component.error()).toBeNull();
+    expect(fetchSpy.mock.calls.length).toBe(callsAfterFoo);
+  });
+
+  it('selectSessionWithMessages("foo") still calls inspectSession + listSessionMessages', async () => {
+    let inspectSessionCalls = 0;
+    let listMessagesCalls = 0;
+    installFetch((path) => {
+      if (path === '/api/sessions/foo') {
+        inspectSessionCalls++;
+        return jsonResponse({ id: 'foo' });
+      }
+      if (path.includes('/sessions/foo/peers')) return jsonResponse(['alice']);
+      if (path.includes('/sessions/foo/summaries')) return jsonResponse({});
+      if (path.includes('/sessions/foo/messages') && !path.includes('/m-')) {
+        listMessagesCalls++;
+        return jsonResponse({
+          items: [
+            {
+              id: 'm-1',
+              peer_id: 'alice',
+              session_id: 'foo',
+              content: 'hello',
+              created_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      return jsonResponse({});
+    });
+
+    await component.selectSessionWithMessages('foo');
+    expect(component.selectedSessionId()).toBe('foo');
+    expect(component.sessionDetail()?.id).toBe('foo');
+    expect(component.sessionDetail()?.peerIds).toEqual(['alice']);
+    expect(inspectSessionCalls).toBeGreaterThan(0);
+    expect(listMessagesCalls).toBeGreaterThan(0);
+    expect(component.sessionMessages().map((m) => m.id)).toEqual(['m-1']);
+    expect(component.sessionMessages()[0].content).toBe('hello');
+    expect(component.error()).toBeNull();
+  });
+});
+
+describe('filterable peer/session lists (peers + sessions)', () => {
+  let fixture: ComponentFixture<MemoryInspector>;
+  let component: MemoryInspector;
+  let honcho: HonchoService;
+
+  const peers = Array.from({ length: 30 }, (_, i) => ({
+    id: i < 5 ? `alice-${i}` : i < 10 ? `bob-${i}` : `peer-${i}`,
+    createdAt: '2026-01-01T00:00:00Z',
+    metadata: {},
+  }));
+  const sessions = Array.from({ length: 30 }, (_, i) => ({
+    id: i < 5 ? `chat-${i}` : i < 10 ? `meeting-${i}` : `session-${i}`,
+    peerIds: [],
+    createdAt: '2026-01-01T00:00:00Z',
+  }));
+
+  function seedData() {
+    const h = honcho as unknown as {
+      _peers: { set: (v: typeof peers) => void };
+      _sessions: { set: (v: typeof sessions) => void };
+    };
+    h._peers.set(peers);
+    h._sessions.set(sessions);
+  }
+
+  beforeEach(async () => {
+    localStorage.clear();
+    await bootstrapSession();
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MemoryInspector],
+      providers: [provideRouter([])],
+    }).compileComponents();
+    TestBed.inject(HonchoAuthService);
+    TestBed.inject(ProfileService);
+    TestBed.inject(ThemeService);
+    honcho = TestBed.inject(HonchoService);
+    installFetch(() => jsonResponse({}));
+    fixture = TestBed.createComponent(MemoryInspector);
+    component = fixture.componentInstance;
+    seedData();
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('peerSearchInput filters peers whose id contains the substring (case-insensitive)', () => {
+    component.peerSearchInput.set('alice');
+    fixture.detectChanges();
+    const ids = component.filteredPeers().map((p) => p.id);
+    expect(ids).toEqual(['alice-0', 'alice-1', 'alice-2', 'alice-3', 'alice-4']);
+    expect(component.filteredPeers().length).toBe(5);
+  });
+
+  it('peerSearchInput is case-insensitive (uppercase query matches lowercase ids)', () => {
+    component.peerSearchInput.set('ALICE');
+    fixture.detectChanges();
+    expect(component.filteredPeers().map((p) => p.id).sort()).toEqual([
+      'alice-0',
+      'alice-1',
+      'alice-2',
+      'alice-3',
+      'alice-4',
+    ]);
+    expect(component.filteredPeers().length).toBe(5);
+  });
+
+  it('peerSearchInput empty shows all peers', () => {
+    component.peerSearchInput.set('xyz-no-match');
+    fixture.detectChanges();
+    expect(component.filteredPeers().length).toBe(0);
+
+    component.peerSearchInput.set('');
+    fixture.detectChanges();
+    expect(component.filteredPeers().length).toBe(peers.length);
+    expect(component.filteredPeers()).toEqual(peers);
+  });
+
+  it('peerCurrentPage pagination: page 1 shows first 25, page 2 shows remainder, totalPages clamps overflow', () => {
+    expect(component.peerTotalPages()).toBe(2);
+    expect(component.pagedPeers().length).toBe(25);
+    expect(component.pagedPeers()[0].id).toBe('alice-0');
+    expect(component.pagedPeers()[24].id).toBe('peer-24');
+
+    component.peerCurrentPage.set(2);
+    fixture.detectChanges();
+    expect(component.pagedPeers().length).toBe(5);
+    expect(component.pagedPeers().map((p) => p.id)).toEqual([
+      'peer-25',
+      'peer-26',
+      'peer-27',
+      'peer-28',
+      'peer-29',
+    ]);
+
+    component.peerCurrentPage.set(99);
+    fixture.detectChanges();
+    expect(component.pagedPeers().length).toBe(5);
+  });
+
+  it('clicking a peer card calls selectPeer with that id', async () => {
+    installFetch((path) => {
+      if (path.endsWith('/card')) return jsonResponse([]);
+      if (path.endsWith('/representation')) return jsonResponse('');
+      if (path.includes('/conclusions')) return jsonResponse({ items: [] });
+      if (path.includes('/sessions')) return jsonResponse({ items: [] });
+      return jsonResponse({});
+    });
+    const selectSpy = vi.spyOn(component, 'selectPeer');
+    component.setTab('peers');
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector(
+      '[data-testid="inspect-peer-card-alice-2"]',
+    ) as HTMLButtonElement;
+    expect(card).toBeTruthy();
+    card.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(selectSpy).toHaveBeenCalledWith('alice-2');
+  });
+
+  it('sessionSearchInput filters sessions whose id contains the substring (case-insensitive)', () => {
+    component.sessionSearchInput.set('chat');
+    fixture.detectChanges();
+    expect(component.filteredSessions().map((s) => s.id)).toEqual([
+      'chat-0',
+      'chat-1',
+      'chat-2',
+      'chat-3',
+      'chat-4',
+    ]);
+    expect(component.filteredSessions().length).toBe(5);
+  });
+
+  it('sessionSearchInput is case-insensitive (uppercase query matches lowercase ids)', () => {
+    component.sessionSearchInput.set('CHAT');
+    fixture.detectChanges();
+    expect(component.filteredSessions().map((s) => s.id).sort()).toEqual([
+      'chat-0',
+      'chat-1',
+      'chat-2',
+      'chat-3',
+      'chat-4',
+    ]);
+    expect(component.filteredSessions().length).toBe(5);
+  });
+
+  it('sessionSearchInput empty shows all sessions', () => {
+    component.sessionSearchInput.set('xyz-no-match');
+    fixture.detectChanges();
+    expect(component.filteredSessions().length).toBe(0);
+
+    component.sessionSearchInput.set('');
+    fixture.detectChanges();
+    expect(component.filteredSessions().length).toBe(sessions.length);
+    expect(component.filteredSessions()).toEqual(sessions);
+  });
+
+  it('sessionCurrentPage pagination: page 1 shows first 25, page 2 shows remainder, totalPages clamps overflow', () => {
+    expect(component.sessionTotalPages()).toBe(2);
+    expect(component.pagedSessions().length).toBe(25);
+    expect(component.pagedSessions()[0].id).toBe('chat-0');
+
+    component.sessionCurrentPage.set(2);
+    fixture.detectChanges();
+    expect(component.pagedSessions().length).toBe(5);
+    expect(component.pagedSessions().map((s) => s.id)).toEqual([
+      'session-25',
+      'session-26',
+      'session-27',
+      'session-28',
+      'session-29',
+    ]);
+
+    component.sessionCurrentPage.set(99);
+    fixture.detectChanges();
+    expect(component.pagedSessions().length).toBe(5);
+  });
+
+  it('clicking a session card calls selectSessionWithMessages with that id', async () => {
+    installFetch((path) => {
+      if (path === '/api/sessions/chat-1') return jsonResponse({ id: 'chat-1' });
+      if (path.includes('/sessions/chat-1/peers')) return jsonResponse([]);
+      if (path.includes('/sessions/chat-1/summaries')) return jsonResponse({});
+      if (path.includes('/sessions/chat-1/messages')) return jsonResponse({ items: [] });
+      return jsonResponse({});
+    });
+    const selectSpy = vi.spyOn(component, 'selectSessionWithMessages');
+    component.setTab('sessions');
+    fixture.detectChanges();
+
+    const card = fixture.nativeElement.querySelector(
+      '[data-testid="inspect-session-card-chat-1"]',
+    ) as HTMLButtonElement;
+    expect(card).toBeTruthy();
+    card.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(selectSpy).toHaveBeenCalledWith('chat-1');
+  });
 });

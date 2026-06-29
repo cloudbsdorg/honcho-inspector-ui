@@ -29,3 +29,20 @@
   0%, 60%, 100% { opacity: 0.4; transform: scale(1); }
   30%           { opacity: 1.0; transform: scale(1.4); }
 }
+
+/*
+  Streaming caret. A 1.5x12px block that toggles opacity on a
+  1s ease-in-out loop so the operator sees the cursor blink at the
+  end of the in-flight assistant text. The animation runs under
+  pure CSS so it stays smooth even while the surrounding
+  <app-markdown> re-renders on every chunk.
+*/
+.th-stream-cursor {
+  background: currentColor;
+  animation: th-cursor-blink 1s steps(2, start) infinite;
+}
+
+@keyframes th-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}

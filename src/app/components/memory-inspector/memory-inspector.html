@@ -260,36 +260,117 @@
       @case ('peers') {
         <div data-testid="peers-pane" class="grid grid-cols-1 gap-3 md:grid-cols-3">
           <aside>
-            <h2
-              class="th-display mb-2 text-lg font-bold tracking-widest"
-              style="color: var(--accent)"
-            >
-              Peers ({{ honcho.peers().length }})
-            </h2>
-            <select
-              [ngModel]="selectedPeerId() ?? ''"
-              (ngModelChange)="selectPeer($event)"
-              data-testid="inspect-peer-select"
-              class="th-surface th-border w-full border-2 px-2 py-1 text-xs"
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <h2
+                class="th-display text-lg font-bold tracking-widest"
+                style="color: var(--accent)"
+              >
+                Peers ({{ honcho.peers().length }})
+              </h2>
+              <button
+                type="button"
+                (click)="honcho.refreshPeers()"
+                [disabled]="honcho.loading()"
+                data-testid="peers-refresh"
+                class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style="
+                  border-radius: var(--radius);
+                  background: var(--surface);
+                  color: var(--accent);
+                "
+              >
+                ↻ Refresh
+              </button>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Filter peers by id…"
+              data-testid="inspect-peer-search"
+              [value]="peerSearchInput()"
+              (input)="peerSearchInput.set($any($event.target).value)"
+              class="th-surface th-border w-full border-2 px-2 py-1 text-xs outline-none"
               style="border-radius: var(--radius); color: var(--text)"
-            >
-              <option value="">
-                @if (honcho.peers().length === 0) {
-                  — no peers —
-                } @else {
-                  — select peer —
-                }
-              </option>
-              @for (p of honcho.peers(); track p.id) {
-                <option
-                  [value]="p.id"
-                  [attr.data-peer-id]="p.id"
-                  [attr.data-active]="selectedPeerId() === p.id"
+            />
+
+            <ul class="mt-3 space-y-1" data-testid="inspect-peer-list">
+              @for (p of pagedPeers(); track p.id) {
+                <li>
+                  <button
+                    type="button"
+                    (click)="selectPeer(p.id)"
+                    [attr.data-testid]="'inspect-peer-card-' + p.id"
+                    [attr.data-active]="selectedPeerId() === p.id"
+                    class="th-border block w-full cursor-pointer border-2 px-3 py-2 text-left font-mono text-sm"
+                    style="border-radius: var(--radius)"
+                    [style.background]="selectedPeerId() === p.id ? 'var(--surface)' : 'var(--bg)'"
+                    [style.borderColor]="selectedPeerId() === p.id ? 'var(--accent)' : 'var(--border)'"
+                    [style.color]="selectedPeerId() === p.id ? 'var(--accent)' : 'var(--text)'"
+                  >
+                    {{ p.id }}
+                  </button>
+                </li>
+              } @empty {
+                <li
+                  class="text-xs opacity-60"
+                  style="color: var(--text-dim)"
+                  data-testid="inspect-peer-empty"
                 >
-                  {{ p.id }}
-                </option>
+                  @if (peerSearchInput().trim()) {
+                    No peers match "{{ peerSearchInput() }}".
+                  } @else {
+                    — no peers —
+                  }
+                </li>
               }
-            </select>
+            </ul>
+
+            <div
+              class="th-border mt-3 flex items-center justify-between gap-2 border-t-2 pt-2 text-xs"
+              style="color: var(--text-dim); border-color: var(--border)"
+              data-testid="inspect-peer-pagination"
+            >
+              <span data-testid="inspect-peer-counts">
+                Showing {{ pagedPeers().length }} of {{ filteredPeers().length }}
+              </span>
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  (click)="peerCurrentPage.set(peerCurrentPage() - 1)"
+                  [disabled]="peerCurrentPage() <= 1"
+                  data-testid="inspect-peer-prev"
+                  class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                  style="
+                    border-radius: var(--radius);
+                    background: var(--surface);
+                    color: var(--text-dim);
+                  "
+                >
+                  ‹ prev
+                </button>
+                <span
+                  data-testid="inspect-peer-page-info"
+                  class="font-mono"
+                  style="color: var(--text-dim)"
+                >
+                  Page {{ peerCurrentPage() }} of {{ peerTotalPages() }}
+                </span>
+                <button
+                  type="button"
+                  (click)="peerCurrentPage.set(peerCurrentPage() + 1)"
+                  [disabled]="peerCurrentPage() >= peerTotalPages()"
+                  data-testid="inspect-peer-next"
+                  class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                  style="
+                    border-radius: var(--radius);
+                    background: var(--surface);
+                    color: var(--text-dim);
+                  "
+                >
+                  next ›
+                </button>
+              </div>
+            </div>
           </aside>
 
           <section class="md:col-span-2">
@@ -607,102 +688,117 @@
       @case ('sessions') {
         <div data-testid="sessions-pane" class="grid grid-cols-1 gap-3 md:grid-cols-3">
           <aside>
-            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div class="mb-2 flex items-center justify-between gap-2">
               <h2
                 class="th-display text-lg font-bold tracking-widest"
                 style="color: var(--accent)"
               >
                 Sessions ({{ honcho.sessions().length }})
               </h2>
-              @if (selectedSessionIds().size > 0) {
-                <button
-                  type="button"
-                  (click)="bulkDeleteSessions()"
-                  data-testid="sessions-bulk-delete"
-                  class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
-                  style="border-radius: var(--radius); background: var(--danger); color: var(--bg)"
-                >
-                  Delete ({{ selectedSessionIds().size }})
-                </button>
-                <button
-                  type="button"
-                  (click)="clearSessionSelections()"
-                  data-testid="sessions-clear-selection"
-                  class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
-                  style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
-                >
-                  Clear
-                </button>
-              } @else if (honcho.sessions().length > 0) {
-                <button
-                  type="button"
-                  (click)="selectAllSessions()"
-                  data-testid="sessions-select-all"
-                  class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
-                  style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
-                >
-                  Select all
-                </button>
-              }
+              <button
+                type="button"
+                (click)="honcho.refreshSessions()"
+                [disabled]="honcho.loading()"
+                data-testid="sessions-refresh"
+                class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style="
+                  border-radius: var(--radius);
+                  background: var(--surface);
+                  color: var(--accent);
+                "
+              >
+                ↻ Refresh
+              </button>
             </div>
 
-            <select
-              [ngModel]="selectedSessionId() ?? ''"
-              (ngModelChange)="selectSessionWithMessages($event)"
-              data-testid="inspect-session-select"
-              class="th-surface th-border w-full border-2 px-2 py-1 text-xs"
+            <input
+              type="text"
+              placeholder="Filter sessions by id…"
+              data-testid="inspect-session-search"
+              [value]="sessionSearchInput()"
+              (input)="sessionSearchInput.set($any($event.target).value)"
+              class="th-surface th-border w-full border-2 px-2 py-1 text-xs outline-none"
               style="border-radius: var(--radius); color: var(--text)"
-            >
-              <option value="">
-                @if (honcho.sessions().length === 0) {
-                  — no sessions —
-                } @else {
-                  — select session —
-                }
-              </option>
-              @for (s of honcho.sessions(); track s.id) {
-                <option
-                  [value]="s.id"
-                  [attr.data-session-id]="s.id"
-                  [attr.data-active]="selectedSessionId() === s.id"
-                >
-                  {{ s.id }}
-                </option>
-              }
-            </select>
+            />
 
-            <ul class="mt-3 space-y-1" data-testid="sessions-bulk-list">
-              @for (s of honcho.sessions(); track s.id) {
-                <li
-                  class="th-border flex items-center gap-2 border-2 px-2 py-1 text-xs"
-                  style="border-radius: var(--radius); background: var(--surface)"
-                  [attr.data-testid]="'session-row-' + s.id"
-                >
-                  <input
-                    type="checkbox"
-                    [checked]="isSessionSelected(s.id)"
-                    (change)="toggleSessionSelect(s.id)"
-                    [attr.data-testid]="'select-session-' + s.id"
-                    [attr.aria-label]="'Select session ' + s.id"
-                  />
+            <ul class="mt-3 space-y-1" data-testid="inspect-session-list">
+              @for (s of pagedSessions(); track s.id) {
+                <li>
                   <button
                     type="button"
                     (click)="selectSessionWithMessages(s.id)"
-                    class="flex-1 cursor-pointer truncate text-left font-mono"
-                    style="color: var(--accent); background: transparent; border: none; padding: 0"
-                    [style.color]="selectedSessionId() === s.id ? 'var(--accent-3)' : 'var(--accent)'"
-                  >{{ s.id }}</button>
-                  <button
-                    type="button"
-                    (click)="deleteOneSession(s.id)"
-                    [attr.data-testid]="'delete-session-' + s.id"
-                    [attr.aria-label]="'Delete session ' + s.id"
-                    class="th-border border px-1.5 py-0.5 text-[10px] font-bold uppercase"
-                    style="border-radius: var(--radius); color: var(--danger); background: var(--bg)"
-                  >🗑</button>
+                    [attr.data-testid]="'inspect-session-card-' + s.id"
+                    [attr.data-active]="selectedSessionId() === s.id"
+                    class="th-border block w-full cursor-pointer border-2 px-3 py-2 text-left font-mono text-sm"
+                    style="border-radius: var(--radius)"
+                    [style.background]="selectedSessionId() === s.id ? 'var(--surface)' : 'var(--bg)'"
+                    [style.borderColor]="selectedSessionId() === s.id ? 'var(--accent)' : 'var(--border)'"
+                    [style.color]="selectedSessionId() === s.id ? 'var(--accent)' : 'var(--text)'"
+                  >
+                    {{ s.id }}
+                  </button>
+                </li>
+              } @empty {
+                <li
+                  class="text-xs opacity-60"
+                  style="color: var(--text-dim)"
+                  data-testid="inspect-session-empty"
+                >
+                  @if (sessionSearchInput().trim()) {
+                    No sessions match "{{ sessionSearchInput() }}".
+                  } @else {
+                    — no sessions —
+                  }
                 </li>
               }
             </ul>
+
+            <div
+              class="th-border mt-3 flex items-center justify-between gap-2 border-t-2 pt-2 text-xs"
+              style="color: var(--text-dim); border-color: var(--border)"
+              data-testid="inspect-session-pagination"
+            >
+              <span data-testid="inspect-session-counts">
+                Showing {{ pagedSessions().length }} of {{ filteredSessions().length }}
+              </span>
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  (click)="sessionCurrentPage.set(sessionCurrentPage() - 1)"
+                  [disabled]="sessionCurrentPage() <= 1"
+                  data-testid="inspect-session-prev"
+                  class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                  style="
+                    border-radius: var(--radius);
+                    background: var(--surface);
+                    color: var(--text-dim);
+                  "
+                >
+                  ‹ prev
+                </button>
+                <span
+                  data-testid="inspect-session-page-info"
+                  class="font-mono"
+                  style="color: var(--text-dim)"
+                >
+                  Page {{ sessionCurrentPage() }} of {{ sessionTotalPages() }}
+                </span>
+                <button
+                  type="button"
+                  (click)="sessionCurrentPage.set(sessionCurrentPage() + 1)"
+                  [disabled]="sessionCurrentPage() >= sessionTotalPages()"
+                  data-testid="inspect-session-next"
+                  class="th-border border-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest"
+                  style="
+                    border-radius: var(--radius);
+                    background: var(--surface);
+                    color: var(--text-dim);
+                  "
+                >
+                  next ›
+                </button>
+              </div>
+            </div>
           </aside>
 
           <section class="md:col-span-2">

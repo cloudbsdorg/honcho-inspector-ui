@@ -545,4 +545,176 @@ describe('HonchoService', () => {
       expect(spy).toHaveBeenCalled();
     });
   });
+
+  describe('chatStream', () => {
+    /**
+     * Build a `Response` whose body is a `ReadableStream<Uint8Array>`
+     * over the given SSE bytes. Mirrors what jsdom + the browser
+     * expose for `fetch()` streaming responses.
+     */
+    function sseResponse(bytes: string, status = 200): Response {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(bytes));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        status,
+        headers: {
+          'Content-Type': 'text/event-stream',
+        },
+      });
+    }
+
+    it('should POST to /api/peers/{id}/chat/stream with json body', async () => {
+      const spy = installFetch((path, init) => {
+        expect(path).toBe('/api/peers/alice/chat/stream');
+        expect(init?.method).toBe('POST');
+        expect(JSON.parse(init!.body as string)).toEqual({ query: 'hello' });
+        return sseResponse('data: {"data":{"text":"hi"},"meta":{"done":true}}\n\n');
+      });
+      const chunks: { text: string; done: boolean }[] = [];
+      for await (const c of service.chatStream('alice', 'hello')) {
+        chunks.push(c);
+      }
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(chunks).toEqual([{ text: 'hi', done: true }]);
+    });
+
+    it('should send Content-Type: application/json and Accept: text/event-stream', async () => {
+      installFetch((_path, init) => {
+        const headers = init?.headers as Record<string, string>;
+        expect(headers['Content-Type']).toBe('application/json');
+        expect(headers['Accept']).toBe('text/event-stream');
+        return sseResponse('data: {"data":{"text":"ok"},"meta":{"done":true}}\n\n');
+      });
+      for await (const _c of service.chatStream('alice', 'ping')) {
+        /* drain */
+      }
+    });
+
+    it('should send X-Session-Id and X-Honcho-Profile-Id on the stream request', async () => {
+      installFetch((_path, init) => {
+        const headers = init?.headers as Record<string, string>;
+        expect(headers['X-Session-Id']).toBe('sess-abc');
+        expect(headers['X-Honcho-Profile-Id']).toBe('profile-1');
+        return sseResponse('data: {"data":{"text":"ok"},"meta":{"done":true}}\n\n');
+      });
+      for await (const _c of service.chatStream('alice', 'ping')) {
+        /* drain */
+      }
+    });
+
+    it('should yield a chunk per data: line and assemble text incrementally', async () => {
+      const payload = [
+        'data: {"data":{"text":"Hello"},"meta":{"done":false}}\n\n',
+        'data: {"data":{"text":", world"},"meta":{"done":false}}\n\n',
+        'data: {"data":{"text":"!"},"meta":{"done":false}}\n\n',
+        'data: {"data":{"text":""},"meta":{"done":true}}\n\n',
+      ].join('');
+      installFetch(() => sseResponse(payload));
+      const chunks: { text: string; done: boolean }[] = [];
+      for await (const c of service.chatStream('alice', 'go')) {
+        chunks.push(c);
+      }
+      expect(chunks).toEqual([
+        { text: 'Hello', done: false },
+        { text: ', world', done: false },
+        { text: '!', done: false },
+        { text: '', done: true },
+      ]);
+      // The final done chunk ends the loop; we should not consume
+      // past it even if the underlying stream stayed open.
+      expect(chunks.length).toBe(4);
+    });
+
+    it('should stop yielding after the done:true sentinel', async () => {
+      const payload = [
+        'data: {"data":{"text":"a"},"meta":{"done":false}}\n\n',
+        'data: {"data":{"text":""},"meta":{"done":true}}\n\n',
+        'data: {"data":{"text":"LEAKED"},"meta":{"done":false}}\n\n',
+      ].join('');
+      installFetch(() => sseResponse(payload));
+      const chunks: { text: string; done: boolean }[] = [];
+      for await (const c of service.chatStream('alice', 'go')) {
+        chunks.push(c);
+      }
+      const seenLeak = chunks.some((c) => c.text.includes('LEAKED'));
+      expect(seenLeak).toBe(false);
+      expect(chunks.at(-1)?.done).toBe(true);
+    });
+
+    it('should throw an ApiError on a non-2xx response with the envelope message', async () => {
+      installFetch(() =>
+        jsonResponse({ error: 'dream pipeline offline' }, 502),
+      );
+      await expect(async () => {
+        for await (const _c of service.chatStream('alice', 'go')) {
+          /* drain */
+        }
+      }).rejects.toMatchObject({ status: 502, message: 'dream pipeline offline' });
+    });
+
+    it('should release the reader lock when the consumer stops early', async () => {
+      // Build a stream that yields a single chunk and stays open
+      // until the reader is cancelled. The consumer breaks out of
+      // the for-await loop right after the first chunk, which
+      // exercises the finally-block reader cleanup.
+      const encoder = new TextEncoder();
+      let cancelCalled = false;
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode('data: {"data":{"text":"first"},"meta":{"done":false}}\n\n'),
+          );
+          // Do not close — the consumer must cancel us.
+        },
+        cancel() {
+          cancelCalled = true;
+        },
+      });
+      installFetch(
+        () =>
+          new Response(stream, {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }),
+      );
+      const iter = service.chatStream('alice', 'go')[Symbol.asyncIterator]();
+      const first = await iter.next();
+      expect(first.value).toEqual({ text: 'first', done: false });
+      // Break out without consuming the rest. The service's
+      // finally block should still run reader.cancel() and the
+      // underlying cancel() callback above should fire.
+      await iter.return?.(undefined);
+      // Give the microtask queue a chance to drain.
+      await new Promise((r) => setTimeout(r, 0));
+      expect(cancelCalled).toBe(true);
+    });
+
+    it('should treat an aborted fetch as a graceful no-op (no throw)', async () => {
+      // Simulate the operator pressing Cancel: the consumer's
+      // AbortController fires while fetch() is still resolving.
+      // The service should swallow the resulting DOMException
+      // and end the generator without an error.
+      const ctrl = new AbortController();
+      installFetch((_path, init) => {
+        const signal = init?.signal as AbortSignal | undefined;
+        // Fire abort on the next tick so the fetch is mid-flight.
+        queueMicrotask(() => ctrl.abort());
+        return new Promise<Response>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            reject(new DOMException('aborted', 'AbortError'));
+          });
+        });
+      });
+      const chunks: { text: string; done: boolean }[] = [];
+      for await (const c of service.chatStream('alice', 'go', { signal: ctrl.signal })) {
+        chunks.push(c);
+      }
+      expect(chunks).toEqual([]);
+    });
+  });
 });

@@ -264,3 +264,20 @@ export interface HonchoWorkspaceMetadata {
   createdAt: string;
   raw: Record<string, unknown>;
 }
+
+/**
+ * One server-sent chunk from `POST /api/peers/{peerId}/chat/stream`.
+ *
+ * <p>The backend emits SSE envelopes of the shape
+ * {@code {data:{text:"<chunk>"}, meta:{done:false}}} per chunk and a
+ * final {@code {data:{text:""}, meta:{done:true}}} sentinel that
+ * closes the stream. The frontend parses each envelope and yields a
+ * {@link HonchoChatChunk} to the consumer (the chat popout) which
+ * appends {@link text} to the in-flight assistant turn. When
+ * {@link done} is {@code true} the consumer stops the loop and
+ * commits the accumulated text to the turns signal.
+ */
+export interface HonchoChatChunk {
+  text: string;
+  done: boolean;
+}

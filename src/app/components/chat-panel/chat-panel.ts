@@ -49,6 +49,16 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
   readonly busy = signal(false);
   readonly turns = signal<ChatTurn[]>([]);
   readonly error = signal<string | null>(null);
+  /**
+   * Live assistant text while a stream is in flight. Updated
+   * incrementally per chunk; the template renders this signal
+   * directly inside the in-flight bubble so the operator sees
+   * the response assemble token-by-token. Once `streamingDone`
+   * flips true we commit the final value into `turns`.
+   */
+  readonly streamingAssistantTurn = signal('');
+  /** True once the backend's `meta.done` envelope is received. */
+  readonly streamingDone = signal(false);
 
   /**
    * Wall-clock timestamp (ms) of when the current `busy` state
@@ -90,8 +100,22 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
    * "still working…" message on at the 5-second mark.
    */
   private busyTicker: ReturnType<typeof setInterval> | null = null;
+  /**
+   * Active stream's abort handle. Set when `send()` starts a
+   * streaming chat so the Cancel button (and `ngOnDestroy`) can
+   * interrupt the underlying `fetch()` mid-flight. Cleared once
+   * the stream terminates.
+   */
+  private activeAbort: AbortController | null = null;
 
   ngOnChanges(_changes?: SimpleChanges): void {
+    // Peer swap mid-stream: tear down the in-flight reader so the
+    // next turn starts from a clean slate. We don't surface an
+    // error here because the operator didn't ask to cancel.
+    this.activeAbort?.abort();
+    this.activeAbort = null;
+    this.streamingAssistantTurn.set('');
+    this.streamingDone.set(false);
     // New peer selected: clear conversation + error so the operator
     // starts a fresh thread. We deliberately do NOT clear inputValue
     // here because the input is unbound in this lifecycle (the user
@@ -102,6 +126,11 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
   }
 
   ngOnDestroy(): void {
+    // Abort any in-flight stream so the underlying fetch() releases
+    // its socket; otherwise the reader keeps the panel alive past
+    // ngOnDestroy and the OS reclaims it more slowly.
+    this.activeAbort?.abort();
+    this.activeAbort = null;
     // Make sure no timer keeps firing after the panel is removed
     // (the chat pop-out closing is the main path here). Without
     // this, a stale interval would tick every second forever.
@@ -175,24 +204,77 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
     this.busySeconds.set(0);
     this.startBusyTicker();
     this.error.set(null);
-    this.turns.update((t) => [...t, { role: 'user', content: text, ts: Date.now() }]);
+    // Pre-allocate the assistant turn as an empty placeholder; the
+    // stream will fill it incrementally via streamingAssistantTurn
+    // and we commit the final value into the same turn index below.
+    this.turns.update((t) => [
+      ...t,
+      { role: 'user', content: text, ts: Date.now() },
+      { role: 'assistant', content: '', ts: Date.now() },
+    ]);
     this.inputValue.set('');
     this.pendingScroll = true;
+    this.streamingAssistantTurn.set('');
+    this.streamingDone.set(false);
+    const myAbort = new AbortController();
+    this.activeAbort = myAbort;
     try {
-      const reply = await this.honcho.chat(this.peerId, text);
-      this.turns.update((t) => [
-        ...t,
-        { role: 'assistant', content: reply || '(no reply)', ts: Date.now() },
-      ]);
+      for await (const chunk of this.honcho.chatStream(this.peerId, text, {
+        signal: myAbort.signal,
+      })) {
+        if (myAbort.signal.aborted) break;
+        if (chunk.text) {
+          this.streamingAssistantTurn.update((s) => s + chunk.text);
+        }
+        if (chunk.done) {
+          this.streamingDone.set(true);
+          break;
+        }
+      }
+      const finalText = this.streamingAssistantTurn();
+      // Commit the streamed text into the placeholder turn so it
+      // survives the next signal reset and renders as a normal
+      // (non-streaming) bubble from then on.
+      this.turns.update((t) => {
+        const next = [...t];
+        const lastIdx = next.length - 1;
+        if (lastIdx >= 0 && next[lastIdx]!.role === 'assistant') {
+          next[lastIdx] = { ...next[lastIdx]!, content: finalText || '(no reply)' };
+        }
+        return next;
+      });
     } catch (e) {
-      this.error.set(formatError(e, 'Chat failed'));
+      const msg = formatError(e, 'Chat failed');
+      this.error.set(msg);
+      // Drop the placeholder assistant turn so the operator doesn't
+      // see a stale empty bubble next to the error message.
+      this.turns.update((t) => {
+        const next = [...t];
+        const lastIdx = next.length - 1;
+        if (lastIdx >= 0 && next[lastIdx]!.role === 'assistant' && next[lastIdx]!.content === '') {
+          next.pop();
+        }
+        return next;
+      });
     } finally {
       this.busy.set(false);
       this.busySince.set(null);
       this.busySeconds.set(0);
+      this.streamingAssistantTurn.set('');
+      this.streamingDone.set(false);
+      this.activeAbort = null;
       this.stopBusyTicker();
       this.pendingScroll = true;
     }
+  }
+
+  /**
+   * Abort the in-flight stream (if any). Wired to the Cancel
+   * button so the operator can stop a long-running reply without
+   * closing the panel.
+   */
+  cancel(): void {
+    this.activeAbort?.abort();
   }
 
   private scrollToBottom(): void {
