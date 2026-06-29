@@ -714,20 +714,38 @@
                   style="border-radius: var(--radius); background: var(--surface)"
                 >
                   <div class="text-sm">{{ c.content }}</div>
-                  <div class="mt-1 text-[10px] opacity-60" style="color: var(--text-dim)">
-                    observer: <span style="color: var(--accent)">{{ c.observerId }}</span> ·
-                    observed: <span style="color: var(--accent-2)">{{ c.observedId }}</span>
-                    @if (c.sessionId) {
-                      · session: <span style="color: var(--accent-3)">{{ c.sessionId }}</span>
-                    } @else {
-                      · <em>global</em>
-                    }
-                    ·
-                    <span
-                      [title]="formatWallClockTooltip(c.createdAt, { timeZone: tz.effectiveTimezone() })"
-                    >
-                      {{ formatWallClock(c.createdAt, 'short', { timeZone: tz.effectiveTimezone() }) }}
-                    </span>
+                  <div class="mt-1 flex items-start justify-between gap-2 text-[10px] opacity-60" style="color: var(--text-dim)">
+                    <div class="flex-1">
+                      observer: <span style="color: var(--accent)">{{ c.observerId }}</span> ·
+                      observed: <span style="color: var(--accent-2)">{{ c.observedId }}</span>
+                      @if (c.sessionId) {
+                        · session: <span style="color: var(--accent-3)">{{ c.sessionId }}</span>
+                      } @else {
+                        · <em>global</em>
+                      }
+                      ·
+                      <span
+                        [title]="formatWallClockTooltip(c.createdAt, { timeZone: tz.effectiveTimezone() })"
+                      >
+                        {{ formatWallClock(c.createdAt, 'short', { timeZone: tz.effectiveTimezone() }) }}
+                      </span>
+                    </div>
+                    <div class="flex shrink-0 items-center gap-1">
+                      <span
+                        class="font-mono text-[10px]"
+                        style="color: var(--text-dim)"
+                        [attr.data-testid]="'conclusion-id-' + c.id"
+                        [title]="c.id"
+                      >{{ c.id }}</span>
+                      <button
+                        type="button"
+                        (click)="copyConclusionId(c.id)"
+                        [attr.data-testid]="'copy-conclusion-id-' + c.id"
+                        [attr.aria-label]="'Copy id ' + c.id"
+                        class="th-border border px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                        style="border-radius: var(--radius); color: var(--text); background: var(--bg); border-color: var(--accent-2)"
+                      >Copy</button>
+                    </div>
                   </div>
                 </li>
               }

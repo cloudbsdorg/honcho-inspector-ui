@@ -448,4 +448,43 @@ export class MemoryInspector implements OnInit {
   goToDashboard(): void {
     this.router.navigateByUrl('/');
   }
+
+  /**
+   * Copy a conclusion id to the OS clipboard with a graceful
+   * fallback. The id is the only stable identifier for a
+   * conclusion (the content can change, the timestamp is unstable
+   * across replays); copying it lets the operator paste it into
+   * the audit log or share it with a colleague without retyping
+   * a 22-character random string from the GUI.
+   */
+  async copyConclusionId(id: string): Promise<void> {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(id);
+        return;
+      }
+    } catch {
+        // fall through to the legacy path (e.g. on an insecure
+        // http:// origin where the async clipboard API is gated)
+      }
+    }
+    // Legacy fallback: stage the text in a hidden <textarea>
+    // and run the deprecated execCommand('copy'). Survives on
+    // older browsers and on the dev server's http:// origin.
+    const ta = document.createElement('textarea');
+    ta.value = id;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+    } catch {
+      // give up silently — the user can still long-press the
+      // monospace id in the UI to select + copy
+    } finally {
+      document.body.removeChild(ta);
+    }
+  }
 }
