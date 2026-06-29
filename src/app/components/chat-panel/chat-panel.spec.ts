@@ -320,5 +320,90 @@ describe('ChatPanel', () => {
       expect(component.error()).toContain('stream blew up');
       expect(component.busy()).toBe(false);
     });
+
+    it('re-evaluates the streaming branch on streamingAssistantTurn updates (regression)', async () => {
+      // Regression for the failure where the @if condition that
+      // picks the streaming bubble had no signal-read dependency on
+      // `streamingAssistantTurn()` — only `isLast`, `turn.role`,
+      // and `busy()` — so under OnPush change detection the
+      // branch never re-rendered as the SSE chunks arrived. The
+      // operator saw the assistant turn appear all-at-once when
+      // the stream finished. Fix: append `&& streamingAssistantTurn()
+      // !== null` to the @if so a signal-read dependency is
+      // registered on the condition itself.
+      //
+      // Strategy: stub `chatStream` with the existing harness,
+      // start a send, push three chunks, and after each chunk
+      // assert that the DOM re-rendered with the new
+      // `streamingAssistantTurn` text — proving the @if branch's
+      // signal-dependency machinery is intact.
+      const harness = new SseHarness();
+      stubStream(harness);
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(jsonResponse('unused'));
+      component.inputValue.set('hi alice');
+      const sendPromise = component.send();
+      // Chunk 1.
+      await harness.push('Hello');
+      fixture.detectChanges();
+      expect(component.streamingAssistantTurn()).toBe('Hello');
+      expect(component.busy()).toBe(true);
+      let rendered = fixture.nativeElement.querySelector(
+        '[data-testid="chat-stream-cursor"]',
+      );
+      expect(rendered).not.toBeNull();
+      // The streaming bubble's <app-markdown> must reflect the
+      // current streamingAssistantTurn value, not stale empty
+      // content. Walk to its rendered .md-host and verify the
+      // textContent matches.
+      let streamingHost = findStreamingMarkdownHost(fixture.nativeElement);
+      expect(streamingHost).not.toBeNull();
+      expect(streamingHost!.textContent ?? '').toContain('Hello');
+      // Chunk 2.
+      await harness.push(', world');
+      fixture.detectChanges();
+      expect(component.streamingAssistantTurn()).toBe('Hello, world');
+      streamingHost = findStreamingMarkdownHost(fixture.nativeElement);
+      expect(streamingHost).not.toBeNull();
+      expect(streamingHost!.textContent ?? '').toContain('Hello, world');
+      // Chunk 3.
+      await harness.push('!');
+      fixture.detectChanges();
+      expect(component.streamingAssistantTurn()).toBe('Hello, world!');
+      streamingHost = findStreamingMarkdownHost(fixture.nativeElement);
+      expect(streamingHost).not.toBeNull();
+      expect(streamingHost!.textContent ?? '').toContain('Hello, world!');
+      // End the stream.
+      await harness.push('', true);
+      harness.end();
+      await sendPromise;
+      fixture.detectChanges();
+      // After completion the streaming bubble is gone and the
+      // rendered bubble switches to the committed turn.content.
+      rendered = fixture.nativeElement.querySelector(
+        '[data-testid="chat-stream-cursor"]',
+      );
+      expect(rendered).toBeNull();
+    });
   });
 });
+
+/**
+ * Return the `.md-host` element rendered by the in-flight
+ * `<app-markdown>` inside the streaming assistant bubble — i.e.
+ * the markdown whose `[source]` is bound to
+ * `streamingAssistantTurn()`. The streaming bubble always lives
+ * inside the most recent `.flex.justify-start` turn, paired with
+ * a `data-testid="chat-stream-cursor"` sibling that confirms this
+ * is the in-flight branch (the committed branch has no cursor).
+ *
+ * Returns null if the cursor isn't present (no stream in flight).
+ */
+function findStreamingMarkdownHost(root: HTMLElement): HTMLElement | null {
+  const cursor = root.querySelector('[data-testid="chat-stream-cursor"]');
+  if (!cursor) return null;
+  // The cursor sits in the same bubble as the streaming markdown;
+  // walk up to that bubble's .md-host.
+  const bubble = cursor.closest('.th-border');
+  if (!bubble) return null;
+  return bubble.querySelector('.md-host');
+}

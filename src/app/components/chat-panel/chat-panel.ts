@@ -85,6 +85,43 @@ export class ChatPanel implements OnChanges, OnDestroy, AfterViewChecked {
   readonly canSend = computed(() => this.inputValue().trim().length > 0 && !this.busy());
 
   /**
+   * All turns except the last assistant placeholder (if any). The
+   * in-flight assistant bubble is rendered separately in the
+   * template — see {@link isLastAssistantStreaming} — because
+   * nesting it inside the `@for` loop's `@if` branch created a
+   * doubly-embedded view whose `[source]` binding did not
+   * re-evaluate when `streamingAssistantTurn` updated. At the top
+   * level (outside the `@for`) the signal read in the binding
+   * reliably propagates and the markdown child's `ngOnChanges`
+   * fires per chunk.
+   */
+  readonly historicalTurns = computed<ChatTurn[]>(() => {
+    const all = this.turns();
+    const last = all[all.length - 1];
+    if (last && last.role === 'assistant' && last.content === '') {
+      return all.slice(0, -1);
+    }
+    return all;
+  });
+
+  /**
+   * True when the conversation ends with an empty assistant
+   * placeholder AND a chat request is in flight. The template
+   * uses this to render the streaming bubble separately from
+   * the historical @for loop. Note this intentionally does NOT
+   * depend on `streamingAssistantTurn` — only on `turns` and
+   * `busy` — so the @if branch stays stable while the signal
+   * updates inside it, which is exactly what we want: the
+   * embedded view persists, and the inner [source] binding
+   * re-evaluates against each new chunk.
+   */
+  readonly isLastAssistantStreaming = computed(() => {
+    const all = this.turns();
+    const last = all[all.length - 1];
+    return !!(last && last.role === 'assistant' && last.content === '' && this.busy());
+  });
+
+  /**
    * Set by AfterViewChecked when a new turn has appeared since the
    * last view check. Flipped back to false after the auto-scroll
    * runs. Avoids scrolling on every change-detection tick (which

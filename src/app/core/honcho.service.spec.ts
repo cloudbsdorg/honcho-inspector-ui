@@ -716,5 +716,99 @@ describe('HonchoService', () => {
       }
       expect(chunks).toEqual([]);
     });
+
+    it('releases the ReadableStream reader on stream completion (regression for "already locked" error)', async () => {
+      // Regression test for the failure mode where the SSE
+      // parsing loop's `reader` was never released, so a SECOND
+      // `chatStream` call would throw
+      //   `Failed to execute 'getReader' on 'ReadableStream':
+      //    ReadableStreamDefaultReader constructor can only
+      //    accept readable streams that are not yet locked to
+      //    a reader`
+      // because the underlying body stayed locked from the first
+      // call. The fix is to `reader.releaseLock()` from the
+      // `finally` block of `parseSseStream` so the lock is
+      // released on success, early-break, error, AND cancellation.
+      //
+      // Strategy: build a stream that enumerates a couple of
+      // chunks then closes itself, run `chatStream` to completion
+      // once, then run it again. If the lock isn't released,
+      // the second call's `getReader()` will throw.
+      const encoder = new TextEncoder();
+      const makeStream = () =>
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode(
+                'data: {"data":{"text":"first"},"meta":{"done":false}}\n\n',
+              ),
+            );
+            controller.enqueue(
+              encoder.encode(
+                'data: {"data":{"text":""},"meta":{"done":true}}\n\n',
+              ),
+            );
+            controller.close();
+          },
+        });
+      const makeResponse = () =>
+        new Response(makeStream(), {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        });
+      let calls = 0;
+      installFetch(() => {
+        calls += 1;
+        return makeResponse();
+      });
+      // First call: drain it fully.
+      const first: { text: string; done: boolean }[] = [];
+      for await (const c of service.chatStream('alice', 'go')) {
+        first.push(c);
+      }
+      expect(calls).toBe(1);
+      expect(first).toEqual([
+        { text: 'first', done: false },
+        { text: '', done: true },
+      ]);
+      // Second call: the body produced by installFetch() is a
+      // brand-new ReadableStream, but if Bug B regresses and the
+      // previous reader's lock is leaked onto shared state, the
+      // second invocation will throw synchronously from
+      // `stream.getReader()`. Drain it and assert no throw.
+      const second: { text: string; done: boolean }[] = [];
+      await expect(async () => {
+        for await (const c of service.chatStream('alice', 'go')) {
+          second.push(c);
+        }
+      }).not.rejects.toThrow();
+      expect(calls).toBe(2);
+      expect(second).toEqual([
+        { text: 'first', done: false },
+        { text: '', done: true },
+      ]);
+      // Defense-in-depth: directly probe the stream's `locked`
+      // bit. Build a third stream, acquire a reader through
+      // `chatStream` using a throwaway fetch handler, let it
+      // complete, then assert the original stream is unlocked.
+      let probed: ReadableStream<Uint8Array> | null = null;
+      installFetch(() => {
+        probed = makeStream();
+        return new Response(probed, {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        });
+      });
+      for await (const _c of service.chatStream('alice', 'go')) {
+        /* drain */
+      }
+      // If the finally block ran releaseLock, the stream must
+      // no longer be locked.
+      expect(probed!.locked).toBe(false);
+      // And a brand-new reader can be acquired without the
+      // "already locked" DOMException.
+      const reader = probed!.getReader();
+      reader.releaseLock();
+    });
   });
 });
