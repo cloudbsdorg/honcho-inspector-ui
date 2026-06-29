@@ -29,6 +29,7 @@ function resolveLocale(): string {
 
 async function loadLocaleData(locale: string): Promise<void> {
   try {
+    /* @vite-ignore */
     const mod = (await import(`@angular/common/locales/${locale}.js`)) as {
       default: Parameters<typeof registerLocaleData>[0];
     };

@@ -39,7 +39,7 @@ const PAGE_SIZE_LABELS: Record<PageSizeUi, string> = {
 
 @Component({
   selector: 'app-admin',
-  imports: [ChartComponent, DecimalPipe, JsonPipe, UserCreateWizard, ChangePasswordModal],
+  imports: [ChartComponent, DecimalPipe, UserCreateWizard, ChangePasswordModal],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './admin.html',
   styleUrl: './admin.css',
