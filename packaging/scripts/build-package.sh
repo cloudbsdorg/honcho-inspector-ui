@@ -114,9 +114,16 @@ printf "output dir: %s\n" "$OUT_DIR"
 # use `build --pull=false` (avoid hitting the network every time)
 # and rely on the build cache invalidation that the runtime does
 # automatically when the Containerfile changes.
+#
+# Pass the host UID/GID as Containerfile build args so the entrypoint
+# can chown the artifact to the operator at the end.
+HOST_UID=`id -u`
+HOST_GID=`id -g`
 printf "[%s] building image %s ...\n" "$RUNTIME" "$IMAGE_TAG"
 "$RUNTIME" build \
     --pull=false \
+    --build-arg "HOST_UID=$HOST_UID" \
+    --build-arg "HOST_GID=$HOST_GID" \
     -f "$DOCKERFILE" \
     -t "$IMAGE_TAG" \
     "$PROJECT_ROOT" >/dev/null || {
@@ -146,6 +153,13 @@ printf "[%s] building image %s ...\n" "$RUNTIME" "$IMAGE_TAG"
 # `podman cp` reads from it as the runtime's own privilege (which
 # has CAP_CHOWN for the operator's mapped uids), so the file on
 # the host ends up owned by the operator.
+#
+# HOST_UID / HOST_GID are forwarded so the entrypoint's `chown -R
+# ${HOST_UID}:${HOST_GID} /out` (used in the legacy bind-mount path)
+# succeeds under `set -u`. Under the named-volume + cp flow this
+# chown is dead code (the artifact is in the volume, not bind-mounted),
+# but we keep the env so the entrypoint doesn't crash with
+# "HOST_UID: unbound variable".
 CONTAINER_NAME="${REPO_NAME}-builder-${DISTRO}-$$"
 VOLUME_NAME="${REPO_NAME}-out-${DISTRO}-$$"
 printf "[%s] preparing volume %s\n" "$RUNTIME" "$VOLUME_NAME"
@@ -154,6 +168,8 @@ printf "[%s] preparing volume %s\n" "$RUNTIME" "$VOLUME_NAME"
 printf "[%s] running %s (detached as %s) ...\n" "$RUNTIME" "$IMAGE_TAG" "$CONTAINER_NAME"
 "$RUNTIME" run --detach \
     --name "$CONTAINER_NAME" \
+    --env "HOST_UID=$HOST_UID" \
+    --env "HOST_GID=$HOST_GID" \
     --mount "type=volume,source=$VOLUME_NAME,destination=/out" \
     -v "$PROJECT_ROOT:/src:ro" \
     "$IMAGE_TAG" || {
