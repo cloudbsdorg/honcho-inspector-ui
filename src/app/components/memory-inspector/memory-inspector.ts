@@ -26,6 +26,7 @@ import {
 } from '../../core/models';
 import { TimezoneService } from '../../core/timezone.service';
 import { formatRelative, formatWallClock, formatWallClockTooltip } from '../../core/datetime';
+import { ConfigService } from '../../core/config.service';
 import { ChatPanel } from '../chat-panel/chat-panel';
 import { MarkdownComponent } from '../markdown/markdown.component';
 import { ConfirmDestructiveDialog } from '../shared/confirm-destructive-dialog/confirm-destructive-dialog';
@@ -57,6 +58,9 @@ export class MemoryInspector implements OnInit {
   private readonly profileService = inject(ProfileService);
   private readonly router = inject(Router);
   readonly tz = inject(TimezoneService);
+  private readonly config = inject(ConfigService);
+  /** Mirrors the server-side HONCHO_UI_CHAT_ENABLED flag. */
+  readonly chatEnabled = this.config.chatEnabled;
 
   readonly formatRelative = formatRelative;
   readonly formatWallClock = formatWallClock;

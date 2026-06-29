@@ -152,22 +152,24 @@
             <div class="th-display text-2xl font-bold tracking-wider" style="color: var(--accent)">
               {{ pid }}
             </div>
-            <div class="text-[10px] opacity-70">Honcho peer · live memory + dialectic chat</div>
+            <div class="text-[10px] opacity-70">Honcho peer · live memory{{ chatEnabled() ? ' + dialectic chat' : '' }}</div>
           </div>
           <div class="flex flex-shrink-0 items-center gap-2">
             @if (loadingPeer()) {
               <span class="th-display text-xs" style="color: var(--accent)">loading...</span>
             }
-            <button
-              type="button"
-              (click)="openChatPopOut()"
-              data-testid="open-chat-popout"
-              title="Open chat in a pop-out window"
-              class="th-border border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
-              style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
-            >
-              Chat ↗
-            </button>
+            @if (chatEnabled()) {
+              <button
+                type="button"
+                (click)="openChatPopOut()"
+                data-testid="open-chat-popout"
+                title="Open chat in a pop-out window"
+                class="th-border border-2 px-3 py-1 text-xs font-bold uppercase tracking-widest"
+                style="border-radius: var(--radius); background: var(--accent); color: var(--bg)"
+              >
+                Chat ↗
+              </button>
+            }
           </div>
         </div>
 
@@ -435,7 +437,7 @@
   just sets the viewport size and the close-on-overlay-click
   contract.
 -->
-@if (chatPoppedOut()) {
+@if (chatPoppedOut() && chatEnabled()) {
   <div
     class="fixed inset-0 z-50 flex items-center justify-center p-4"
     style="background: color-mix(in srgb, var(--bg) 70%, transparent)"

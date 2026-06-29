@@ -384,19 +384,21 @@
                     {{ pd.id }}
                   </h2>
                   <div class="flex gap-2">
-                    <button
-                      type="button"
-                      (click)="openChatPopOut()"
-                      data-testid="open-chat-popout"
-                      class="th-border border-2 px-3 py-1 text-xs font-bold uppercase"
-                      style="
-                        border-radius: var(--radius);
-                        background: var(--accent);
-                        color: var(--bg);
-                      "
-                    >
-                      Chat ↗
-                    </button>
+                    @if (chatEnabled()) {
+                      <button
+                        type="button"
+                        (click)="openChatPopOut()"
+                        data-testid="open-chat-popout"
+                        class="th-border border-2 px-3 py-1 text-xs font-bold uppercase"
+                        style="
+                          border-radius: var(--radius);
+                          background: var(--accent);
+                          color: var(--bg);
+                        "
+                      >
+                        Chat ↗
+                      </button>
+                    }
                     <button
                       type="button"
                       (click)="triggerDream()"
@@ -1385,7 +1387,7 @@
   modal; the modal's outer shell just sets the viewport size and
   the close-on-overlay-click contract.
 -->
-@if (chatPoppedOut()) {
+@if (chatPoppedOut() && chatEnabled()) {
   <div
     class="fixed inset-0 z-50 flex items-center justify-center p-4"
     style="background: color-mix(in srgb, var(--bg) 70%, transparent)"

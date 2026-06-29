@@ -18,6 +18,7 @@ import { TimezoneService } from '../../core/timezone.service';
 import { formatRelative, formatWallClock, formatWallClockTooltip } from '../../core/datetime';
 import { WorkspaceOverview } from './workspace-overview';
 import { MetricsService } from '../../core/metrics.service';
+import { ConfigService } from '../../core/config.service';
 import { ChatPanel } from '../chat-panel/chat-panel';
 import { MarkdownComponent } from '../markdown/markdown.component';
 
@@ -36,6 +37,9 @@ export class Dashboard implements OnInit {
   readonly profileService = inject(ProfileService);
   private readonly metrics = inject(MetricsService);
   readonly tz = inject(TimezoneService);
+  private readonly config = inject(ConfigService);
+  /** Mirrors the server-side HONCHO_UI_CHAT_ENABLED flag. */
+  readonly chatEnabled = this.config.chatEnabled;
 
   readonly formatRelative = formatRelative;
   readonly formatWallClock = formatWallClock;

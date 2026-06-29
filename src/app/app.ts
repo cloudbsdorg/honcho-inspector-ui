@@ -9,6 +9,7 @@ import { Router, RouterOutlet } from '@angular/router';
 import { AppHeader } from './components/app-header/app-header';
 import { ConfirmDialog } from './components/confirm-dialog/confirm-dialog';
 import { HonchoAuthService } from './core/honcho-auth.service';
+import { ConfigService } from './core/config.service';
 
 @Component({
   selector: 'app-root',
@@ -34,9 +35,15 @@ import { HonchoAuthService } from './core/honcho-auth.service';
 export class App implements OnInit {
   private readonly router = inject(Router);
   private readonly auth = inject(HonchoAuthService);
+  private readonly config = inject(ConfigService);
   private readonly destroyRef = inject(DestroyRef);
 
   ngOnInit(): void {
+    // Pull server-driven UI flags (e.g. chatEnabled) once on
+    // boot. The service defaults to chatEnabled=false so the UI
+    // is safe even if the health endpoint is unreachable; the
+    // resolve replaces the default with the real value.
+    void this.config.load();
     // Subscribe to the auth service's session-expired signal and
     // route the user to /login?reason=expired so the LoginModal can
     // show a clear "your session expired" message. We deduplicate on
