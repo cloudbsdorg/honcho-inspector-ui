@@ -194,6 +194,10 @@ The UI is gated by an `authGuard`. Before redirecting to `/login`, the guard pro
 - `ChartComponent` — thin Chart.js wrapper (`<canvas>` based, OnPush)
 - `ThemePicker` — six themes: Miami Vice, Retro CRT, Windows 95, SunOS, CDE, Modern Glass
 
+### Presentation mode
+
+Set `HONCHO_UI_API_KEY_VISIBLE_TO_NON_ADMIN=false` on the backend to lock down the Honcho API-key surface for non-admin users during product demos. The frontend reads the value via `GET /api/health` (`apiKeyVisibleToNonAdmin`); when `false`, `ProfileSelector` hides the **Reveal API Key** button + the **API Key** edit field on the profile form for non-admin sessions, and the corresponding `ProfileController` endpoints (`reveal`, `PUT` with `apiKey` in body, `test`) return 403 for non-admin callers. Admins always have full access. The flag defaults to `true` (current behavior) — flip it in the backend environment or `/etc/honcho-inspector/application.yml` before a demo and revert afterwards.
+
 ### Services
 
 - `HonchoAuthService` — session + current user + setup/login/logout/me
