@@ -273,6 +273,38 @@ describe('HonchoService', () => {
     });
   });
 
+  describe('reactive reload on active profile change', () => {
+    it('should clear visible peers + sessions when active profile changes', async () => {
+      installFetch(() =>
+        jsonResponse({ items: [{ id: 'p1-peer', created_at: '', metadata: {} }] }),
+      );
+      await service.refreshPeers();
+      expect(service.peers().some((p) => p.id === 'p1-peer')).toBe(true);
+
+      installFetch(() =>
+        jsonResponse({ items: [{ id: 'p2-peer', created_at: '', metadata: {} }] }),
+      );
+      profiles.setActive('profile-2');
+      await service.refreshPeers();
+      expect(service.peers().some((p) => p.id === 'p1-peer')).toBe(false);
+      expect(service.peers().some((p) => p.id === 'p2-peer')).toBe(true);
+    });
+
+    it('should clear visible state when active profile is set to null', async () => {
+      installFetch(() =>
+        jsonResponse({ items: [{ id: 'p1-peer', created_at: '', metadata: {} }] }),
+      );
+      await service.refreshPeers();
+      expect(service.peers().length).toBeGreaterThan(0);
+
+      profiles.setActive(null);
+      expect(service.peers().length).toBe(0);
+      expect(service.sessions().length).toBe(0);
+      expect(service.queueStatus()).toBeNull();
+      expect(service.error()).toBeNull();
+    });
+  });
+
   describe('friendly error messages', () => {
     it('should map status 0 to a network-reachable error', () => {
       const msg = service.friendlyErrorMessage(new ApiError('Failed to fetch', 0));

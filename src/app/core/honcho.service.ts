@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { ApiClient, ApiError } from './api-client';
 import { HonchoAuthService } from './honcho-auth.service';
 import { ProfileService } from './profile.service';
@@ -33,6 +33,8 @@ export class HonchoService {
   private readonly _error = signal<string | null>(null);
   private readonly _loading = signal(false);
   private readonly _lastRefreshedAt = signal<number | null>(null);
+  /** Tracks the last profile id the constructor effect reacted to, for idempotency. */
+  private lastObservedProfileId: string | null = null;
 
   readonly peers = this._peers.asReadonly();
   readonly sessions = this._sessions.asReadonly();
@@ -49,7 +51,43 @@ export class HonchoService {
     return e ? this.friendlyErrorMessage(e) : null;
   });
 
-  constructor() {}
+  constructor() {
+    // Reacts to active-profile changes. Without this, switching
+    // profiles in the selector updated the active id but left the
+    // dashboard showing the previous profile's peers + sessions
+    // indefinitely (the dashboard bootstrap only runs once on mount).
+    // (Bug found 2026-06-30 during live validation.)
+    effect(() => {
+      const id = this.profile.activeProfileId();
+      untracked(() => this.onActiveProfileChanged(id));
+    });
+  }
+
+  /**
+   * Called from the active-profile effect in the constructor. Idempotent
+   * on consecutive calls with the same profile id. When the profile
+   * changes, reloads the cache from localStorage and kicks off a
+   * background refresh from the upstream Honcho.
+   */
+  private onActiveProfileChanged(id: string | null): void {
+    if (id === this.lastObservedProfileId) return;
+    this.lastObservedProfileId = id;
+    if (id === null) {
+      this._peers.set([]);
+      this._sessions.set([]);
+      this._queueStatus.set(null);
+      this._error.set(null);
+      this._lastRefreshedAt.set(null);
+      return;
+    }
+    this.loadCache(id);
+    this._error.set(null);
+    // Background refresh — errors surface via `_error` already and
+    // shouldn't reject the effect's microtask.
+    void this.refreshPeers().catch(() => undefined);
+    void this.refreshSessions().catch(() => undefined);
+    void this.refreshQueueStatus().catch(() => undefined);
+  }
 
   async init(): Promise<void> {
     this.requireSession();
