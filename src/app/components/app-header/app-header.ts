@@ -48,14 +48,22 @@ export class AppHeader {
     return !u.startsWith('/setup') && !u.startsWith('/login');
   });
 
+  // Without this latch the effect would loop: `_profiles.set([])` is
+  // treated as a change (new array reference, !== previous), the effect
+  // re-fires, length === 0 is still true, fetch again, set to [], repeat.
+  private profilesFetchedEmpty = false;
+
   constructor() {
-    // When the header first becomes visible (user just landed on a guarded
-    // route), make sure the profile list is populated so the combobox
-    // actually has options to choose from. Safe to call repeatedly.
     effect(() => {
-      if (this.visible() && this.profiles().length === 0) {
-        this.profileService.list().catch(() => undefined);
+      const isVisible = this.visible();
+      const currentLength = this.profiles().length;
+      if (!isVisible || currentLength > 0) {
+        this.profilesFetchedEmpty = false;
+        return;
       }
+      if (this.profilesFetchedEmpty) return;
+      this.profilesFetchedEmpty = true;
+      this.profileService.list().catch(() => undefined);
     });
   }
 
