@@ -642,7 +642,6 @@ export class MemoryInspector implements OnInit {
 
   readonly selectedConclusionIds = signal<Set<string>>(new Set());
   readonly selectedSessionIds = signal<Set<string>>(new Set());
-  readonly selectedMessageIds = signal<Set<string>>(new Set());
 
   readonly editingMessageId = signal<string | null>(null);
   readonly messageDraft = signal('');
@@ -996,22 +995,11 @@ export class MemoryInspector implements OnInit {
     });
   }
 
-  // Messages: edit / delete / bulk
-
-  isMessageSelected(id: string): boolean {
-    return this.selectedMessageIds().has(id);
-  }
-
-  toggleMessageSelect(id: string): void {
-    const next = new Set(this.selectedMessageIds());
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    this.selectedMessageIds.set(next);
-  }
-
-  clearMessageSelections(): void {
-    this.selectedMessageIds.set(new Set());
-  }
+  // Messages: edit only. Honcho v3 has no message-delete endpoint, so
+  // the UI no longer offers a delete affordance on the messages tab
+  // (Honcho confirms this in the AdminTestFixtureController Javadoc).
+  // Conclusions + sessions are still individually deletable; messages
+  // are not.
 
   startEditMessage(msg: HonchoMessage): void {
     this.editingMessageId.set(msg.id);
@@ -1039,68 +1027,6 @@ export class MemoryInspector implements OnInit {
     } finally {
       this.loading.set(false);
     }
-  }
-
-  deleteOneMessage(msg: HonchoMessage): void {
-    this.askDestructive({
-      title: 'Delete this message?',
-      description: `Honcho will remove message ${msg.id} from session ${msg.sessionId}.`,
-      confirmButtonText: 'Delete message',
-      dangerLevel: 'medium',
-      typedConfirmation: 'delete message',
-      onConfirm: async () => {
-        const sessionId = this.selectedSessionId();
-        if (!sessionId) return;
-        this.loading.set(true);
-        this.error.set(null);
-        try {
-          await this.honcho.updateMessage(sessionId, msg.id, { content: '' });
-          this.selectedMessageIds.update((s) => {
-            const next = new Set(s);
-            next.delete(msg.id);
-            return next;
-          });
-          await this.loadSessionMessages();
-        } catch (e) {
-          this.error.set(this.honcho.friendlyErrorMessage(e));
-        } finally {
-          this.loading.set(false);
-        }
-      },
-    });
-  }
-
-  bulkDeleteMessages(): void {
-    const ids = [...this.selectedMessageIds()];
-    if (ids.length === 0) return;
-    this.askDestructive({
-      title: `Delete ${ids.length} message${ids.length === 1 ? '' : 's'}?`,
-      description: `Honcho will blank the content of ${ids.length} messages in this session.`,
-      confirmButtonText: `Delete ${ids.length} messages`,
-      dangerLevel: 'high',
-      typedConfirmation: `delete ${ids.length} message${ids.length === 1 ? '' : 's'}`,
-      onConfirm: async () => {
-        const sessionId = this.selectedSessionId();
-        if (!sessionId) return;
-        this.loading.set(true);
-        this.error.set(null);
-        try {
-          for (const id of ids) {
-            await this.honcho
-              .updateMessage(sessionId, id, { content: '' })
-              .catch((e) => {
-                throw new Error(`failed at ${id}: ${this.honcho.friendlyErrorMessage(e)}`);
-              });
-          }
-          this.selectedMessageIds.set(new Set());
-          await this.loadSessionMessages();
-        } catch (e) {
-          this.error.set(this.honcho.friendlyErrorMessage(e));
-        } finally {
-          this.loading.set(false);
-        }
-      },
-    });
   }
 
   // Sessions list: bulk + per-row delete

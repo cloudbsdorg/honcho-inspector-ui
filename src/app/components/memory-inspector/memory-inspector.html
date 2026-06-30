@@ -949,26 +949,6 @@
                       Messages ({{ sessionMessages().length }})
                     </h3>
                     <div class="flex items-center gap-1">
-                      @if (selectedMessageIds().size > 0) {
-                        <button
-                          type="button"
-                          (click)="bulkDeleteMessages()"
-                          data-testid="session-messages-bulk-delete"
-                          class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
-                          style="border-radius: var(--radius); background: var(--danger); color: var(--bg)"
-                        >
-                          Delete ({{ selectedMessageIds().size }})
-                        </button>
-                        <button
-                          type="button"
-                          (click)="clearMessageSelections()"
-                          data-testid="session-messages-clear-selection"
-                          class="th-border border-2 px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
-                          style="border-radius: var(--radius); background: var(--surface); color: var(--text-dim)"
-                        >
-                          Clear
-                        </button>
-                      }
                       <button
                         type="button"
                         (click)="loadSessionMessages()"
@@ -996,14 +976,6 @@
                           [attr.data-testid]="'session-message-row-' + m.id"
                         >
                           <div class="flex items-start gap-2">
-                            <input
-                              type="checkbox"
-                              [checked]="isMessageSelected(m.id)"
-                              (change)="toggleMessageSelect(m.id)"
-                              [attr.data-testid]="'select-message-' + m.id"
-                              [attr.aria-label]="'Select message ' + m.id"
-                              class="mt-1"
-                            />
                             <div class="flex-1">
                               @if (editingMessageId() === m.id) {
                                 <textarea
@@ -1053,14 +1025,6 @@
                                   class="th-border border px-1.5 py-0.5 text-[10px] font-bold uppercase"
                                   style="border-radius: var(--radius); color: var(--accent); background: var(--bg)"
                                 >✎</button>
-                                <button
-                                  type="button"
-                                  (click)="deleteOneMessage(m)"
-                                  [attr.data-testid]="'delete-message-' + m.id"
-                                  [attr.aria-label]="'Delete message ' + m.id"
-                                  class="th-border border px-1.5 py-0.5 text-[10px] font-bold uppercase"
-                                  style="border-radius: var(--radius); color: var(--danger); background: var(--bg)"
-                                >🗑</button>
                               </div>
                             }
                           </div>
