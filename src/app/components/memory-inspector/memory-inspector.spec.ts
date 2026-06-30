@@ -464,21 +464,21 @@ describe('MemoryInspector bulk + edit state', () => {
     expect(component.isConclusionSelected('c-1')).toBe(false);
   });
 
-  it('bulk-delete conclusions opens a destructive dialog with the correct typed confirmation', () => {
+  it('bulk-delete conclusions opens a destructive dialog with the correct confirmation label', () => {
     component.selectedConclusionIds.set(new Set(['c-1', 'c-2', 'c-3']));
     component.bulkDeleteConclusions();
     const cfg = component.destructiveDialog();
     expect(cfg).toBeTruthy();
     expect(cfg?.dangerLevel).toBe('high');
-    expect(cfg?.typedConfirmation).toBe('delete 3 conclusions');
+    expect(cfg?.confirmButtonText).toBe('Delete 3 conclusions');
     expect(cfg?.title).toContain('3');
   });
 
-  it('delete-one conclusion uses the medium danger level and typed "delete conclusion"', () => {
+  it('delete-one conclusion uses the medium danger level and a "Delete conclusion" button label', () => {
     component.deleteOneConclusion('c-1');
     const cfg = component.destructiveDialog();
     expect(cfg?.dangerLevel).toBe('medium');
-    expect(cfg?.typedConfirmation).toBe('delete conclusion');
+    expect(cfg?.confirmButtonText).toBe('Delete conclusion');
   });
 
   it('confirming the destructive dialog clears the dialog payload and runs the callback', async () => {
@@ -488,7 +488,6 @@ describe('MemoryInspector bulk + edit state', () => {
       description: 'y',
       confirmButtonText: 'z',
       dangerLevel: 'low',
-      typedConfirmation: null,
       onConfirm: () => {
         ran = true;
       },
@@ -506,7 +505,6 @@ describe('MemoryInspector bulk + edit state', () => {
       description: 'y',
       confirmButtonText: 'z',
       dangerLevel: 'low',
-      typedConfirmation: null,
       onConfirm: () => {
         ran = true;
       },
@@ -563,21 +561,21 @@ describe('MemoryInspector bulk + edit state', () => {
     expect(component.editingMessageId()).toBeNull();
   });
 
-  it('toggleSessionSelect and bulkDeleteSessions shape the typed confirmation correctly', () => {
+  it('toggleSessionSelect and bulkDeleteSessions shape the destructive dialog correctly', () => {
     component.toggleSessionSelect('s1');
     component.toggleSessionSelect('s2');
     component.bulkDeleteSessions();
     const cfg = component.destructiveDialog();
     expect(cfg?.dangerLevel).toBe('high');
-    expect(cfg?.typedConfirmation).toBe('delete 2 sessions');
+    expect(cfg?.confirmButtonText).toBe('Delete 2 sessions');
     component.clearSessionSelections();
     expect(component.selectedSessionIds().size).toBe(0);
   });
 
-  it('deleteOneSession types the session id into the confirmation prompt', () => {
+  it('deleteOneSession opens a destructive dialog with a "Delete session" button label', () => {
     component.deleteOneSession('sess-xyz');
     const cfg = component.destructiveDialog();
-    expect(cfg?.typedConfirmation).toBe('delete session sess-xyz');
+    expect(cfg?.confirmButtonText).toBe('Delete session');
   });
 
   it('sessionMetadata JSON parse errors surface in sessionMetadataJsonError', () => {
@@ -616,7 +614,7 @@ describe('MemoryInspector bulk + edit state', () => {
       { id: 'c-2', content: 'keep', observerId: 'a', observedId: 'b', sessionId: null, createdAt: '2026-01-02T00:00:00Z' },
     ]);
     component.deleteOneConclusion('c-1');
-    expect(component.destructiveDialog()?.typedConfirmation).toBe('delete conclusion');
+    expect(component.destructiveDialog()?.confirmButtonText).toBe('Delete conclusion');
     await component.onDestructiveConfirmed();
     // The onConfirm closure is fire-and-forget inside the dialog
     // handler, so let any pending microtasks settle.

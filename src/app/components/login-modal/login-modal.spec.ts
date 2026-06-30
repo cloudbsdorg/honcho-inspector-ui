@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { LoginModal } from './login-modal';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 

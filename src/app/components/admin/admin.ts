@@ -6,7 +6,7 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { DecimalPipe, JsonPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { AdminService, type PageSize } from '../../core/admin.service';
 import { HonchoAuthService } from '../../core/honcho-auth.service';
 import { formatError } from '../../core/error-message';
@@ -271,7 +271,7 @@ export class AdminPanel implements OnInit {
     this.userCreateWizardOpen.set(true);
   }
 
-  async onUserCreateCompleted(payload: {
+  async onUserCreateCompleted(_payload: {
     username: string;
     isAdmin: boolean;
   }): Promise<void> {

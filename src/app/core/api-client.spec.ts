@@ -1,7 +1,7 @@
 import { snakeToCamel, ApiError, ApiClient } from './api-client';
 import { HonchoAuthService } from './honcho-auth.service';
 import { provideRouter } from '@angular/router';
-import { TestBed } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 
 describe('snakeToCamel', () => {
   it('passes primitives through unchanged', () => {
