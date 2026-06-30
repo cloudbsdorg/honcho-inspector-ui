@@ -680,7 +680,6 @@ export class MemoryInspector implements OnInit {
         description: string;
         confirmButtonText: string;
         dangerLevel: 'low' | 'medium' | 'high';
-        typedConfirmation: string | null;
         onConfirm: () => void | Promise<void>;
       }
     | null
@@ -691,7 +690,6 @@ export class MemoryInspector implements OnInit {
     description: string;
     confirmButtonText: string;
     dangerLevel: 'low' | 'medium' | 'high';
-    typedConfirmation: string | null;
     onConfirm: () => void | Promise<void>;
   }): void {
     this.destructiveDialog.set(opts);
@@ -741,7 +739,6 @@ export class MemoryInspector implements OnInit {
       description: 'The derived fact will be removed from Honcho permanently. This affects the observer view.',
       confirmButtonText: 'Delete conclusion',
       dangerLevel: 'medium',
-      typedConfirmation: 'delete conclusion',
       onConfirm: async () => {
         this.loading.set(true);
         this.error.set(null);
@@ -768,7 +765,6 @@ export class MemoryInspector implements OnInit {
       description: `Honcho will permanently remove ${ids.length} conclusions. This affects the observer's representation.`,
       confirmButtonText: `Delete ${ids.length} conclusions`,
       dangerLevel: 'high',
-      typedConfirmation: `delete ${ids.length} conclusion${ids.length === 1 ? '' : 's'}`,
       onConfirm: async () => {
         this.loading.set(true);
         this.error.set(null);
@@ -976,7 +972,6 @@ export class MemoryInspector implements OnInit {
         'Honcho will permanently remove this session and every message inside it. This cannot be undone.',
       confirmButtonText: 'Delete session',
       dangerLevel: 'high',
-      typedConfirmation: `delete session ${sessionId}`,
       onConfirm: async () => {
         this.loading.set(true);
         this.error.set(null);
@@ -1057,7 +1052,6 @@ export class MemoryInspector implements OnInit {
         'Honcho will permanently remove this session and every message inside it. This cannot be undone.',
       confirmButtonText: 'Delete session',
       dangerLevel: 'high',
-      typedConfirmation: `delete session ${id}`,
       onConfirm: async () => {
         this.loading.set(true);
         this.error.set(null);
@@ -1091,7 +1085,6 @@ export class MemoryInspector implements OnInit {
       description: `Honcho will permanently remove ${ids.length} sessions. This cannot be undone.`,
       confirmButtonText: `Delete ${ids.length} sessions`,
       dangerLevel: 'high',
-      typedConfirmation: `delete ${ids.length} session${ids.length === 1 ? '' : 's'}`,
       onConfirm: async () => {
         this.loading.set(true);
         this.error.set(null);

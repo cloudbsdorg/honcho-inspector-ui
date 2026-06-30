@@ -29,33 +29,6 @@
         {{ description }}
       </p>
     }
-    @if (typedConfirmation !== null) {
-      <label class="mb-4 block">
-        <span
-          class="th-display mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-70"
-          data-testid="confirm-destructive-typed-label"
-        >
-          Type
-          <code
-            class="font-mono"
-            style="color: var(--danger)"
-            data-testid="confirm-destructive-typed-required"
-          >{{ typedConfirmation }}</code>
-          to confirm
-        </span>
-        <input
-          #typedInputEl
-          type="text"
-          (input)="onTypedInput($event)"
-          autocomplete="off"
-          spellcheck="false"
-          data-testid="confirm-destructive-typed-input"
-          class="th-surface th-border w-full border-2 px-3 py-2 font-mono text-sm outline-none"
-          style="border-radius: var(--radius); color: var(--text)"
-          [attr.aria-describedby]="'confirm-destructive-typed-required'"
-        />
-      </label>
-    }
     <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
       <button
         type="button"
@@ -69,7 +42,6 @@
       <button
         type="button"
         (click)="onConfirm()"
-        [disabled]="!canConfirm()"
         [attr.data-testid]="
           dangerLevel === 'high'
             ? 'confirm-destructive-confirm-high'
