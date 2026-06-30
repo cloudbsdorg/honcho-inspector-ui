@@ -99,7 +99,7 @@ dev: ## Start the dev server (uses proxy.conf.json -> backend at :8080)
 	@if [ ! -f "$(PROXY_FILE)" ]; then \
 		printf "proxy config not found: %s\n" "$(PROXY_FILE)" >&2; exit 1; \
 	fi
-	npx ng serve --proxy-config "$(PROXY_FILE)"
+	npx ng serve --proxy-config "$(PROXY_FILE)" --host 0.0.0.0 --disable-host-check
 
 start: dev ## Alias for dev
 
