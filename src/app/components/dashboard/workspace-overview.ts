@@ -326,32 +326,11 @@ export class WorkspaceOverview {
         info: "Total number of sessions in this workspace. A session is a conversation thread between two or more peers. Sessions can span many messages and may be reactivated across days. Counts are derived from sessions' createdAt timestamps.",
       },
       {
-        label: 'Searches',
-        value: String(c['/api/search'] ?? 0),
-        sublabel: 'all-time count',
-        tone: 'accent-3',
-        info: 'Total number of workspace-wide semantic search calls the backend has handled (POST /api/search). A search returns messages across all peers in the workspace that match a natural-language query. This is the all-time process counter; reset on backend restart.',
-      },
-      {
-        label: 'Dreams scheduled',
-        value: String(c['/api/dream'] ?? 0),
-        sublabel: 'all-time count',
-        tone: 'success',
-        info: 'Total number of dream tasks the backend has scheduled (POST /api/dream). A "dream" in Honcho is a background memory-consolidation job — Honcho reads a peer\'s recent messages, extracts insights, and updates their representation and peer card. Like searches, this is a process-lifetime counter.',
-      },
-      {
-        label: 'Messages sent',
+        label: 'Messages in workspace',
         value: String(c['/api/sessions/{sessionId}/messages'] ?? 0),
-        sublabel: 'all-time count',
+        sublabel: 'total across all sessions',
         tone: 'accent',
-        info: 'Total number of messages added to sessions via the backend (POST /api/sessions/{id}/messages). One per call. Use the peer detail view to see per-session message contents and inspect the per-peer representation that Honcho derives from them.',
-      },
-      {
-        label: 'Queue (pending)',
-        value: String(ins?.queue.pendingWorkUnits ?? 0),
-        sublabel: `${ins?.queue.inProgressWorkUnits ?? 0} in progress · ${ins?.queue.completedWorkUnits ?? 0} done`,
-        tone: 'danger',
-        info: 'Number of pending background work units in the Honcho queue (GET /v3/workspaces/{ws}/queue/status). Honcho enqueues a work unit every time it processes a message, runs a dream, or derives a representation. "In progress" is work currently being processed; "done" is total completed. If pending keeps growing, Honcho is falling behind.',
+        info: 'Total messages stored across every session in this Honcho workspace (Honcho v3 messages/list per-session count, summed, cached 60s). Reflects actual Honcho state — messages added via any path (this app, prior backend instances, direct Honcho API) all count. Refresh on dashboard reload.',
       },
     ];
   });
