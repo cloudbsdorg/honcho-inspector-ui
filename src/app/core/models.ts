@@ -28,9 +28,19 @@ export interface HonchoCredentials {
  * state and the UI should show the first-run wizard). Kept for
  * backward compatibility with UI code written before first-run was
  * formalised; new code should read `firstRun`.
+ *
+ * <p>{@code chatEnabled} mirrors {@code honcho.ui.chat-enabled}: when
+ * {@code false} (the default), the UI hides the chat button + popout.
+ * {@code apiKeyVisibleToNonAdmin} mirrors {@code honcho.ui.api-key-visible-to-non-admin}:
+ * when {@code false}, non-admin users cannot view the plaintext API key
+ * via {@code /reveal}, change the key via {@code PUT}, or call
+ * {@code /test} — the UI hides the Reveal API Key button + the API-key
+ * edit field on the profile-selector form.
  */
 export interface HealthResponse {
   ok: boolean;
+  apiKeyVisibleToNonAdmin: boolean;
+  chatEnabled: boolean;
   firstRun: boolean;
   needsRegister: boolean;
 }

@@ -8,6 +8,7 @@ import { formatError } from '../../core/error-message';
 import { TimezoneService } from '../../core/timezone.service';
 import { formatWallClock, formatWallClockTooltip } from '../../core/datetime';
 import { ConfirmDialogService } from '../confirm-dialog/confirm-dialog.service';
+import { ConfigService } from '../../core/config.service';
 
 interface TestResult {
   ok: boolean;
@@ -32,9 +33,20 @@ export class ProfileSelector {
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private readonly confirm = inject(ConfirmDialogService);
+  private readonly config = inject(ConfigService);
   readonly tz = inject(TimezoneService);
   readonly formatWallClock = formatWallClock;
   readonly formatWallClockTooltip = formatWallClockTooltip;
+
+  /**
+   * Admins always have full access. Non-admins can view / change / test
+   * the stored Honcho API key only when the operator has set
+   * {@code HONCHO_UI_API_KEY_VISIBLE_TO_NON_ADMIN=true} on the backend
+   * (presentation mode off). Gates both the Reveal API Key button and
+   * the API-key edit field in the profile form.
+   */
+  readonly canViewApiKey = computed(() => this.auth.isAdmin() || this.config.apiKeyVisibleToNonAdmin());
+  readonly canEditApiKey = computed(() => this.auth.isAdmin() || this.config.apiKeyVisibleToNonAdmin());
 
   readonly list = this.profiles.profiles;
   readonly activeId = this.profiles.activeProfileId;
@@ -241,7 +253,20 @@ export class ProfileSelector {
           workspaceId: value.workspaceId,
           honchoUserName: value.honchoUserName,
         };
-        if (value.apiKey.trim() !== '') partial.apiKey = value.apiKey;
+        if (value.apiKey.trim() !== '') {
+          // Defensive: even if the form field was somehow visible
+          // (e.g. stale render before the flag loaded), refuse to
+          // submit an apiKey change when the operator has locked it
+          // out via HONCHO_UI_API_KEY_VISIBLE_TO_NON_ADMIN=false.
+          // The backend would 403 anyway, but failing locally gives
+          // the operator a clear "presentation mode" message instead
+          // of a generic 403 from the server.
+          if (!this.canEditApiKey()) {
+            this.error.set('API key cannot be changed in presentation mode');
+            return;
+          }
+          partial.apiKey = value.apiKey;
+        }
         const updated = await this.profiles.update(editing.id, partial);
         this.profiles.setActive(updated.id);
         this.edit.set({ open: false, profile: null });
@@ -303,6 +328,14 @@ export class ProfileSelector {
   }
 
   async showKey(profile: Profile): Promise<void> {
+    // Defensive guard: the Reveal button is hidden in the template
+    // when canViewApiKey() is false, but a stale render or direct
+    // handler invocation could still reach here. Bail out before the
+    // network round-trip so the operator gets the same UX whether
+    // they hit the button or call it programmatically.
+    if (!this.canViewApiKey()) {
+      return;
+    }
     try {
       const result = await this.profiles.reveal(profile.id);
       this.reveal.set(result);

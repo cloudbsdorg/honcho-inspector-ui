@@ -227,22 +227,22 @@
               />
             </label>
 
-            <label class="block">
-              <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-80">
-                API Key
-                @if (edit().profile) {
+            @if (edit().profile && canEditApiKey()) {
+              <label class="block">
+                <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-80">
+                  API Key
                   <span class="opacity-60">(leave blank to keep)</span>
-                }
-              </span>
-              <input
-                formControlName="apiKey"
-                type="password"
-                autocomplete="off"
-                data-testid="profile-apikey"
-                class="w-full th-surface th-border border-2 px-3 py-2 text-sm outline-none"
-                style="border-radius: var(--radius); color: var(--text)"
-              />
-            </label>
+                </span>
+                <input
+                  formControlName="apiKey"
+                  type="password"
+                  autocomplete="off"
+                  data-testid="profile-apikey"
+                  class="w-full th-surface th-border border-2 px-3 py-2 text-sm outline-none"
+                  style="border-radius: var(--radius); color: var(--text)"
+                />
+              </label>
+            }
 
             <label class="block">
               <span class="mb-1 block text-[10px] font-bold uppercase tracking-widest opacity-80">
@@ -454,15 +454,17 @@
           >
             Test
           </button>
-          <button
-            type="button"
-            (click)="showKey(profile)"
-            data-testid="reveal-key"
-            class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
-            style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
-          >
-            Reveal API Key
-          </button>
+          @if (canViewApiKey()) {
+            <button
+              type="button"
+              (click)="showKey(profile)"
+              data-testid="reveal-key"
+              class="th-border border-2 px-3 py-1.5 text-xs font-bold uppercase tracking-widest"
+              style="border-radius: var(--radius); background: var(--surface); color: var(--accent)"
+            >
+              Reveal API Key
+            </button>
+          }
           <button
             type="button"
             (click)="openEdit(profile)"
